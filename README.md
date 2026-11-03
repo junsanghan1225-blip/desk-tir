@@ -3,6 +3,8 @@
 손님의 취향과 예산에 맞춰 **책상을 꾸미고 PC를 조립해 주는** 커스텀 의뢰 게임
 2D 게임 프로그래밍 (이대현 교수) 학기 프로젝트 · Python + pico2d · 한준상
 
+📎 **발표 자료**: [1차 발표 PPT](docs/데스크테리어의뢰소_발표.pptx) · [기획서 PPT](docs/데스크테리어의뢰소_기획서.pptx)
+
 ![꾸미기 화면](docs/screens/3_decorate.png)
 ![케이블 모드](docs/screens/3b_cable.png)
 
