@@ -15,7 +15,7 @@ DEV_X0, DEV_GAP = 150, 145                     # 책상 슬롯 → 배선 화면
 
 def port_count(t, pc):
     if t == 'DP':
-        return PARTS[pc['GPU']]['dp'] if 'GPU' in pc else 0
+        return PARTS[pc.get('GPU')]['dp'] if pc.get('GPU') else 0
     return PORT_COUNT[t]
 
 

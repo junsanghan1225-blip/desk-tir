@@ -6,6 +6,7 @@
 📎 **발표 자료**: [1차 발표 PPT](docs/데스크테리어의뢰소_발표.pptx) · [기획서 PPT](docs/데스크테리어의뢰소_기획서.pptx)
 
 ![꾸미기 화면](docs/screens/3_decorate.png)
+![PC 조립](docs/screens/5_build_ok.png)
 ![케이블 모드](docs/screens/3b_cable.png)
 
 ## 게임 루프 (하루 영업)
@@ -15,6 +16,7 @@
 - **애매한 주문**: 손님은 "밤에 눈이 시리면 안 돼요"처럼 말만 하고, 원하는 분위기 · 필수 소품 · 성능은 숨겨져 있음. 납품 후 공개
 - **재고**: 아침에 도매가(소매가의 60%)로 사 둔 것만 쓸 수 있음. 오늘 손님을 모른 채 사야 함
 - **돈**: 손님은 자기 예산을 정가로 내고 별 1개당 예산의 5%를 팁으로 줌 (별 0개면 절반). 싸게 맞출수록 남음
+- **PC 조립 (드래그 앤 드롭)**: 케이스 옆판을 연 화면에서 케이스 → 메인보드 → CPU → 쿨러 → RAM → 그래픽카드 → 파워 → 전원선 순서로 끌어다 꽂기. 소켓(AM/LGA) · 보드 크기(mATX/ATX) · 그래픽카드 길이 · 쿨러 높이가 맞지 않으면 안 들어가고, 끌고 있는 동안 자리가 하늘색(가능) / 분홍(불가 + 이유)으로 표시됨. 전원 테스트는 디버그 LED(CPU → DRAM → VGA → BOOT)로 막힌 곳을 알려 줌. 같은 RAM 2개를 맞는 슬롯에 꽂으면 듀얼 채널 +1, 쿨러가 약하면 성능 −3
 - **업그레이드**: 게이밍 라인 · 하이엔드 부품 거래처를 사야 해당 상품을 들여올 수 있음
 
 ## 핵심 재미
@@ -36,7 +38,7 @@ pip install pico2d
 python main.py
 ```
 
-조작: 좌클릭 드래그(배치) · 우클릭(되돌리기) · C(배선 정리 화면: 기기를 끌어 포트에 꽂기) · Tab(책상 ↔ PC 조립) · Enter(채점) · ESC(종료)
+조작: 좌클릭 드래그(배치 · 조립) · 우클릭(되돌리기 · 부품 빼기) · Space(전원 테스트) · C(배선 정리 화면: 기기를 끌어 포트에 꽂기) · Tab(책상 ↔ PC 조립) · Enter(채점) · ESC(종료)
 
 ## 구조
 
@@ -45,6 +47,7 @@ python main.py
 | `main.py`, `game_framework.py` | 실행, 모드 전환 |
 | `title_mode.py` → `market_mode.py` → `request_mode.py` → `decorate_mode.py` ⇄ `build_mode.py` · `wire_mode.py` → `result_mode.py` → `day_end_mode.py` | 화면(모드) |
 | `room.py` | 벽 · 책상 위 2레이어 슬롯 배치 |
+| `pcbuild.py` | PC 조립 규칙: 호환성 검사 · 장착 순서 · 전원선 · 디버그 LED(POST) · 성능 (`python pcbuild.py`로 자체 테스트) |
 | `cables.py` | 포트 · 케이블 연결 · 꼬임(교차) 판정 (`python cables.py`로 자체 테스트) |
 | `scorer.py` | 채점 · 시너지 · 부팅 판정 (`python scorer.py`로 자체 테스트) |
 | `state.py` | 가게(돈 · 날짜 · 재고 · 업그레이드)와 주문(배치 · PC · 케이블) 상태, 정산 (`python state.py`로 자체 테스트) |

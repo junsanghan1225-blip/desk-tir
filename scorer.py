@@ -2,24 +2,7 @@
 from common import ITEMS, PARTS
 import cables as cab
 
-PC_TYPES = ['CPU', 'GPU', 'RAM', 'PSU', 'CASE']
 STAR_CUTS = [(90, 3), (75, 2), (60, 1)]
-
-
-def pc_stats(pc):
-    """pc: {type: part_id} -> (성능 점수, 소비전력, 파워 용량, 성능 별)"""
-    perf = sum(PARTS[pid].get('perf', 0) for pid in pc.values())
-    watt = sum(PARTS[pid].get('watt', 0) for pid in pc.values())
-    cap = PARTS[pc['PSU']]['capacity'] if 'PSU' in pc else 0
-    stars = 3 if perf >= 19 else 2 if perf >= 12 else 1 if perf >= 6 else 0
-    return perf, watt, cap, stars
-
-
-def boot_status(pc):
-    if any(t not in pc for t in PC_TYPES):
-        return 'missing'
-    _, watt, cap, _ = pc_stats(pc)
-    return 'ok' if watt <= cap else 'power'
 
 
 def synergies(placed, pc):
@@ -50,11 +33,12 @@ def synergies(placed, pc):
 
 
 def score(request, room, pc, spent, cables=()):
+    """pc: pcbuild.PCBuild"""
     placed = room.placed
     ids = [p['id'] for p in placed]
     theme = set(request['theme'])
 
-    objects = [ITEMS[i]['tags'] for i in ids] + ([PARTS[pc['CASE']]['tags']] if 'CASE' in pc else [])
+    objects = [ITEMS[i]['tags'] for i in ids] + ([PARTS[pc.get('CASE')]['tags']] if pc.get('CASE') else [])
     theme_s = 25 * sum(bool(theme & set(t)) for t in objects) / len(objects) if objects else 0
 
     reqs = request['required']
@@ -62,9 +46,9 @@ def score(request, room, pc, spent, cables=()):
     req_s = 20 * met / len(reqs) if reqs else 20
     req_s = max(0, req_s - 10 * sum(ids.count(f) for f in request['forbidden']))
 
-    boot = boot_status(pc)
-    stars_pc = pc_stats(pc)[3] if boot == 'ok' else 0
-    pc_s = 0 if boot != 'ok' else max(0, 20 - 8 * max(0, request['perf'] - stars_pc))
+    stage, post_msg = pc.post()
+    boot = 'ok' if stage == 4 else post_msg
+    pc_s = 0 if boot != 'ok' else max(0, 20 - 8 * max(0, request['perf'] - pc.stars()))
 
     syn = synergies(placed, pc)
     syn_s = min(15, 8 * len(syn))
@@ -91,10 +75,8 @@ LINES = {
 
 
 def reaction(request, parts, boot, unplugged=0, tangles=0):
-    if boot == 'missing':
-        return 'PC가 안 켜져요. 부품이 빠진 것 같아요.'
-    if boot == 'power':
-        return '게임 켜자마자 꺼졌어요… 파워가 부족한가 봐요.'
+    if boot != 'ok':
+        return f"PC가 안 켜져요… ({boot})"
     if unplugged:
         return f'기기 {unplugged}개가 안 켜져요. 케이블이 안 꽂혀 있어요!'
     worst = min(parts, key=lambda k: parts[k] / MAX[k])
@@ -106,23 +88,21 @@ def reaction(request, parts, boot, unplugged=0, tangles=0):
 if __name__ == '__main__':
     from common import REQUESTS
     from room import Room
+    from pcbuild import full
     dev = next(r for r in REQUESTS if r['customer'] == '밤샘 개발자')
-    good_pc = {'CPU': 'cpu2', 'GPU': 'gpu2', 'RAM': 'ram2', 'PSU': 'psu1', 'CASE': 'case1'}
+    good_pc = full()                                     # 중급 CPU · 중급 GPU · 16GB 듀얼 · 600W
     room = Room()
     for iid, layer, slot in [('lamp_warm', 'desk', 0), ('book', 'desk', 1), ('monitor', 'desk', 2), ('monitor', 'desk', 4),
                              ('wall_light', 'wall', 0)]:
         room.place(iid, layer, slot)
     mons = [p for p in room.placed if p['id'] == 'monitor']
     wired = [{'dev': mons[0], 'type': 'DP', 'port': 0}, {'dev': mons[1], 'type': 'DP', 'port': 1}]
-    assert boot_status(good_pc) == 'ok'
-    assert boot_status({**good_pc, 'GPU': 'gpu3'}) == 'power'  # 105 + 350 > 400W
-    assert boot_status({'CPU': 'cpu1'}) == 'missing'
     assert set(synergies(room.placed, good_pc)) == {'독서 콤보', '균형 조명'}
     r = score(dev, room, good_pc, 170, wired)
     assert r['parts']['필수 · 금지'] == 20 and r['parts']['PC 성능'] == 20 and r['parts']['배선'] == 10, r
     unplugged = score(dev, room, good_pc, 170, [])
     assert unplugged['parts']['배선'] == 0 and '케이블' in unplugged['line']
     room.place('lamp_cool', 'desk', 6)
-    bad = score(dev, room, {**good_pc, 'GPU': 'gpu3'}, 200, wired)
-    assert bad['parts']['PC 성능'] == 0 and bad['parts']['필수 · 금지'] == 10
+    bad = score(dev, room, full(psu='psu1'), 200, wired)   # 400W 파워엔 그래픽카드 전원선이 없음
+    assert bad['parts']['PC 성능'] == 0 and bad['parts']['필수 · 금지'] == 10 and 'VGA' in bad['line']
     print('scorer ok', r['total'], r['stars'])

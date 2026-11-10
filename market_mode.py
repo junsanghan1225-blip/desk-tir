@@ -9,7 +9,7 @@ import ui
 from common import WIDTH, HEIGHT, ITEMS, PARTS, UPGRADES, box, outline, text, to_canvas_y, inside, draw_fit, wholesale
 
 COLS = [(30, 'ITEMS'), (440, 'PARTS')]
-ROW_H, ROW_TOP, ROW_W = 30, 606, 390
+ROW_H, ROW_TOP, ROW_W = 27, 610, 390
 UP_X = 850
 BTN_OPEN = (1060, 14, 1260, 58)
 TYPE_NAMES = {'CPU': 'CPU', 'GPU': '그래픽카드', 'RAM': 'RAM', 'PSU': '파워', 'CASE': '케이스'}

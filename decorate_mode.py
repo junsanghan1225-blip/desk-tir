@@ -127,7 +127,7 @@ def draw_room():
     case = state.pc.get('CASE')
     img = sprite(case or 'case_empty')
     img.draw((PC_RECT[0] + PC_RECT[2]) // 2, PC_RECT[1] + img.h // 2)
-    label = '부팅 준비' if len(state.pc) == 5 else f"PC 부품 {len(state.pc)}/5"
+    label = '부팅 OK' if state.pc.boots() else 'PC 조립 필요'
     text(PC_RECT[0] + 20, PC_RECT[3] + 16, label, 14, (46, 230, 214))
     if held:
         bottom, h = LAYERS[ITEMS[held]['layer']]

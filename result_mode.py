@@ -20,7 +20,7 @@ def init():
     req = state.request()
     result = scorer.score(req, state.room, state.pc, state.spent(), state.cables)
     pay, tip = state.settle(result)
-    cost = sum(wholesale(ITEMS[p['id']]['price']) for p in state.room.placed) + sum(wholesale(PARTS[i]['price']) for i in state.pc.values())
+    cost = sum(wholesale(ITEMS[p['id']]['price']) for p in state.room.placed) + sum(wholesale(PARTS[i]['price']) for i in state.pc.ids())
     wanted = reveal(req)
 
 

@@ -153,6 +153,11 @@ S.part_RAM = [64, 64, `<rect x="4" y="20" width="56" height="20" rx="2" fill="#6
   <rect x="6" y="40" width="52" height="4" fill="#f2a541"/>`];
 S.part_PSU = [64, 64, `<rect x="6" y="12" width="52" height="40" rx="4" fill="#3a3d55"/><circle cx="28" cy="32" r="13" fill="none" stroke="#8d99ae" stroke-width="3"/>
   <path d="M46 22 L50 30 L45 30 L49 40" stroke="#f2a541" stroke-width="3" fill="none"/>`];
+S.part_MB = [64, 64, `<rect x="6" y="6" width="52" height="52" rx="3" fill="#163440"/><rect x="14" y="14" width="18" height="18" fill="#c9ccd6"/>
+  <rect x="38" y="12" width="4" height="30" fill="#2e7d5b"/><rect x="46" y="12" width="4" height="30" fill="#2e7d5b"/><rect x="12" y="44" width="40" height="5" fill="#3b3170"/>
+  <path d="M12 38 H30 M20 20 V36" stroke="#2ee6d6" stroke-width="1.5"/>`];
+S.part_COOLER = [64, 64, `<rect x="8" y="8" width="48" height="48" rx="6" fill="#2a2350"/><circle cx="32" cy="32" r="20" fill="none" stroke="#2ee6d6" stroke-width="3"/>
+  ${[0,1,2,3].map(i=>`<path d="M32 32 L${32+18*Math.cos(i*Math.PI/2)} ${32+18*Math.sin(i*Math.PI/2)}" stroke="#5a4a96" stroke-width="6"/>`).join('')}<circle cx="32" cy="32" r="6" fill="#2ee6d6"/>`];
 S.part_CASE = [64, 64, `<rect x="16" y="4" width="32" height="56" rx="4" fill="#4a4e69"/><rect x="20" y="10" width="20" height="44" rx="2" fill="#5b6078"/><circle cx="30" cy="22" r="6" fill="none" stroke="#2ee6d6" stroke-width="2"/>`];
 
 // ---- 사이버 도시 (창밖 · 타이틀) ----

@@ -3,6 +3,7 @@
 주문(손님 한 명 동안): 배치 · PC · 케이블."""
 from common import ITEMS, PARTS, REQUESTS, UPGRADES, wholesale
 from room import Room
+from pcbuild import PCBuild
 
 START_MONEY = 250
 LAST_DAY = max(r['day'] for r in REQUESTS)
@@ -17,7 +18,7 @@ order_index = 0   # 오늘 몇 번째 손님인지
 
 # 주문
 room = Room()
-pc = {}      # 부품 종류(CPU/GPU/RAM/PSU/CASE) -> part id
+pc = PCBuild()  # 조립 중인 PC
 cables = []  # {'dev': room.placed의 항목, 'type': 'DP'|'USB'|'AUDIO', 'port': 번호}
 
 
@@ -43,7 +44,7 @@ def request():
 def reset_order():
     global room, pc, cables
     room = Room()
-    pc = {}
+    pc = PCBuild()
     cables = []
 
 
@@ -95,7 +96,7 @@ def give_back(thing_id):
 
 def spent():
     """손님에게 청구되는 소매가 합 (손님 예산과 비교)."""
-    return sum(ITEMS[p['id']]['price'] for p in room.placed) + sum(PARTS[pid]['price'] for pid in pc.values())
+    return sum(ITEMS[p['id']]['price'] for p in room.placed) + sum(PARTS[pid]['price'] for pid in pc.ids())
 
 
 def money_left():
