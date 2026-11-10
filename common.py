@@ -16,6 +16,12 @@ def load_json(name):
 ITEMS = {it['id']: it for it in load_json('items.json')}
 PARTS = {p['id']: p for p in load_json('parts.json')}
 REQUESTS = load_json('requests.json')
+UPGRADES = {u['id']: u for u in load_json('upgrades.json')}
+
+
+def wholesale(price):
+    """도매가: 소매가의 60% (반올림, 최소 1만)."""
+    return max(1, round(price * 0.6))
 
 THEME_NAMES = {'cozy': '아늑', 'focus': '집중', 'gamer': '게이머', 'minimal': '미니멀', 'plant': '플랜테리어'}
 

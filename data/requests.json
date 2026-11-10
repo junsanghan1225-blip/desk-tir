@@ -1,29 +1,11 @@
 [
-  {
-    "customer": "자취 1년차 대학생",
-    "theme": ["cozy"],
-    "required": [{"any": ["lamp_warm", "lamp_cool"], "count": 1}],
-    "forbidden": [],
-    "perf": 1,
-    "budget": 100,
-    "intro": "과제할 책상인데, 아늑했으면 좋겠어요."
-  },
-  {
-    "customer": "밤샘 개발자",
-    "theme": ["focus", "cozy"],
-    "required": [{"any": ["monitor"], "count": 2}, {"any": ["lamp_warm"], "count": 1}],
-    "forbidden": ["lamp_cool"],
-    "perf": 2,
-    "budget": 180,
-    "intro": "빌드 빨리 되는 PC에, 눈 편한 조명이면 좋겠어요."
-  },
-  {
-    "customer": "스트리머 지망생",
-    "theme": ["gamer"],
-    "required": [{"any": ["mic"], "count": 1}, {"any": ["rgb_bar"], "count": 1}],
-    "forbidden": [],
-    "perf": 3,
-    "budget": 280,
-    "intro": "방송 화면에 잡히니까 화려하게! 게임도 잘 돌아가야 해요."
-  }
+  {"day": 1, "customer": "자취 1년차 대학생", "lines": ["자취방 책상이 너무 휑해요.", "과제할 때 집에 있는 느낌이 났으면 좋겠어요."], "theme": ["cozy"], "required": [{"any": ["lamp_warm", "lamp_cool"], "count": 1}], "forbidden": [], "perf": 1, "budget": 100},
+  {"day": 1, "customer": "재택근무 회사원", "lines": ["하루 종일 화상회의예요.", "깔끔하게, 쓸데없는 건 빼 주세요."], "theme": ["minimal", "focus"], "required": [{"any": ["webcam"], "count": 1}], "forbidden": ["neon_sign", "rgb_bar"], "perf": 1, "budget": 120},
+  {"day": 1, "customer": "식집사 대학원생", "lines": ["초록초록한 게 좋아요.", "책상에서도 숨 쉬는 느낌이 났으면 해요."], "theme": ["plant", "cozy"], "required": [{"any": ["mini_plant", "hanging_plant"], "count": 3}], "forbidden": [], "perf": 1, "budget": 90},
+  {"day": 2, "customer": "밤샘 개발자", "lines": ["새벽까지 코딩해요. 창을 여러 개 띄우고요.", "근데 밤에 눈이 시리면 안 돼요."], "theme": ["focus", "cozy"], "required": [{"any": ["monitor"], "count": 2}, {"any": ["lamp_warm"], "count": 1}], "forbidden": ["lamp_cool"], "perf": 2, "budget": 180},
+  {"day": 2, "customer": "웹소설 작가", "lines": ["글 쓸 땐 꼭 음악을 틀어 놔요.", "자료도 손 닿는 데 있어야 하고요."], "theme": ["cozy", "focus"], "required": [{"any": ["speaker"], "count": 1}, {"any": ["book"], "count": 1}], "forbidden": [], "perf": 1, "budget": 120},
+  {"day": 2, "customer": "새내기 스트리머", "lines": ["이제 방송 시작하려고요!", "화면에 제 목소리랑 방이 화려하게 나왔으면 해요."], "theme": ["gamer"], "required": [{"any": ["mic"], "count": 1}, {"any": ["rgb_bar"], "count": 1}], "forbidden": [], "perf": 2, "budget": 220},
+  {"day": 3, "customer": "프로게이머 지망생", "lines": ["랭크 올려야 해요.", "프레임 떨어지면 끝이에요. 소리도 잘 들려야 하고요."], "theme": ["gamer"], "required": [{"any": ["gaming_kb"], "count": 1}, {"any": ["headset"], "count": 1}], "forbidden": [], "perf": 3, "budget": 300},
+  {"day": 3, "customer": "그래픽 디자이너", "lines": ["하얗고 조용한 게 좋아요.", "그래도 무거운 그래픽 작업은 돌아가야 해요."], "theme": ["minimal"], "required": [{"any": ["monitor"], "count": 1}], "forbidden": ["neon_sign", "rgb_bar"], "perf": 2, "budget": 200},
+  {"day": 3, "customer": "손녀 바보 할머니", "lines": ["손녀가 대학에 붙었어요. 입학 선물이에요.", "요즘 애들 좋아하는 걸로… 돈은 넉넉히 줄게요."], "theme": ["gamer", "cozy"], "required": [{"any": ["monitor"], "count": 1}], "forbidden": [], "perf": 2, "budget": 240}
 ]

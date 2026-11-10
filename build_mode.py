@@ -44,13 +44,17 @@ def on_click(x, y):
         if inside(x, y, rect):
             t = PARTS[pid]['type']
             if state.pc.get(t) == pid:
-                del state.pc[t]
+                state.give_back(state.pc.pop(t))
                 return
             old = PARTS[state.pc[t]]['price'] if t in state.pc else 0
             if PARTS[pid]['price'] - old > state.money_left():
-                toast = '예산이 부족해요!'
-                return
-            state.pc[t], toast = pid, ''
+                toast = '손님 예산을 넘어요!'
+            elif not state.take(pid):
+                toast = '재고가 없어요. 아침 시장에서 사 두세요'
+            else:
+                if t in state.pc:
+                    state.give_back(state.pc[t])
+                state.pc[t], toast = pid, ''
             return
 
 
@@ -94,10 +98,12 @@ def draw():
     for pid, (x1, y1, x2, y2) in cards():
         p = PARTS[pid]
         on = state.pc.get(p['type']) == pid
-        box(x1, y1, x2, y2, (124, 92, 255) if on else (34, 24, 70))
+        have = state.stock.get(pid, 0)
+        box(x1, y1, x2, y2, (124, 92, 255) if on else (34, 24, 70) if have else (24, 16, 52))
         outline(x1, y1, x2, y2)
         draw_fit(pid if p['type'] == 'CASE' else 'part_' + p['type'], x1 + 32, (y1 + y2) // 2, 48, 56)
-        text(x1 + 64, y2 - 26, p['name'], 17)
+        text(x1 + 64, y2 - 26, p['name'], 17, (232, 226, 255) if on or have else (90, 78, 130))
+        text(x2 - 34, y2 - 26, f"x{have}", 13, (46, 230, 214))
         text(x1 + 64, y2 - 54, f"{p['price']}만 · {describe(p)}", 13, (170, 160, 220))
 
     perf, watt, cap, stars = pc_stats(state.pc)

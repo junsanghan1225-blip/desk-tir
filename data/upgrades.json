@@ -1,0 +1,4 @@
+[
+  {"id": "gamer", "name": "게이밍 라인 입고", "price": 60, "desc": "게이밍 키보드 · 마이크 · 헤드셋 · RGB 조명 · 네온 사인 · RGB 케이스"},
+  {"id": "premium", "name": "하이엔드 부품 거래처", "price": 90, "desc": "고급 CPU · 고급 GPU · RAM 32GB"}
+]

@@ -1,17 +1,17 @@
 [
   {"id": "cpu1", "type": "CPU", "name": "보급 CPU", "price": 15, "perf": 2, "watt": 65},
   {"id": "cpu2", "type": "CPU", "name": "중급 CPU", "price": 30, "perf": 4, "watt": 105},
-  {"id": "cpu3", "type": "CPU", "name": "고급 CPU", "price": 55, "perf": 7, "watt": 170},
+  {"id": "cpu3", "type": "CPU", "name": "고급 CPU", "price": 55, "perf": 7, "watt": 170, "line": "premium"},
   {"id": "gpu1", "type": "GPU", "name": "보급 GPU", "price": 25, "perf": 3, "watt": 120, "dp": 1},
   {"id": "gpu2", "type": "GPU", "name": "중급 GPU", "price": 60, "perf": 7, "watt": 220, "dp": 2},
-  {"id": "gpu3", "type": "GPU", "name": "고급 GPU", "price": 120, "perf": 12, "watt": 350, "dp": 3},
+  {"id": "gpu3", "type": "GPU", "name": "고급 GPU", "price": 120, "perf": 12, "watt": 350, "dp": 3, "line": "premium"},
   {"id": "ram1", "type": "RAM", "name": "RAM 8GB", "price": 4, "perf": 1, "watt": 0},
   {"id": "ram2", "type": "RAM", "name": "RAM 16GB", "price": 8, "perf": 2, "watt": 0},
-  {"id": "ram3", "type": "RAM", "name": "RAM 32GB", "price": 15, "perf": 3, "watt": 0},
+  {"id": "ram3", "type": "RAM", "name": "RAM 32GB", "price": 15, "perf": 3, "watt": 0, "line": "premium"},
   {"id": "psu1", "type": "PSU", "name": "파워 400W", "price": 6, "capacity": 400},
   {"id": "psu2", "type": "PSU", "name": "파워 600W", "price": 10, "capacity": 600},
   {"id": "psu3", "type": "PSU", "name": "파워 800W", "price": 16, "capacity": 800},
   {"id": "case1", "type": "CASE", "name": "기본 케이스", "price": 6, "tags": ["minimal"]},
   {"id": "case2", "type": "CASE", "name": "화이트 케이스", "price": 9, "tags": ["minimal", "white"]},
-  {"id": "case3", "type": "CASE", "name": "RGB 케이스", "price": 12, "tags": ["gamer"]}
+  {"id": "case3", "type": "CASE", "name": "RGB 케이스", "price": 12, "tags": ["gamer"], "line": "gamer"}
 ]

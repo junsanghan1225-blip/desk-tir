@@ -1,7 +1,7 @@
 [
   {"id": "monitor", "name": "모니터", "price": 25, "layer": "desk", "size": 2, "tags": ["focus", "gamer"], "port": "DP"},
   {"id": "keyboard", "name": "키보드", "price": 5, "layer": "desk", "size": 1, "tags": ["minimal", "focus"], "port": "USB"},
-  {"id": "gaming_kb", "name": "게이밍 키보드", "price": 15, "layer": "desk", "size": 1, "tags": ["gamer"], "port": "USB"},
+  {"id": "gaming_kb", "name": "게이밍 키보드", "price": 15, "layer": "desk", "size": 1, "tags": ["gamer"], "port": "USB", "line": "gamer"},
   {"id": "speaker", "name": "스피커", "price": 8, "layer": "desk", "size": 1, "tags": ["cozy", "gamer"], "port": "AUDIO"},
   {"id": "webcam", "name": "웹캠", "price": 6, "layer": "desk", "size": 1, "tags": ["focus", "gamer"], "port": "USB"},
   {"id": "lamp_warm", "name": "따뜻한 스탠드", "price": 4, "layer": "desk", "size": 1, "tags": ["cozy", "focus"]},
@@ -9,12 +9,12 @@
   {"id": "book", "name": "책", "price": 2, "layer": "desk", "size": 1, "tags": ["cozy", "focus"]},
   {"id": "mug", "name": "머그컵", "price": 1, "layer": "desk", "size": 1, "tags": ["cozy"]},
   {"id": "mini_plant", "name": "미니 식물", "price": 2, "layer": "desk", "size": 1, "tags": ["plant", "cozy"]},
-  {"id": "mic", "name": "마이크", "price": 12, "layer": "desk", "size": 1, "tags": ["gamer"], "port": "USB"},
+  {"id": "mic", "name": "마이크", "price": 12, "layer": "desk", "size": 1, "tags": ["gamer"], "port": "USB", "line": "gamer"},
   {"id": "shelf", "name": "선반", "price": 6, "layer": "wall", "size": 2, "tags": ["cozy", "minimal"]},
   {"id": "frame", "name": "액자", "price": 3, "layer": "wall", "size": 1, "tags": ["cozy"]},
-  {"id": "rgb_bar", "name": "RGB 조명", "price": 8, "layer": "wall", "size": 2, "tags": ["gamer"]},
+  {"id": "rgb_bar", "name": "RGB 조명", "price": 8, "layer": "wall", "size": 2, "tags": ["gamer"], "line": "gamer"},
   {"id": "wall_light", "name": "벽 조명", "price": 5, "layer": "wall", "size": 1, "tags": ["cozy"]},
   {"id": "hanging_plant", "name": "행잉 식물", "price": 4, "layer": "wall", "size": 1, "tags": ["plant"]},
-  {"id": "headset", "name": "헤드셋 거치대", "price": 9, "layer": "desk", "size": 1, "tags": ["gamer", "focus"], "port": "AUDIO"},
-  {"id": "neon_sign", "name": "네온 사인", "price": 7, "layer": "wall", "size": 2, "tags": ["gamer", "cozy"]}
+  {"id": "headset", "name": "헤드셋 거치대", "price": 9, "layer": "desk", "size": 1, "tags": ["gamer", "focus"], "port": "AUDIO", "line": "gamer"},
+  {"id": "neon_sign", "name": "네온 사인", "price": 7, "layer": "wall", "size": 2, "tags": ["gamer", "cozy"], "line": "gamer"}
 ]

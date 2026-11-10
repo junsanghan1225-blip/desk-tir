@@ -106,7 +106,7 @@ def reaction(request, parts, boot, unplugged=0, tangles=0):
 if __name__ == '__main__':
     from common import REQUESTS
     from room import Room
-    dev = REQUESTS[1]
+    dev = next(r for r in REQUESTS if r['customer'] == '밤샘 개발자')
     good_pc = {'CPU': 'cpu2', 'GPU': 'gpu2', 'RAM': 'ram2', 'PSU': 'psu1', 'CASE': 'case1'}
     room = Room()
     for iid, layer, slot in [('lamp_warm', 'desk', 0), ('book', 'desk', 1), ('monitor', 'desk', 2), ('monitor', 'desk', 4),
