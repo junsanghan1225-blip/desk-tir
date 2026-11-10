@@ -15,12 +15,9 @@ def finish():
     pass
 
 
-def handle_events():
-    for e in get_events():
-        if e.type == SDL_QUIT or (e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE):
-            game_framework.quit()
-        elif e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
-            game_framework.change_mode(decorate_mode)
+def handle_event(e):
+    if e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
+        game_framework.change_mode(decorate_mode)
 
 
 def update():
@@ -29,7 +26,6 @@ def update():
 
 def draw():
     req = state.request()
-    clear_canvas()
     box(0, 0, WIDTH, HEIGHT, (18, 12, 38))
     n = len(state.todays_requests())
     text(80, 650, f"{state.day}일차  ·  손님 {state.order_index + 1}/{n}", 20, (46, 230, 214))
@@ -44,4 +40,3 @@ def draw():
     text(460, 380, f"예산은 {req['budget']}만 원 정도 생각하고 있어요.", 20, (255, 214, 92))
     text(420, 200, '무엇을 원하는지 말 속에서 찾아보세요.', 18, (170, 160, 220))
     text(420, 120, '클릭해서 주문 받기', 18, (140, 128, 200))
-    update_canvas()

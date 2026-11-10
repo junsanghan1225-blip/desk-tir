@@ -13,12 +13,9 @@ from room import LAYERS, LAYER_NAMES, SLOT_X0, SLOT_W, SLOT_COUNT, drop_target
 
 SHOP_W, ROW_H, ROW_TOP = 270, 31, 600
 PC_RECT = (1095, 210, 1255, 470)
-BTN_PC = (930, 10, 1090, 50)
 BTN_DONE = (1100, 10, 1270, 50)
-BTN_CABLE = (760, 10, 920, 50)
 
 held = None   # 끌고 있는 소품 id
-mouse = (0, 0)
 toast = ''
 
 
@@ -43,8 +40,9 @@ def shop_row(i):
 
 def on_down(x, y, button):
     global held, toast
-    if inside(x, y, BTN_CABLE):
-        game_framework.change_mode(wire_mode)
+    tab = ui.tab_at(x, y)
+    if tab:
+        ui.goto_tab(tab)
         return
     if button == SDL_BUTTON_RIGHT:
         p = state.room.item_at(x, y)
@@ -66,7 +64,7 @@ def on_down(x, y, button):
         state.room.placed.remove(p)
         state.give_back(p['id'])
         held = p['id']
-    elif inside(x, y, PC_RECT) or inside(x, y, BTN_PC):
+    elif inside(x, y, PC_RECT):
         game_framework.change_mode(build_mode)
     elif inside(x, y, BTN_DONE):
         game_framework.change_mode(result_mode)
@@ -84,24 +82,19 @@ def on_up(x, y):
     held = None
 
 
-def handle_events():
-    global mouse
-    for e in get_events():
-        if e.type == SDL_QUIT or (e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE):
-            game_framework.quit()
-        elif e.type == SDL_KEYDOWN and e.key == SDLK_TAB:
-            game_framework.change_mode(build_mode)
-        elif e.type == SDL_KEYDOWN and e.key == SDLK_c:
-            game_framework.change_mode(wire_mode)
-        elif e.type == SDL_KEYDOWN and e.key == SDLK_RETURN:
-            game_framework.change_mode(result_mode)
-        elif e.type == SDL_MOUSEMOTION:
-            mouse = (e.x, to_canvas_y(e.y))
-        elif e.type == SDL_MOUSEBUTTONDOWN:
-            mouse = (e.x, to_canvas_y(e.y))
-            on_down(*mouse, e.button)
-        elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:
-            on_up(e.x, to_canvas_y(e.y))
+def handle_event(e):
+    if ui.tab_key(e):
+        ui.goto_tab(ui.tab_key(e))
+    elif e.type == SDL_KEYDOWN and e.key == SDLK_TAB:
+        game_framework.change_mode(build_mode)
+    elif e.type == SDL_KEYDOWN and e.key == SDLK_c:
+        game_framework.change_mode(wire_mode)
+    elif e.type == SDL_KEYDOWN and e.key == SDLK_RETURN:
+        game_framework.change_mode(result_mode)
+    elif e.type == SDL_MOUSEBUTTONDOWN:
+        on_down(*game_framework.mouse, e.button)
+    elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:
+        on_up(*game_framework.mouse)
 
 
 def update():
@@ -162,19 +155,15 @@ def draw_shop():
 
 
 def draw():
-    clear_canvas()
     draw_room()
     draw_unplugged()
     draw_shop()
     ui.top_bar()
-    ui.button(BTN_PC, 'PC 조립 [Tab]')
     ui.button(BTN_DONE, '완료 [Enter]', (255, 77, 141))
-    _, unplugged, tangles = cab.wiring_score(state.cables, state.room)
-    ui.button(BTN_CABLE, f"배선 [C]  {'!' if unplugged or tangles else 'OK'}", (124, 92, 255))
+    ui.work_tabs('decorate')
     text(SHOP_W + 10, 30, '우클릭: 창고로 되돌리기', 14, (170, 160, 220))
     if toast:
         text(SHOP_W + 10, 62, toast, 16, (255, 77, 141))
     if held:
-        x, y = mouse
+        x, y = game_framework.mouse
         sprite(held).draw(x, y)
-    update_canvas()

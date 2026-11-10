@@ -10,13 +10,11 @@ import ui
 import cables as cab
 from common import WIDTH, HEIGHT, ITEMS, box, outline, text, to_canvas_y, inside, draw_fit
 
-BTN_BACK = (930, 10, 1090, 50)
 BTN_DONE = (1100, 10, 1270, 50)
 HINT = {'DP': '모니터는 DP 포트에', 'USB': 'USB 기기는 USB 포트에', 'AUDIO': '스피커 · 헤드셋은 오디오 포트에'}
 DEV_Y = 480  # 기기 아이콘 중심
 
 wiring = None  # 선을 끌고 있는 기기 (room.placed 항목)
-mouse = (0, 0)
 toast = ''
 
 
@@ -43,8 +41,9 @@ def device_at(x, y):
 
 def on_down(x, y, button):
     global wiring, toast
-    if inside(x, y, BTN_BACK):
-        game_framework.change_mode(decorate_mode)
+    tab = ui.tab_at(x, y)
+    if tab:
+        ui.goto_tab(tab)
         return
     if inside(x, y, BTN_DONE):
         game_framework.change_mode(result_mode)
@@ -73,22 +72,17 @@ def on_up(x, y):
     wiring = None
 
 
-def handle_events():
-    global mouse
-    for e in get_events():
-        if e.type == SDL_QUIT or (e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE):
-            game_framework.quit()
-        elif e.type == SDL_KEYDOWN and e.key in (SDLK_c, SDLK_TAB):
-            game_framework.change_mode(decorate_mode)
-        elif e.type == SDL_KEYDOWN and e.key == SDLK_RETURN:
-            game_framework.change_mode(result_mode)
-        elif e.type == SDL_MOUSEMOTION:
-            mouse = (e.x, to_canvas_y(e.y))
-        elif e.type == SDL_MOUSEBUTTONDOWN:
-            mouse = (e.x, to_canvas_y(e.y))
-            on_down(*mouse, e.button)
-        elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:
-            on_up(e.x, to_canvas_y(e.y))
+def handle_event(e):
+    if ui.tab_key(e):
+        ui.goto_tab(ui.tab_key(e))
+    elif e.type == SDL_KEYDOWN and e.key in (SDLK_c, SDLK_TAB):
+        game_framework.change_mode(decorate_mode)
+    elif e.type == SDL_KEYDOWN and e.key == SDLK_RETURN:
+        game_framework.change_mode(result_mode)
+    elif e.type == SDL_MOUSEBUTTONDOWN:
+        on_down(*game_framework.mouse, e.button)
+    elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:
+        on_up(*game_framework.mouse)
 
 
 def update():
@@ -134,7 +128,6 @@ def draw_ports():
 
 
 def draw():
-    clear_canvas()
     box(0, 0, WIDTH, HEIGHT, (18, 12, 38))
     for gx in range(0, WIDTH, 40):
         draw_line(gx, 0, gx, HEIGHT - 70, 30, 22, 60)
@@ -158,7 +151,7 @@ def draw():
     for c in state.cables:
         thick_line(cable_points(cab.plug_pos(state.room, c['dev']), cab.port_pos(c['type'], c['port'])), cab.PORT_COLOR[c['type']])
     if wiring:
-        thick_line(cable_points(cab.plug_pos(state.room, wiring), mouse), cab.PORT_COLOR[ITEMS[wiring['id']]['port']])
+        thick_line(cable_points(cab.plug_pos(state.room, wiring), game_framework.mouse), cab.PORT_COLOR[ITEMS[wiring['id']]['port']])
 
     _, unplugged, tangles = cab.wiring_score(state.cables, state.room)
     ok = not unplugged and not tangles
@@ -167,6 +160,5 @@ def draw():
         text(880, 578, "깔끔해요! 배선 만점", 16, (120, 255, 170))
     if toast:
         text(40, 80, toast, 18, (255, 77, 141))
-    ui.button(BTN_BACK, '책상으로 [C]')
+    ui.work_tabs('wire')
     ui.button(BTN_DONE, '완료 [Enter]', (255, 77, 141))
-    update_canvas()

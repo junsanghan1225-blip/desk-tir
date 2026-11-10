@@ -65,14 +65,11 @@ def on_click(x, y, button):
             return
 
 
-def handle_events():
-    for e in get_events():
-        if e.type == SDL_QUIT or (e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE):
-            game_framework.quit()
-        elif e.type == SDL_KEYDOWN and e.key == SDLK_RETURN:
-            on_click(*BTN_OPEN[:2], SDL_BUTTON_LEFT)
-        elif e.type == SDL_MOUSEBUTTONDOWN:
-            on_click(e.x, to_canvas_y(e.y), e.button)
+def handle_event(e):
+    if e.type == SDL_KEYDOWN and e.key == SDLK_RETURN:
+        on_click(*BTN_OPEN[:2], SDL_BUTTON_LEFT)
+    elif e.type == SDL_MOUSEBUTTONDOWN:
+        on_click(*game_framework.mouse, e.button)
 
 
 def update():
@@ -86,7 +83,6 @@ def name_of(tid):
 
 
 def draw():
-    clear_canvas()
     box(0, 0, WIDTH, HEIGHT, (18, 12, 38))
     ui.shop_bar('아침 시장')
     text(30, 630, '소품  (좌클릭 구매 · 우클릭 되팔기)', 16, ui.QUIET)
@@ -122,4 +118,3 @@ def draw():
     if toast:
         text(30, 36, toast, 16, ui.PINK)
     ui.button(BTN_OPEN, '영업 시작 [Enter]', ui.PINK)
-    update_canvas()

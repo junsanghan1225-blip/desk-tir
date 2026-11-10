@@ -41,8 +41,15 @@ def font(size=18):
     return _fonts[size]
 
 
-def box(x1, y1, x2, y2, color):
-    draw_rectangle(x1, y1, x2, y2, *color, 255, True)
+def box(x1, y1, x2, y2, color, alpha=255):
+    if alpha < 255:  # pico2d는 기본으로 알파를 섞지 않아서 반투명일 때만 블렌드 모드를 켠다
+        import pico2d.pico2d as p2
+        from sdl2 import SDL_SetRenderDrawBlendMode, SDL_BLENDMODE_BLEND, SDL_BLENDMODE_NONE
+        SDL_SetRenderDrawBlendMode(p2.renderer, SDL_BLENDMODE_BLEND)
+        draw_rectangle(x1, y1, x2, y2, *color, alpha, True)
+        SDL_SetRenderDrawBlendMode(p2.renderer, SDL_BLENDMODE_NONE)
+        return
+    draw_rectangle(x1, y1, x2, y2, *color, alpha, True)
 
 
 def outline(x1, y1, x2, y2, color=(124, 92, 255)):

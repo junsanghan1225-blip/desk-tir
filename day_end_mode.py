@@ -25,12 +25,9 @@ def next_mode():
         game_framework.change_mode(market_mode)
 
 
-def handle_events():
-    for e in get_events():
-        if e.type == SDL_QUIT or (e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE):
-            game_framework.quit()
-        elif e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
-            next_mode()
+def handle_event(e):
+    if e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
+        next_mode()
 
 
 def update():
@@ -38,7 +35,6 @@ def update():
 
 
 def draw():
-    clear_canvas()
     box(0, 0, WIDTH, HEIGHT, (18, 12, 38))
     text(120, 640, f"{state.day}일차 영업 마감", 36, (255, 77, 141))
     box(120, 220, 1160, 580, (34, 24, 70))
@@ -55,4 +51,3 @@ def draw():
     text(160, 260, f"오늘 번 돈 {total}만 원   ·   가게 돈 {state.money}만 원", 24, (46, 230, 214))
     last = state.day >= state.LAST_DAY
     text(120, 150, '클릭해서 타이틀로' if last else '클릭해서 다음 날 아침 시장으로', 18, (140, 128, 200))
-    update_canvas()

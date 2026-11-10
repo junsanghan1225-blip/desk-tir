@@ -14,9 +14,8 @@ TYPE_NAMES = {'CASE': '케이스', 'MB': '메인보드', 'CPU': 'CPU', 'COOLER':
 CABLE_NAMES = {'24pin': '메인 24핀', 'cpu8': 'CPU 8핀', 'pcie0': 'GPU 8핀 #1', 'pcie1': 'GPU 8핀 #2'}
 
 INV_W, ROW_H, ROW_TOP = 270, 34, 600
-CASE_AREA = (290, 70, 900, 640)
+CASE_AREA = (290, 70, 900, 636)
 PSU_BAY = (306, 84, 520, 196)
-BTN_BACK = (1080, 10, 1270, 50)
 BTN_POST = (930, 70, 1270, 116)
 
 INK = (232, 226, 255)
@@ -28,7 +27,6 @@ GOLD = (255, 214, 92)
 GREEN = (120, 255, 170)
 
 held = None       # ('part', pid) | ('cable', name)
-mouse = (0, 0)
 toast = ''
 post_result = None  # 마지막 전원 테스트 결과 (단계, 메시지)
 
@@ -146,8 +144,9 @@ def pull_out(slot, ram_slot):
 
 def on_down(x, y, button):
     global held, toast, post_result
-    if inside(x, y, BTN_BACK):
-        game_framework.change_mode(decorate_mode)
+    tab = ui.tab_at(x, y)
+    if tab:
+        ui.goto_tab(tab)
         return
     if inside(x, y, BTN_POST):
         post_result = state.pc.post()
@@ -204,22 +203,18 @@ def on_up(x, y):
         toast = ''
 
 
-def handle_events():
-    global mouse, post_result
-    for e in get_events():
-        if e.type == SDL_QUIT or (e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE):
-            game_framework.quit()
-        elif e.type == SDL_KEYDOWN and e.key == SDLK_TAB:
-            game_framework.change_mode(decorate_mode)
-        elif e.type == SDL_KEYDOWN and e.key == SDLK_SPACE:
-            post_result = state.pc.post()
-        elif e.type == SDL_MOUSEMOTION:
-            mouse = (e.x, to_canvas_y(e.y))
-        elif e.type == SDL_MOUSEBUTTONDOWN:
-            mouse = (e.x, to_canvas_y(e.y))
-            on_down(*mouse, e.button)
-        elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:
-            on_up(e.x, to_canvas_y(e.y))
+def handle_event(e):
+    global post_result
+    if ui.tab_key(e):
+        ui.goto_tab(ui.tab_key(e))
+    elif e.type == SDL_KEYDOWN and e.key == SDLK_TAB:
+        game_framework.change_mode(decorate_mode)
+    elif e.type == SDL_KEYDOWN and e.key == SDLK_SPACE:
+        post_result = state.pc.post()
+    elif e.type == SDL_MOUSEBUTTONDOWN:
+        on_down(*game_framework.mouse, e.button)
+    elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:
+        on_up(*game_framework.mouse)
 
 
 def update():
@@ -347,7 +342,7 @@ def draw_drag():
     if not held:
         return
     kind, what = held
-    x, y = mouse
+    x, y = game_framework.mouse
     if kind == 'cable':
         r = socket_rect(what)
         outline(*grow(r, 6), CYAN)
@@ -427,7 +422,6 @@ def draw_inventory():
 
 
 def draw():
-    clear_canvas()
     box(0, 0, WIDTH, HEIGHT, (18, 12, 38))
     draw_case()
     if state.pc.get('CASE'):
@@ -441,5 +435,4 @@ def draw():
     text(INV_W + 20, 30, '좌클릭: 집어서 옮기기 · 우클릭: 빼서 재고로 (위에 꽂힌 것도 같이)', 13, QUIET)
     if toast:
         text(INV_W + 20, 54, toast, 16, PINK)
-    ui.button(BTN_BACK, '책상으로 [Tab]')
-    update_canvas()
+    ui.work_tabs('build')

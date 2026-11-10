@@ -38,13 +38,15 @@ pip install pico2d
 python main.py
 ```
 
-조작: 좌클릭 드래그(배치 · 조립) · 우클릭(되돌리기 · 부품 빼기) · Space(전원 테스트) · C(배선 정리 화면: 기기를 끌어 포트에 꽂기) · Tab(책상 ↔ PC 조립) · Enter(채점) · ESC(종료)
+조작: 좌클릭 드래그(배치 · 조립 · 배선) · 우클릭(되돌리기 · 부품 빼기 · 선 뽑기) · 1 · 2 · 3 또는 상단 탭(책상 꾸미기 · PC 조립 · 배선 정리) · Space(전원 테스트) · Enter(납품) · ESC(일시정지: 손님 주문 다시 보기)
 
 ## 구조
 
 | 파일 | 역할 |
 |---|---|
-| `main.py`, `game_framework.py` | 실행, 모드 전환 |
+| `main.py`, `game_framework.py` | 실행, 모드 스택(change · push · pop), 이벤트 분배(종료 · ESC · 마우스 좌표), 오버레이 그리기, 프레임 시간 (`python game_framework.py`로 자체 테스트) |
+| `pause_mode.py` | ESC 일시정지 메뉴 (아래 화면 위에 겹쳐 그림) |
+| `ui.py` | 상단 바 · 버튼 · 작업 탭 |
 | `title_mode.py` → `market_mode.py` → `request_mode.py` → `decorate_mode.py` ⇄ `build_mode.py` · `wire_mode.py` → `result_mode.py` → `day_end_mode.py` | 화면(모드) |
 | `room.py` | 벽 · 책상 위 2레이어 슬롯 배치 |
 | `pcbuild.py` | PC 조립 규칙: 호환성 검사 · 장착 순서 · 전원선 · 디버그 LED(POST) · 성능 (`python pcbuild.py`로 자체 테스트) |

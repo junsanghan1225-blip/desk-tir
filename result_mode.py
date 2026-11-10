@@ -46,12 +46,9 @@ def next_mode():
         game_framework.change_mode(day_end_mode)
 
 
-def handle_events():
-    for e in get_events():
-        if e.type == SDL_QUIT or (e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE):
-            game_framework.quit()
-        elif e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
-            next_mode()
+def handle_event(e):
+    if e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
+        next_mode()
 
 
 def update():
@@ -59,7 +56,6 @@ def update():
 
 
 def draw():
-    clear_canvas()
     box(0, 0, WIDTH, HEIGHT, (18, 12, 38))
     stars = '★' * result['stars'] + '☆' * (3 - result['stars'])
     text(120, 640, state.request()['customer'], 24, (200, 192, 240))
@@ -82,4 +78,3 @@ def draw():
         text(640, 395 - i * 34, line, 17, (232, 226, 255))
     text(120, 100, '클릭해서 다음 손님 받기' if state.order_index + 1 < len(state.todays_requests()) else '클릭해서 영업 마감',
          18, (140, 128, 200))
-    update_canvas()
