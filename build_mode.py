@@ -6,7 +6,7 @@ import game_framework
 import decorate_mode
 import state
 import ui
-from common import WIDTH, HEIGHT, PARTS, box, outline, text, to_canvas_y, inside, draw_fit
+from common import WIDTH, HEIGHT, PARTS, box, outline, text, to_canvas_y, inside, draw_fit, sprite
 from pcbuild import POST_STAGES
 
 ORDER = ['CASE', 'MB', 'CPU', 'COOLER', 'RAM', 'SSD', 'GPU', 'PSU']
@@ -91,9 +91,9 @@ def lever_rect():
 def socket_rect(cable):
     mx1, my1, mx2, my2 = mb_rect()
     if cable == 'front':
-        return mx2 - 60, my1 + 80, mx2 - 12, my1 + 100
+        return mx2 - 60, my1 + 110, mx2 - 12, my1 + 130
     if cable == '24pin':
-        return mx2 - 30, my2 - 230, mx2 - 10, my2 - 110
+        return mx2 - 30, my2 - 150, mx2 - 10, my2 - 40
     if cable == 'cpu8':
         return mx1 + 16, my2 - 30, mx1 + 90, my2 - 10
     gx1, gy1, gx2, gy2 = gpu_rect()
@@ -276,13 +276,21 @@ def draw_case():
         return
     box(x1, y1, x2, y2, (14, 9, 30))
     outline(x1, y1, x2, y2, PINK if case['id'] == 'case3' else (124, 92, 255))
-    text(x1 + 12, y2 - 18, f"{case['name']}  ·  보드 {case['mb_max']}까지 · GPU {case['gpu_max']}mm · 쿨러 {case['cooler_max']}mm", 13, QUIET)
-    for fy in (420, 540):  # 뒷면 팬
-        draw_circle(x2 - 50, fy, 34, 60, 50, 100, 255, False)
+    mb = state.pc.spec('MB')
+    board = f"  ·  {mb['name']} ({mb['size']})" if mb else ''
+    text(x1 + 12, y2 - 16, f"{case['name']}{board}", 13, QUIET)
+    for fy in (420, 540):  # 뒷면 케이스 팬
+        sprite('inb_casefan').draw(x2 - 50, fy, 80, 80)
     # GPU 길이 한계선
     gx = gpu_rect()[0] + int(case['gpu_max'] * 1.25)
     if gx < x2:
         draw_line(gx, mb_rect()[1] - 6, gx, mb_rect()[1] + 74, *PINK)
+
+
+def put(name, r):
+    """스프라이트를 영역 r에 꽉 맞춰 그린다."""
+    x1, y1, x2, y2 = r
+    sprite(name).draw((x1 + x2) / 2, (y1 + y2) / 2, x2 - x1, y2 - y1)
 
 
 def draw_board():
@@ -293,102 +301,76 @@ def draw_board():
             outline(mx1, my1, mx2, my2, DIM)
             text(mx1 + 110, (my1 + my2) // 2, '메인보드 자리', 18, DIM)
         return
-    box(mx1, my1, mx2, my2, (22, 40, 52))
-    outline(mx1, my1, mx2, my2, (40, 90, 100))
-    for k in range(6):  # 회로 무늬
-        draw_line(mx1 + 10, my1 + 100 + k * 40, mx1 + 50 + k * 20, my1 + 100 + k * 40, 34, 70, 80)
-    text(mx1 + 214, my1 + 100, f"{mb['name']} · {mb['size']}", 12, QUIET)
-    # 빈 자리들
-    x1, y1, x2, y2 = cpu_rect()
-    outline(x1, y1, x2, y2, (60, 110, 120))
-    text(x1 + 18, (y1 + y2) // 2, f"소켓 {mb['socket']}", 12, (90, 140, 150))
-    for i in range(4):
-        r = ram_rect(i)
-        if i < mb['ram_slots']:
-            box(*r, (30, 30, 40))
-            text(r[0], r[1] - 12, 'AB'[i // 2] + str(i % 2 + 1) if mb['ram_slots'] == 4 else str(i + 1), 11, QUIET)
-    box(*pcie_rect(), (30, 30, 40))
-    r = ssd_rect()
-    outline(*r, (60, 110, 120))
-    text(r[0] + 4, r[1] - 10, 'M.2', 11, QUIET)
-    r = socket_rect('front')
-    box(*r, (40, 40, 52))
-    text(r[0] - 4, r[1] - 10, '전원 버튼', 11, QUIET)
+    put('inb_' + mb['id'], mb_rect())
     # 소켓 레버: 열리면 위로 선다
     lx1, ly1, lx2, ly2 = lever_rect()
     if state.pc.lever_open:
-        box(lx1 + 4, ly2, lx2 - 4, ly2 + 60, (200, 200, 215))
-        text(lx1 - 6, ly2 + 72, '열림', 11, GOLD)
+        box(lx1 + 5, ly2, lx2 - 5, ly2 + 56, (216, 216, 224))
+        box(lx1 + 2, ly2 + 50, lx2 - 2, ly2 + 58, (216, 216, 224))
     else:
-        box(lx1 + 4, ly1, lx2 - 4, ly2, (150, 150, 165))
-    text(pcie_rect()[0], pcie_rect()[1] - 12, 'PCIe x16', 11, QUIET)
-    for c in ('24pin', 'cpu8'):
-        box(*socket_rect(c), (40, 40, 52))
+        box(lx1 + 5, ly1 + 4, lx2 - 5, ly2 - 4, (176, 176, 188))
+        box(lx1 + 2, ly1, lx2 - 2, ly1 + 8, (176, 176, 188))
 
 
 def draw_parts():
-    cpu, cooler, gpu = state.pc.spec('CPU'), state.pc.spec('COOLER'), state.pc.spec('GPU')
+    pc = state.pc
+    cpu, cooler, gpu = pc.spec('CPU'), pc.spec('COOLER'), pc.spec('GPU')
     if cpu:
-        x1, y1, x2, y2 = cpu_rect()
-        box(x1 + 8, y1 + 8, x2 - 8, y2 - 8, (190, 190, 205))
-        text(x1 + 14, (y1 + y2) // 2, cpu['name'][:5], 12, (30, 30, 40))
-    if cpu and state.pc.paste and not cooler:
-        x1, y1, x2, y2 = cpu_rect()
-        draw_circle((x1 + x2) // 2, (y1 + y2) // 2, 18, 170, 170, 180, 255, True)
-    ssd = state.pc.spec('SSD')
-    if ssd:
-        x1, y1, x2, y2 = ssd_rect()
-        box(x1, y1, x2, y2, (30, 90, 60))
-        outline(x1, y1, x2, y2, GREEN)
-        text(x1 + 6, (y1 + y2) // 2, ssd['capacity'], 11, INK)
+        put('inb_cpu', cpu_rect())
+    if cpu and pc.paste and not cooler:
+        put('inb_paste', cpu_rect())
+    if pc.get('SSD'):
+        put('inb_ssd', ssd_rect())
     if cooler:
-        x1, y1, x2, y2 = cooler_rect()
-        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-        if cooler['id'] == 'cool2':
-            box(x1, y1, x2, y2, (60, 64, 80))
-            for k in range(8):
-                draw_line(x1 + 6, y1 + 10 + k * 16, x2 - 6, y1 + 10 + k * 16, 120, 124, 140)
-        draw_circle(cx, cy, 44, 40, 40, 60, 255, True)
-        draw_circle(cx, cy, 44, *CYAN, 255, False)
-        draw_circle(cx, cy, 12, *CYAN, 255, True)
-    for i, r in enumerate(state.pc.ram):
+        put('inb_' + cooler['id'], cooler_rect())
+    for i, r in enumerate(pc.ram):
         if r:
-            x1, y1, x2, y2 = ram_rect(i)
-            box(x1, y1, x2, y2, (60, 150, 100) if r != 'ram3' else (124, 92, 255))
-            outline(x1, y1, x2, y2, GREEN)
+            put('inb_' + r, ram_rect(i))
     if gpu:
-        x1, y1, x2, y2 = gpu_rect()
-        box(x1, y1, x2, y2, (26, 22, 44))
-        outline(x1, y1, x2, y2, PINK if gpu['id'] == 'gpu3' else (124, 92, 255))
-        fans = 3 if gpu['length'] > 300 else 2 if gpu['length'] > 200 else 1
-        for k in range(fans):
-            draw_circle(x1 + 50 + k * 100, (y1 + y2) // 2, 24, *QUIET, 255, False)
-        text(x1 + 8, y2 - 10, f"{gpu['name']} {gpu['length']}mm", 11, INK)
+        put('inb_' + gpu['id'], gpu_rect())
         for i in range(gpu['pcie']):
-            box(*socket_rect(f'pcie{i}'), (40, 40, 52))
-    psu = state.pc.spec('PSU')
+            box(*socket_rect(f'pcie{i}'), (20, 20, 28))
+            outline(*socket_rect(f'pcie{i}'), (90, 90, 100))
+    psu = pc.spec('PSU')
     x1, y1, x2, y2 = PSU_BAY
     if psu:
-        box(x1, y1, x2, y2, (30, 26, 50))
-        outline(x1, y1, x2, y2, (124, 92, 255))
-        draw_circle(x1 + 60, (y1 + y2) // 2, 36, *QUIET, 255, False)
-        text(x1 + 110, (y1 + y2) // 2, f"{psu['capacity']}W", 16, INK)
+        put('inb_psu_white' if psu['id'] == 'psu5' else 'inb_psu', PSU_BAY)
+        text(x1 + 150, y1 + 18, f"{psu['capacity']}W", 13, INK)
         for c in PSU_CABLES:
             if c.startswith('pcie') and int(c[-1]) >= psu['pcie']:
                 continue
             r = psu_port(c)
-            on = c in state.pc.cables
+            on = c in pc.cables
             box(*r, (60, 50, 100) if on else (24, 16, 52))
-            outline(*r, CYAN if c in state.pc.cable_targets() else DIM)
+            outline(*r, CYAN if c in pc.cable_targets() and not on else DIM)
             text(r[0] + 4, (r[1] + r[3]) // 2, CABLE_NAMES[c], 11, INK if on else QUIET)
-    elif state.pc.get('CASE'):
+    elif pc.get('CASE'):
         outline(x1, y1, x2, y2, DIM)
         text(x1 + 60, (y1 + y2) // 2, '파워 자리', 16, DIM)
 
 
-def cable_line(a, b, color):
-    for d in (-2, -1, 0, 1, 2):
-        draw_line(a[0], a[1] + d, b[0], b[1] + d, *color)
+CHANNEL_GAP = 9  # 통로 안에서 선끼리 간격
+
+
+def cable_color(c):
+    return (230, 190, 80) if c.startswith('pcie') else (220, 140, 60) if c != 'front' else (170, 160, 220)
+
+
+def cable_path(c, end):
+    """파워 포트 → 오른쪽 통로 → 소켓 높이 → 소켓. 실제 선 정리처럼 꺾인 선으로 그린다."""
+    order = list(CABLE_NAMES).index(c)
+    color = cable_color(c)
+    start = mid_right(psu_port(c)) if c != 'front' else ((FRONT_SRC[0] + FRONT_SRC[2]) // 2, FRONT_SRC[3])
+    lane = mb_rect()[2] + 22 + order * CHANNEL_GAP
+    pts = [start, (lane, start[1]), (lane, end[1]), end]
+    for a, b in zip(pts, pts[1:]):
+        cable_line(a, b, color, 1)
+
+
+def cable_line(a, b, color, w=2):
+    for d in range(-w, w + 1):
+        draw_line(a[0] + (d if a[1] != b[1] else 0), a[1] + (d if a[1] == b[1] else 0),
+                  b[0] + (d if a[1] != b[1] else 0), b[1] + (d if a[1] == b[1] else 0), *color)
 
 
 def mid_right(r):
@@ -406,8 +388,43 @@ def draw_cables():
         outline(*FRONT_SRC, CYAN if 'front' in state.pc.cable_targets() else DIM)
         text(FRONT_SRC[0] + 4, (FRONT_SRC[1] + FRONT_SRC[3]) // 2, '버튼선', 11, INK)
     for c in state.pc.cables:
-        cable_line(mid_right(psu_port(c)), center(socket_rect(c)), GOLD if c.startswith('pcie') else (255, 160, 60))
-        box(*socket_rect(c), GOLD)
+        cable_path(c, center(socket_rect(c)))
+        r = socket_rect(c)
+        color = cable_color(c)
+        box(*r, (24, 20, 30))                    # 커넥터 몸통
+        outline(*r, color)
+        box(r[0] + 2, r[1] + 2, r[0] + 6, r[3] - 2, color)  # 래치
+
+
+def hover_spots():
+    """(영역, 이름) — 마우스를 올렸을 때만 보여 줄 자리 이름."""
+    pc = state.pc
+    mb = pc.spec('MB')
+    if not mb:
+        return []
+    spots = [(cpu_rect(), f"CPU 소켓 {mb['socket']}" + (f" · {pc.spec('CPU')['name']}" if pc.get('CPU') else '')),
+             (lever_rect(), '소켓 레버 (클릭해서 열고 닫기)'),
+             (ssd_rect(), 'M.2 슬롯' + (f" · {pc.spec('SSD')['name']}" if pc.get('SSD') else '')),
+             (gpu_rect() if pc.get('GPU') else pcie_rect(), f"{pc.spec('GPU')['name']} · {pc.spec('GPU')['length']}mm" if pc.get('GPU') else 'PCIe x16 (그래픽카드)'),
+             (socket_rect('24pin'), '메인 24핀 소켓'), (socket_rect('cpu8'), 'CPU 8핀 소켓'), (socket_rect('front'), '케이스 전원 버튼 핀')]
+    for i in range(mb['ram_slots']):
+        name = ('A1', 'A2', 'B1', 'B2')[i] if mb['ram_slots'] == 4 else str(i + 1)
+        stick = pc.ram[i]
+        spots.append((ram_rect(i), f"RAM 슬롯 {name}" + (f" · {PARTS[stick]['name']}" if stick else '')))
+    return spots
+
+
+def draw_hover():
+    if held:
+        return
+    x, y = game_framework.mouse
+    for r, label in hover_spots():
+        if inside(x, y, grow(r, 4)):
+            w = len(label) * 13 + 16
+            box(x + 14, y + 10, x + 14 + w, y + 34, (10, 6, 22), 220)
+            outline(x + 14, y + 10, x + 14 + w, y + 34, CYAN)
+            text(x + 22, y + 22, label, 13, INK)
+            return
 
 
 def draw_drag():
@@ -423,7 +440,7 @@ def draw_drag():
     if kind == 'cable':
         r = socket_rect(what)
         outline(*grow(r, 6), CYAN)
-        cable_line(mid_right(psu_port(what)), (x, y), GOLD)
+        cable_line(mid_right(psu_port(what)) if what != 'front' else center(FRONT_SRC), (x, y), GOLD)
         return
     # 갈 수 있는 자리 미리 보기
     t = PARTS[what]['type']
@@ -522,6 +539,7 @@ def draw():
     draw_inventory()
     draw_side()
     draw_drag()
+    draw_hover()
     ui.top_bar()
     text(INV_W + 20, 30, '좌클릭: 집어서 옮기기 · 우클릭: 빼서 재고로 (위에 꽂힌 것도 같이)', 13, QUIET)
     if toast:

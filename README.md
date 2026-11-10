@@ -49,7 +49,7 @@ python main.py
 | `scorer.py` | 채점 · 시너지 · 부팅 판정 (`python scorer.py`로 자체 테스트) |
 | `state.py` | 가게(돈 · 날짜 · 재고 · 업그레이드)와 주문(배치 · PC · 케이블) 상태, 정산 (`python state.py`로 자체 테스트) |
 | `data/*.json` | 소품 · 부품 · 손님 주문(날짜별) · 업그레이드 데이터 (코드 수정 없이 추가) |
-| `resource/`, `tools/make_sprites.js`, `tools/more_sprites.js` | 소품 · 방 · PC 스프라이트와 생성 스크립트 |
+| `resource/`, `tools/make_sprites.js`, `tools/more_sprites.js`, `tools/inbuild_sprites.js` | 소품 · 방 · PC 스프라이트와 생성 스크립트 |
 | `docs/` | 1차 발표 PPT, 기획서 PPT, 화면 캡처 |
 
 ## 진행 현황

@@ -216,6 +216,7 @@ S.title_bg = [1280, 720, `<defs>${sky('tsky')}</defs><rect width="1280" height="
   <rect x="100" y="150" width="700" height="250" fill="#120a26" opacity=".55"/>`];
 
 require('./more_sprites')(S, { glow, RGB, kb, lamp, tower });
+require('./inbuild_sprites')(S, { glow, RGB });
 
 (async () => {
   for (const [name, [w, h, body]] of Object.entries(S)) {
