@@ -16,6 +16,7 @@ PC_RECT = (1095, 210, 1255, 470)
 BTN_DONE = (1100, 10, 1270, 50)
 
 held = None   # 끌고 있는 소품 id
+moving = None  # 책상에서 집어 든 소품 (실패하면 제자리로, 케이블 연결도 유지)
 toast = ''
 
 
@@ -72,11 +73,11 @@ def on_down(x, y, button):
             else:
                 held, toast = item_id, ''
             return
+    global moving
     p = state.room.item_at(x, y)
     if p:
         state.room.placed.remove(p)
-        state.give_back(p['id'])
-        held = p['id']
+        held, moving = p['id'], p
     elif inside(x, y, PC_RECT):
         game_framework.change_mode(build_mode)
     elif inside(x, y, BTN_DONE):
@@ -84,15 +85,22 @@ def on_down(x, y, button):
 
 
 def on_up(x, y):
-    global held, toast
+    global held, toast, moving
     if not held:
         return
     target = drop_target(held, x, y)
-    if target and state.room.fits(held, *target) and state.take(held):
+    ok = target and state.room.fits(held, *target)
+    if moving:  # 옮기기: 같은 항목을 새 자리로, 실패하면 원래 자리로
+        if ok:
+            moving['layer'], moving['slot'] = target
+        elif target:
+            toast = '그 자리엔 못 놓아서 원래 자리로 돌려놨어요'
+        state.room.placed.append(moving)
+    elif ok and state.take(held):
         state.room.place(held, *target)
     elif target:
         toast = f"{ITEMS[held]['name']}은(는) '{LAYER_NAMES[ITEMS[held]['layer']]}'의 빈 칸에만 놓을 수 있어요"
-    held = None
+    held, moving = None, None
 
 
 def handle_event(e):

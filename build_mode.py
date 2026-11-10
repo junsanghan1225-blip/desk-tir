@@ -206,13 +206,12 @@ def on_down(x, y, button):
             held, toast = ('part', pid), ''
             return
     hit = placed_at(x, y)
-    if hit:
+    if hit and button == SDL_BUTTON_RIGHT:  # 빼기는 우클릭만 (좌클릭 실수로 조립이 풀리지 않게)
         slot, rs = hit
         pid = state.pc.ram[rs] if slot == 'RAM' else state.pc.get(slot)
         pull_out(slot, rs)
         post_result = None
-        if button == SDL_BUTTON_LEFT:
-            held = ('part', pid)  # 집어서 옮기기 (위에 있던 부품은 재고로)
+        toast = f"{PARTS[pid]['name']}을(를) 뺐어요" + (' (위에 꽂힌 부품도 재고로)' if slot in ('CASE', 'MB', 'CPU') else '')
 
 
 def on_up(x, y):
@@ -541,7 +540,7 @@ def draw():
     draw_drag()
     draw_hover()
     ui.top_bar()
-    text(INV_W + 20, 30, '좌클릭: 집어서 옮기기 · 우클릭: 빼서 재고로 (위에 꽂힌 것도 같이)', 13, QUIET)
+    text(INV_W + 20, 30, '재고에서 끌어다 꽂기 · 우클릭: 빼서 재고로 (위에 꽂힌 것도 같이)', 13, QUIET)
     if toast:
         text(INV_W + 20, 54, toast, 16, PINK)
     ui.work_tabs('build')
