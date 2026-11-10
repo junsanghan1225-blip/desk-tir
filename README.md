@@ -20,6 +20,11 @@
 - **PC 조립 (드래그 앤 드롭, 실제 순서)**: 케이스 → 메인보드 → 소켓 레버 열기 → CPU → 레버 닫기 → 서멀 구리스 → 쿨러 → RAM → M.2 SSD → 그래픽카드 → 파워 → 전원선(24핀 · CPU 8핀 · GPU 8핀) → 케이스 전원 버튼선. 소켓(AM/LGA) · 보드 크기 · 그래픽카드 길이 · 쿨러 높이가 안 맞으면 안 들어감. 전원 테스트는 디버그 LED(CPU → DRAM → VGA → BOOT)로 막힌 곳을 알려 줌
 - **배선**: 모니터는 DP(그래픽카드가 개수 결정), USB 기기는 USB(메인보드가 개수 결정), 스피커 · 헤드셋은 오디오. 무선 기기는 USB 동글을 꽂음(선 없음). 선이 꼬이면 감점
 
+## 저장
+
+화면이 바뀔 때마다 · 게임을 끌 때 자동 저장. 타이틀에서 '이어하기'로 그 화면부터 계속 (조립 중인 PC · 책상 · 배선 · 장바구니까지).
+저장 위치: `사용자 폴더/.desk-tir/save.json` · 마지막 날을 끝내면 기록 삭제
+
 ## 채점 (손님 만족도 100점)
 
 테마 일치 25 · 필수/금지 25 · PC 성능 20 · 조합 시너지 15 · 배선 15  (예산은 점수가 아니라 마진)
@@ -40,6 +45,7 @@ python main.py
 |---|---|
 | `main.py`, `game_framework.py` | 실행, 모드 스택(change · push · pop), 이벤트 분배(종료 · ESC · 마우스 좌표), 오버레이 그리기, 프레임 시간 (`python game_framework.py`로 자체 테스트) |
 | `pause_mode.py` | ESC 일시정지 메뉴 (아래 화면 위에 겹쳐 그림) |
+| `save_game.py` | 자동 저장 · 이어하기 (`python save_game.py`로 자체 테스트) |
 | `ui.py` | 상단 바 · 버튼 · 작업 탭 |
 | `title_mode.py` → `request_mode.py` → `shop_mode.py` ⇄ `decorate_mode.py` ⇄ `build_mode.py` ⇄ `wire_mode.py` → `result_mode.py` → `day_end_mode.py` | 화면(모드) |
 | `product_mode.py`, `receipt_mode.py`, `pause_mode.py` | 겹쳐 뜨는 화면: 상품 상세 · 영수증 · 일시정지 |

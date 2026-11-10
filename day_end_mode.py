@@ -28,6 +28,8 @@ def finish():
 def next_mode():
     if state.day >= state.LAST_DAY:
         title_mode.message = f"영업 {state.LAST_DAY}일 완료! 최종 가게 돈 {state.money}만 원"
+        import save_game
+        save_game.delete()  # 끝까지 깼으니 이어하기 기록은 지운다
         game_framework.change_mode(title_mode)
     else:
         state.day += 1

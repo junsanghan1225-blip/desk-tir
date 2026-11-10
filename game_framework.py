@@ -27,6 +27,7 @@ stack = []
 frame_time = 0.0
 mouse = (0, 0)
 pause_mode = None  # main.py가 연결 (순환 import 방지)
+on_change = None   # 화면이 바뀔 때 부를 함수 (자동 저장). main.py가 연결
 
 
 def top():
@@ -38,6 +39,8 @@ def change_mode(mode):
         stack.pop().finish()
     stack.append(mode)
     mode.init()
+    if on_change:
+        on_change(mode)
 
 
 def push_mode(mode):
@@ -112,6 +115,8 @@ def run(start_mode, height):
             time.sleep(spare)
             now = time.time()
         frame_time, last = now - last, now
+    if on_change and stack:
+        on_change(next((m for m in reversed(stack) if not getattr(m, 'OVERLAY', False)), stack[0]))  # 끌 때 저장
     while stack:
         stack.pop().finish()
 
