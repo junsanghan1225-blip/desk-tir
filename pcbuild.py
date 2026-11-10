@@ -1,9 +1,11 @@
-"""PC 조립 규칙 (그리기 없음). 케이스 → 메인보드 → CPU → 쿨러 → RAM → 그래픽카드 → 파워 → 전원선 순서로 꽂고,
+"""PC 조립 규칙 (그리기 없음). 실제 조립 순서를 따른다:
+케이스 → 메인보드 → 소켓 레버 열기 → CPU → 레버 닫기 → 서멀 구리스 → 쿨러 → RAM → M.2 SSD → 그래픽카드 → 파워
+→ 전원선(24핀 · CPU 8핀 · GPU 8핀) → 케이스 전원 버튼선.
 전원 테스트(POST)는 실제 메인보드처럼 CPU → DRAM → VGA → BOOT 순서로 검사해 처음 막힌 단계를 알려 준다."""
 from common import PARTS
 
-SLOTS = ['CASE', 'MB', 'CPU', 'COOLER', 'GPU', 'PSU']    # 하나씩 들어가는 자리 (RAM은 슬롯 여러 개)
-NEEDS = {'MB': 'CASE', 'CPU': 'MB', 'COOLER': 'CPU', 'GPU': 'MB', 'PSU': 'CASE', 'RAM': 'MB'}
+SLOTS = ['CASE', 'MB', 'CPU', 'COOLER', 'SSD', 'GPU', 'PSU']    # 하나씩 들어가는 자리 (RAM은 슬롯 여러 개)
+NEEDS = {'MB': 'CASE', 'CPU': 'MB', 'COOLER': 'CPU', 'SSD': 'MB', 'GPU': 'MB', 'PSU': 'CASE', 'RAM': 'MB'}
 SIZE_RANK = {'mATX': 0, 'ATX': 1}
 POST_STAGES = ['CPU', 'DRAM', 'VGA', 'BOOT']
 STAR_CUTS = [(19, 3), (12, 2), (6, 1)]
@@ -14,7 +16,9 @@ class PCBuild:
     def __init__(self):
         self.parts = {}        # SLOTS 중 하나 -> part id
         self.ram = [None] * 4  # 슬롯 0~3 (보드의 ram_slots 만큼만 쓸 수 있음)
-        self.cables = set()    # '24pin', 'cpu8', 'pcie0', 'pcie1'
+        self.cables = set()    # '24pin', 'cpu8', 'pcie0', 'pcie1', 'front'(케이스 전원 버튼선)
+        self.lever_open = False  # CPU 소켓 레버
+        self.paste = False       # CPU 위 서멀 구리스
 
     # --- 조회 (예전 dict 방식 호출과 호환: build.get('GPU')) ---
     def get(self, slot, default=None):
@@ -36,10 +40,12 @@ class PCBuild:
         return gpu['pcie'] if gpu else 0
 
     def cable_targets(self):
-        """지금 꽂을 수 있는 전원선 목록."""
-        if 'PSU' not in self.parts or 'MB' not in self.parts:
+        """지금 꽂을 수 있는 선 목록. 전원 버튼선은 케이스 → 보드라 파워 없이도 꽂는다."""
+        if 'MB' not in self.parts:
             return []
-        out = ['24pin']
+        if 'PSU' not in self.parts:
+            return ['front']
+        out = ['front', '24pin']
         if 'CPU' in self.parts:
             out.append('cpu8')
         out += [f'pcie{i}' for i in range(min(self.pcie_needed(), self.spec('PSU')['pcie']))]
@@ -63,6 +69,10 @@ class PCBuild:
             return None
         if t in self.parts:
             return '이미 끼워져 있어요. 먼저 빼 주세요'
+        if t == 'CPU' and not self.lever_open:
+            return '소켓 레버를 먼저 열어 주세요'
+        if t == 'COOLER' and self.lever_open:
+            return '소켓 레버를 닫고 쿨러를 올려 주세요'
         if t == 'MB' and SIZE_RANK[p['size']] > SIZE_RANK[case['mb_max']]:
             return f"{p['size']} 보드는 {case['name']}에 안 들어가요"
         if t == 'CPU' and p['socket'] != mb['socket']:
@@ -94,6 +104,10 @@ class PCBuild:
         if slot not in self.parts:
             return out
         out.append(self.parts.pop(slot))
+        if slot == 'CPU':
+            self.paste = False
+        if slot == 'MB':
+            self.lever_open = False
         for child, parent in NEEDS.items():
             if parent == slot:
                 if child == 'RAM':
@@ -103,6 +117,24 @@ class PCBuild:
                     out += self.remove(child)
         self.cables &= set(self.cable_targets())
         return out
+
+    def toggle_lever(self):
+        if 'MB' not in self.parts:
+            return '메인보드가 없어요'
+        if 'COOLER' in self.parts:
+            return '쿨러를 먼저 빼야 레버를 열 수 있어요'
+        self.lever_open = not self.lever_open
+        return None
+
+    def apply_paste(self):
+        if 'CPU' not in self.parts:
+            return 'CPU 위에 발라야 해요'
+        if 'COOLER' in self.parts:
+            return '쿨러를 올리기 전에 발라야 해요'
+        if self.lever_open:
+            return '레버를 닫고 발라 주세요'
+        self.paste = True
+        return None
 
     def plug(self, cable):
         if cable not in self.cable_targets():
@@ -146,10 +178,16 @@ class PCBuild:
             return -1, '메인보드가 없어요'
         if 'PSU' not in self.parts or '24pin' not in self.cables:
             return -1, '전원이 안 들어와요 (파워 · 24핀 확인)'
+        if 'front' not in self.cables:
+            return -1, '전원 버튼을 눌러도 반응이 없어요 (케이스 전원 버튼선)'
         if 'CPU' not in self.parts or 'cpu8' not in self.cables:
             return 0, 'CPU 불이 켜졌어요 (CPU · CPU 8핀 확인)'
+        if self.lever_open:
+            return 0, 'CPU 불이 켜졌어요 (소켓 레버가 열려 있어요)'
         if 'COOLER' not in self.parts:
             return 0, '켜지자마자 과열로 꺼졌어요 (쿨러 없음)'
+        if not self.paste:
+            return 0, '몇 초 뒤 과열로 꺼졌어요 (서멀 구리스 안 바름)'
         if not any(self.ram):
             return 1, 'DRAM 불이 켜졌어요 (RAM 없음)'
         if 'GPU' not in self.parts:
@@ -160,6 +198,8 @@ class PCBuild:
             return 2, 'VGA 불이 켜졌어요 (그래픽카드 전원선 확인)'
         if self.watt() > self.capacity():
             return 3, f"부팅 중 꺼졌어요 (전력 {self.watt()}W > 파워 {self.capacity()}W)"
+        if 'SSD' not in self.parts:
+            return 3, 'BOOT 불이 켜졌어요 (부팅 장치 없음 · SSD)'
         msg = '부팅 성공!' + (' 단, 쿨러가 약해서 성능이 떨어져요' if self.throttled() else '')
         return 4, msg
 
@@ -167,15 +207,20 @@ class PCBuild:
         return self.post()[0] == 4
 
 
-def full(case='case2', mb='mb2', cpu='cpu2', cooler='cool1', ram=('ram2', 'ram2'), gpu='gpu2', psu='psu2'):
-    """테스트 · 데모용: 부품을 차례로 끼우고 전원선까지 꽂은 PC."""
+def full(case='case2', mb='mb2', cpu='cpu2', cooler='cool1', ram=('ram2', 'ram2'), gpu='gpu2', psu='psu2', ssd='ssd1'):
+    """테스트 · 데모용: 실제 순서대로 끼우고 선까지 꽂은 PC."""
     b = PCBuild()
-    for pid in (case, mb, cpu, cooler):
+    for pid in (case, mb):
         assert b.place(pid) is None, (pid, b.check(pid))
+    b.toggle_lever()
+    assert b.place(cpu) is None, (cpu, b.check(cpu))
+    b.toggle_lever()
+    b.apply_paste()
+    assert b.place(cooler) is None, (cooler, b.check(cooler))
     slots = [1, 3] if b.ram_slots() == 4 else [0, 1]
     for s, r in zip(slots, ram):
         assert b.place(r, s) is None
-    for pid in (gpu, psu):
+    for pid in (ssd, gpu, psu):
         assert b.place(pid) is None, (pid, b.check(pid))
     for c in b.cable_targets():
         b.plug(c)
@@ -188,20 +233,30 @@ if __name__ == '__main__':
     b.place('case1')
     assert '안 들어가요' in b.check('mb3')             # ATX 보드 → 미니 케이스
     b.place('mb2')
+    assert b.check('cpu2') == '소켓 레버를 먼저 열어 주세요'
+    b.toggle_lever()
     assert '소켓' in b.check('cpu1')                    # AM CPU → LGA 보드
     b.place('cpu2')
+    assert b.check('cool1') == '소켓 레버를 닫고 쿨러를 올려 주세요'
+    b.toggle_lever()
     assert '옆판' in b.check('cool2')                   # 타워 쿨러 158mm > 미니 140mm
     assert '너무 길어요' in b.check('gpu2')              # 280mm > 250mm
     assert b.check('ram1', 2) is not None               # 2슬롯 보드의 3번 슬롯 없음
     assert b.post()[0] == -1
     b.place('cool1'); b.place('psu1'); b.plug('24pin')
+    assert b.post()[0] == -1 and '전원 버튼' in b.post()[1]
+    b.plug('front')
     assert b.post() == (0, 'CPU 불이 켜졌어요 (CPU · CPU 8핀 확인)')
     b.plug('cpu8')
+    assert '서멀' in b.post()[1]                        # 구리스 없이 쿨러 올림
+    b.remove('COOLER'); assert b.apply_paste() is None; b.place('cool1')
     assert b.post()[0] == 1                             # RAM 없음
     b.place('ram1', 0); b.place('gpu1')
+    assert b.post()[0] == 3 and 'SSD' in b.post()[1]
+    b.place('ssd1')
     assert b.boots() and b.throttled()                  # 기본 쿨러 95 < 중급 CPU 105W → 쓰로틀링
     assert b.perf() == 4 + 1 + 3 - THROTTLE
-    assert sorted(b.remove('MB')) == ['cool1', 'cpu2', 'gpu1', 'mb2', 'ram1'] and b.cables == set()
+    assert sorted(b.remove('MB')) == ['cool1', 'cpu2', 'gpu1', 'mb2', 'ram1', 'ssd1'] and b.cables == set() and not b.paste
 
     ok = full()
     assert ok.boots() and ok.dual_channel() and ok.perf() == 4 + 7 + 4 + 1 - THROTTLE
@@ -214,8 +269,7 @@ if __name__ == '__main__':
     top = full(case='case3', cpu='cpu3', mb='mb3', cooler='cool2', gpu='gpu3', psu='psu3', ram=('ram3', 'ram3'))
     assert top.boots() and top.stars() == 3 and top.watt() == 520
     wrong = PCBuild()
-    for pid in ('case2', 'mb3', 'cpu2', 'cool2'):
-        wrong.place(pid)
+    wrong.place('case2'); wrong.place('mb3'); wrong.toggle_lever(); wrong.place('cpu2'); wrong.toggle_lever(); wrong.place('cool2')
     wrong.place('ram2', 0); wrong.place('ram2', 1)
     assert not wrong.dual_channel()                      # 4슬롯 보드에서 1 · 2번에 꽂으면 듀얼 채널 아님
     print('pcbuild ok', ok.perf(), top.perf())

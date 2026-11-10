@@ -1,4 +1,5 @@
-"""채점: 테마 25 + 필수/금지 20 + PC 성능 20 + 시너지 15 + 배선 10 + 예산 10 = 100점."""
+"""손님 만족도 채점: 테마 25 + 필수/금지 25 + PC 성능 20 + 시너지 15 + 배선 15 = 100점.
+예산은 점수에 없다: 손님은 예산만큼 내고, 아낀 돈은 전부 가게 마진이다 (조건만 맞추면 싸게 할수록 이득)."""
 from common import ITEMS, PARTS
 import cables as cab
 
@@ -32,7 +33,7 @@ def synergies(placed, pc):
     return found
 
 
-def score(request, room, pc, spent, cables=()):
+def score(request, room, pc, cables=()):
     """pc: pcbuild.PCBuild"""
     placed = room.placed
     ids = [p['id'] for p in placed]
@@ -43,8 +44,8 @@ def score(request, room, pc, spent, cables=()):
 
     reqs = request['required']
     met = sum(min(1, sum(ids.count(i) for i in r['any']) / r['count']) for r in reqs)
-    req_s = 20 * met / len(reqs) if reqs else 20
-    req_s = max(0, req_s - 10 * sum(ids.count(f) for f in request['forbidden']))
+    req_s = 25 * met / len(reqs) if reqs else 25
+    req_s = max(0, req_s - 12.5 * sum(ids.count(f) for f in request['forbidden']))
 
     stage, post_msg = pc.post()
     boot = 'ok' if stage == 4 else post_msg
@@ -53,24 +54,23 @@ def score(request, room, pc, spent, cables=()):
     syn = synergies(placed, pc)
     syn_s = min(15, 8 * len(syn))
     wire_s, unplugged, tangles = cab.wiring_score(list(cables), room)
+    wire_s *= 1.5
 
-    budget_s = 10 * max(0, request['budget'] - spent) / request['budget']
 
-    parts = {'테마 일치': theme_s, '필수 · 금지': req_s, 'PC 성능': pc_s, '조합 시너지': syn_s, '배선': wire_s, '예산 절약': budget_s}
+    parts = {'테마 일치': theme_s, '필수 · 금지': req_s, 'PC 성능': pc_s, '조합 시너지': syn_s, '배선': wire_s}
     total = round(sum(parts.values()))
     stars = next((s for cut, s in STAR_CUTS if total >= cut), 0)
     return {'parts': parts, 'total': total, 'stars': stars, 'synergies': syn, 'boot': boot,
             'line': reaction(request, parts, boot, unplugged, tangles)}
 
 
-MAX = {'테마 일치': 25, '필수 · 금지': 20, 'PC 성능': 20, '조합 시너지': 15, '배선': 10, '예산 절약': 10}
+MAX = {'테마 일치': 25, '필수 · 금지': 25, 'PC 성능': 20, '조합 시너지': 15, '배선': 15}
 LINES = {
     '테마 일치': '음… 제가 말한 분위기랑은 좀 달라요.',
     '필수 · 금지': '부탁드린 게 빠졌거나, 싫다는 게 들어갔어요.',
     'PC 성능': '켜지긴 하는데 좀 느리네요…',
     '조합 시너지': '하나하나는 좋은데, 어울림이 아쉬워요.',
     '배선': '선이 너무 엉켜 있어요… 정리 좀 해 주세요.',
-    '예산 절약': '좋긴 한데… 돈을 너무 많이 쓰셨어요.',
 }
 
 
@@ -98,11 +98,11 @@ if __name__ == '__main__':
     mons = [p for p in room.placed if p['id'] == 'monitor']
     wired = [{'dev': mons[0], 'type': 'DP', 'port': 0}, {'dev': mons[1], 'type': 'DP', 'port': 1}]
     assert set(synergies(room.placed, good_pc)) == {'독서 콤보', '균형 조명'}
-    r = score(dev, room, good_pc, 170, wired)
-    assert r['parts']['필수 · 금지'] == 20 and r['parts']['PC 성능'] == 20 and r['parts']['배선'] == 10, r
-    unplugged = score(dev, room, good_pc, 170, [])
+    r = score(dev, room, good_pc, wired)
+    assert r['parts']['필수 · 금지'] == 25 and r['parts']['PC 성능'] == 20 and r['parts']['배선'] == 15, r
+    unplugged = score(dev, room, good_pc, [])
     assert unplugged['parts']['배선'] == 0 and '케이블' in unplugged['line']
     room.place('lamp_cool', 'desk', 6)
-    bad = score(dev, room, full(psu='psu1'), 200, wired)   # 400W 파워엔 그래픽카드 전원선이 없음
-    assert bad['parts']['PC 성능'] == 0 and bad['parts']['필수 · 금지'] == 10 and 'VGA' in bad['line']
+    bad = score(dev, room, full(psu='psu1'), wired)        # 400W 파워엔 그래픽카드 전원선이 없음
+    assert bad['parts']['PC 성능'] == 0 and bad['parts']['필수 · 금지'] == 12.5 and 'VGA' in bad['line']
     print('scorer ok', r['total'], r['stars'])

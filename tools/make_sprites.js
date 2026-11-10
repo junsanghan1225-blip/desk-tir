@@ -215,6 +215,8 @@ S.title_bg = [1280, 720, `<defs>${sky('tsky')}</defs><rect width="1280" height="
   <rect y="660" width="1280" height="60" fill="#120a26"/><rect y="660" width="1280" height="4" fill="#2ee6d6"/>
   <rect x="100" y="150" width="700" height="250" fill="#120a26" opacity=".55"/>`];
 
+require('./more_sprites')(S, { glow, RGB, kb, lamp, tower });
+
 (async () => {
   for (const [name, [w, h, body]] of Object.entries(S)) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;

@@ -1,7 +1,7 @@
 from pico2d import *
 
 import game_framework
-import market_mode
+import request_mode
 import state
 from common import WIDTH, HEIGHT, box, text, sprite
 
@@ -20,7 +20,7 @@ def finish():
 def handle_event(e):
     if e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
         state.new_game()
-        game_framework.change_mode(market_mode)
+        game_framework.change_mode(request_mode)
 
 
 def update():

@@ -2,13 +2,14 @@
 좌표는 배선 정리 화면(wire_mode) 기준: 위 = 책상 위 기기(책상 순서 그대로), 아래 = 포트 한 줄."""
 from common import ITEMS, PARTS
 
-PORT_COUNT = {'USB': 4, 'AUDIO': 2}          # DP 개수는 그래픽카드 등급이 정함
+PORT_COUNT = {'AUDIO': 2}                  # DP는 그래픽카드, USB는 메인보드가 정함
+MAX_PORTS = {'DP': 3, 'USB': 6, 'AUDIO': 2}
 PORT_COLOR = {'DP': (255, 77, 141), 'USB': (46, 230, 214), 'AUDIO': (255, 214, 92)}
 PORT_NAMES = {'DP': 'DP', 'USB': 'USB', 'AUDIO': '오디오'}
 ORDER = ['DP', 'USB', 'AUDIO']               # PC 뒷면 포트는 한 줄: 기기 순서와 포트 순서가 엇갈리면 선이 꼬인다
-PORT_Y, PORT_X0, PORT_GAP = 170, 240, 100
-SLOT_OFFSET = {'DP': 0, 'USB': 3, 'AUDIO': 7}  # DP 최대 3 · USB 4 · 오디오 2
-PANEL = (PORT_X0 - 60, PORT_Y - 56, PORT_X0 + PORT_GAP * 8 + 60, PORT_Y + 44)
+PORT_Y, PORT_X0, PORT_GAP = 170, 200, 88
+SLOT_OFFSET = {'DP': 0, 'USB': 3, 'AUDIO': 9}  # DP 최대 3 · USB 최대 6 · 오디오 2
+PANEL = (PORT_X0 - 50, PORT_Y - 56, PORT_X0 + PORT_GAP * 10 + 50, PORT_Y + 44)
 PLUG_Y = 405
 DEV_X0, DEV_GAP = 150, 145                     # 책상 슬롯 → 배선 화면 x
 
@@ -16,6 +17,8 @@ DEV_X0, DEV_GAP = 150, 145                     # 책상 슬롯 → 배선 화면
 def port_count(t, pc):
     if t == 'DP':
         return PARTS[pc.get('GPU')]['dp'] if pc.get('GPU') else 0
+    if t == 'USB':
+        return PARTS[pc.get('MB')]['usb'] if pc.get('MB') else 0
     return PORT_COUNT[t]
 
 
@@ -37,7 +40,12 @@ def port_at(x, y, pc):
 
 
 def needs_cable(p):
+    """포트에 연결해야 켜지는 기기 (케이블이든 무선 동글이든)."""
     return 'port' in ITEMS[p['id']]
+
+
+def is_dongle(c):
+    return ITEMS[c['dev']['id']].get('dongle', False)
 
 
 def prune(cables, room, pc):
@@ -52,7 +60,7 @@ def _cross(a, b, c, d):
 
 
 def crossings(cables, room):
-    segs = [(plug_pos(room, c['dev']), port_pos(c['type'], c['port'])) for c in cables]
+    segs = [(plug_pos(room, c['dev']), port_pos(c['type'], c['port'])) for c in cables if not is_dongle(c)]  # 동글은 선이 없어 안 꼬인다
     return sum(_cross(*segs[i], *segs[j]) for i in range(len(segs)) for j in range(i + 1, len(segs)))
 
 
@@ -72,8 +80,8 @@ if __name__ == '__main__':
     room.place('monitor', 'desk', 0)
     room.place('keyboard', 'desk', 2)
     mon, kb = room.placed
-    pc = {'GPU': 'gpu1'}
-    assert port_count('DP', pc) == 1 and port_count('DP', {}) == 0
+    pc = {'GPU': 'gpu1', 'MB': 'mb1'}
+    assert port_count('DP', pc) == 1 and port_count('DP', {}) == 0 and port_count('USB', pc) == 4 and port_count('USB', {'MB': 'mb3'}) == 6
     ok = [{'dev': mon, 'type': 'DP', 'port': 0}, {'dev': kb, 'type': 'USB', 'port': 0}]
     assert wiring_score(ok, room) == (10, 0, 0), wiring_score(ok, room)
     # 왼쪽 기기를 오른쪽 포트에, 오른쪽 기기를 왼쪽 포트에 → 교차
@@ -81,5 +89,9 @@ if __name__ == '__main__':
     sp = room.placed[2]
     tangled = [{'dev': kb, 'type': 'AUDIO', 'port': 1}, {'dev': sp, 'type': 'USB', 'port': 0}]
     assert crossings(tangled, room) == 1
-    assert prune(ok, room, {}) == [ok[1]]  # GPU를 빼면 DP 선이 뽑힘
+    assert prune(ok, room, {'MB': 'mb1'}) == [ok[1]]  # GPU를 빼면 DP 선이 뽑힘
+    room.place('mouse_gaming', 'desk', 5)
+    ms = room.placed[3]
+    dongled = tangled + [{'dev': ms, 'type': 'USB', 'port': 3}]
+    assert crossings(dongled, room) == 1                  # 동글은 선이 없어서 꼬임에 안 들어감
     print('cables ok')

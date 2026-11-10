@@ -28,8 +28,8 @@ def finish():
 
 def in_order():
     """밑에 깔린 화면이 주문 작업 중인지."""
-    import decorate_mode, build_mode, wire_mode
-    return len(game_framework.stack) > 1 and game_framework.stack[-2] in (decorate_mode, build_mode, wire_mode)
+    import shop_mode, decorate_mode, build_mode, wire_mode
+    return len(game_framework.stack) > 1 and game_framework.stack[-2] in (shop_mode, decorate_mode, build_mode, wire_mode)
 
 
 def handle_event(e):

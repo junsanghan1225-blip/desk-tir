@@ -28,9 +28,18 @@ def finish():
     pass
 
 
-def shop_ids():
-    """보유 재고가 있는 소품만 진열 (재고 순서는 아이템 목록 순)."""
+PER_PAGE = 16
+page = 0
+BTN_PREV, BTN_NEXT = (14, 66, 64, 96), (206, 66, 256, 96)
+
+
+def all_ids():
+    """창고에 있는 소품 (아이템 목록 순)."""
     return [i for i in ITEMS if state.stock.get(i, 0) > 0 or i == held]
+
+
+def shop_ids():
+    return all_ids()[page * PER_PAGE:(page + 1) * PER_PAGE]
 
 
 def shop_row(i):
@@ -39,7 +48,11 @@ def shop_row(i):
 
 
 def on_down(x, y, button):
-    global held, toast
+    global held, toast, page
+    if inside(x, y, BTN_PREV) or inside(x, y, BTN_NEXT):
+        last = max(0, (len(all_ids()) - 1) // PER_PAGE)
+        page = max(0, page - 1) if inside(x, y, BTN_PREV) else min(last, page + 1)
+        return
     tab = ui.tab_at(x, y)
     if tab:
         ui.goto_tab(tab)
@@ -53,7 +66,7 @@ def on_down(x, y, button):
     for i, item_id in enumerate(shop_ids()):
         if inside(x, y, shop_row(i)):
             if state.stock.get(item_id, 0) <= 0:
-                toast = '재고가 없어요. 내일 아침 시장에서 사 두세요'
+                toast = '재고가 없어요. 쇼핑 탭에서 사 오세요'
             elif ITEMS[item_id]['price'] > state.money_left():
                 toast = '손님 예산을 넘어요!'
             else:
@@ -145,6 +158,12 @@ def draw_shop():
     left = state.money_left()
     if not shop_ids():
         text(14, ROW_TOP - 20, '소품 재고가 없어요', 15, (140, 128, 200))
+        text(14, ROW_TOP - 44, '쇼핑 탭(1)에서 사 오세요', 13, (90, 78, 130))
+    total = len(all_ids())
+    if total > PER_PAGE:
+        ui.button(BTN_PREV, '▲', (124, 92, 255))
+        ui.button(BTN_NEXT, '▼', (124, 92, 255))
+        text(92, 81, f"{page + 1}/{(total - 1) // PER_PAGE + 1}", 13, (170, 160, 220))
     for i, item_id in enumerate(shop_ids()):
         it = ITEMS[item_id]
         x1, y1, x2, y2 = shop_row(i)

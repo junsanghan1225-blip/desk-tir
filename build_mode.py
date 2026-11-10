@@ -9,9 +9,11 @@ import ui
 from common import WIDTH, HEIGHT, PARTS, box, outline, text, to_canvas_y, inside, draw_fit
 from pcbuild import POST_STAGES
 
-ORDER = ['CASE', 'MB', 'CPU', 'COOLER', 'RAM', 'GPU', 'PSU']
-TYPE_NAMES = {'CASE': '케이스', 'MB': '메인보드', 'CPU': 'CPU', 'COOLER': '쿨러', 'RAM': 'RAM', 'GPU': '그래픽카드', 'PSU': '파워'}
-CABLE_NAMES = {'24pin': '메인 24핀', 'cpu8': 'CPU 8핀', 'pcie0': 'GPU 8핀 #1', 'pcie1': 'GPU 8핀 #2'}
+ORDER = ['CASE', 'MB', 'CPU', 'COOLER', 'RAM', 'SSD', 'GPU', 'PSU']
+TYPE_NAMES = {'CASE': '케이스', 'MB': '메인보드', 'CPU': 'CPU', 'COOLER': '쿨러', 'RAM': 'RAM', 'SSD': 'M.2 SSD', 'GPU': '그래픽카드', 'PSU': '파워'}
+CABLE_NAMES = {'24pin': '메인 24핀', 'cpu8': 'CPU 8핀', 'pcie0': 'GPU 8핀 #1', 'pcie1': 'GPU 8핀 #2', 'front': '전원 버튼선'}
+PSU_CABLES = ['24pin', 'cpu8', 'pcie0', 'pcie1']
+FRONT_SRC = (820, 84, 890, 112)  # 케이스 앞면 버튼에서 나오는 선
 
 INV_W, ROW_H, ROW_TOP = 270, 34, 600
 CASE_AREA = (290, 70, 900, 636)
@@ -76,8 +78,20 @@ def gpu_rect():
     return mx1 + 10, my1 + 4, mx1 + 10 + int(length * 1.25), my1 + 64
 
 
+def ssd_rect():
+    mx1, my1, _, _ = mb_rect()
+    return mx1 + 60, my1 + 88, mx1 + 190, my1 + 104
+
+
+def lever_rect():
+    x1, y1, x2, y2 = cpu_rect()
+    return x1 - 30, y1, x1 - 14, y2
+
+
 def socket_rect(cable):
     mx1, my1, mx2, my2 = mb_rect()
+    if cable == 'front':
+        return mx2 - 60, my1 + 80, mx2 - 12, my1 + 100
     if cable == '24pin':
         return mx2 - 30, my2 - 230, mx2 - 10, my2 - 110
     if cable == 'cpu8':
@@ -88,7 +102,9 @@ def socket_rect(cable):
 
 
 def psu_port(cable):
-    i = list(CABLE_NAMES).index(cable)
+    if cable == 'front':
+        return FRONT_SRC
+    i = PSU_CABLES.index(cable)
     return PSU_BAY[2] + 14, PSU_BAY[3] - 24 - i * 26, PSU_BAY[2] + 96, PSU_BAY[3] - 6 - i * 26
 
 
@@ -105,17 +121,28 @@ def target_for(pid, x, y):
                 return 'RAM', i
         return None
     zone = {'CASE': CASE_AREA, 'MB': mb_rect(), 'CPU': grow(cpu_rect(), 20), 'COOLER': grow(cooler_rect(), 10),
-            'GPU': grow(gpu_rect(), 16), 'PSU': grow(PSU_BAY, 16)}[t]
+            'SSD': grow(ssd_rect(), 16), 'GPU': grow(gpu_rect(), 16), 'PSU': grow(PSU_BAY, 16)}[t]
     return (t, None) if inside(x, y, zone) else None
 
 
 # ---------- 재고 ----------
-def inv_ids():
+INV_PER_PAGE = 14
+inv_page = 0
+BTN_INV_PREV, BTN_INV_NEXT = (14, 70, 64, 100), (206, 70, 256, 100)
+PASTE_ROW = (10, ROW_TOP - ROW_H + 4, INV_W - 10, ROW_TOP)  # 서멀 구리스: 항상 있는 도구
+
+
+def inv_all():
     return [p for t in ORDER for p in PARTS if PARTS[p]['type'] == t and state.stock.get(p, 0) > 0]
 
 
+def inv_ids():
+    """지금 쪽에 보이는 재고 (첫 줄은 서멀 구리스 도구)."""
+    return inv_all()[inv_page * INV_PER_PAGE:(inv_page + 1) * INV_PER_PAGE]
+
+
 def inv_row(i):
-    y = ROW_TOP - i * ROW_H
+    y = ROW_TOP - (i + 1) * ROW_H
     return 10, y - ROW_H + 4, INV_W - 10, y
 
 
@@ -130,7 +157,7 @@ def placed_at(x, y):
     for i in range(4):
         if state.pc.ram[i] and inside(x, y, ram_rect(i)):
             return 'RAM', i
-    checks = [('COOLER', cooler_rect()), ('CPU', cpu_rect()), ('GPU', gpu_rect()), ('PSU', PSU_BAY), ('MB', mb_rect()), ('CASE', CASE_AREA)]
+    checks = [('COOLER', cooler_rect()), ('CPU', cpu_rect()), ('SSD', ssd_rect()), ('GPU', gpu_rect()), ('PSU', PSU_BAY), ('MB', mb_rect()), ('CASE', CASE_AREA)]
     for slot, r in checks:
         if state.pc.get(slot) and inside(x, y, r):
             return slot, None
@@ -151,8 +178,21 @@ def on_down(x, y, button):
     if inside(x, y, BTN_POST):
         post_result = state.pc.post()
         return
-    for c in CABLE_NAMES:  # 파워 전원선
-        if 'PSU' in state.pc.parts and inside(x, y, psu_port(c)):
+    global inv_page
+    if inside(x, y, BTN_INV_PREV) or inside(x, y, BTN_INV_NEXT):
+        last = max(0, (len(inv_all()) - 1) // INV_PER_PAGE)
+        inv_page = max(0, inv_page - 1) if inside(x, y, BTN_INV_PREV) else min(last, inv_page + 1)
+        return
+    if state.pc.get('MB') and inside(x, y, grow(lever_rect(), 8)):
+        toast = state.pc.toggle_lever() or ('레버를 열었어요' if state.pc.lever_open else '레버를 닫았어요')
+        post_result = None
+        return
+    if inside(x, y, PASTE_ROW):
+        held, toast = ('paste', None), ''
+        return
+    for c in CABLE_NAMES:  # 파워 전원선 + 케이스 전원 버튼선
+        has_src = 'PSU' in state.pc.parts if c != 'front' else 'CASE' in state.pc.parts
+        if has_src and inside(x, y, psu_port(c)):
             if button == SDL_BUTTON_RIGHT:
                 state.pc.cables.discard(c)
             elif c in state.pc.cable_targets():
@@ -182,6 +222,11 @@ def on_up(x, y):
     kind, what = held
     held = None
     post_result = None
+    if kind == 'paste':
+        if inside(x, y, grow(cpu_rect(), 16)):
+            reason = state.pc.apply_paste()
+            toast = reason or '서멀 구리스를 발랐어요'
+        return
     if kind == 'cable':
         if inside(x, y, grow(socket_rect(what), 12)):
             toast = state.pc.plug(what) or ''
@@ -263,6 +308,19 @@ def draw_board():
             box(*r, (30, 30, 40))
             text(r[0], r[1] - 12, 'AB'[i // 2] + str(i % 2 + 1) if mb['ram_slots'] == 4 else str(i + 1), 11, QUIET)
     box(*pcie_rect(), (30, 30, 40))
+    r = ssd_rect()
+    outline(*r, (60, 110, 120))
+    text(r[0] + 4, r[1] - 10, 'M.2', 11, QUIET)
+    r = socket_rect('front')
+    box(*r, (40, 40, 52))
+    text(r[0] - 4, r[1] - 10, '전원 버튼', 11, QUIET)
+    # 소켓 레버: 열리면 위로 선다
+    lx1, ly1, lx2, ly2 = lever_rect()
+    if state.pc.lever_open:
+        box(lx1 + 4, ly2, lx2 - 4, ly2 + 60, (200, 200, 215))
+        text(lx1 - 6, ly2 + 72, '열림', 11, GOLD)
+    else:
+        box(lx1 + 4, ly1, lx2 - 4, ly2, (150, 150, 165))
     text(pcie_rect()[0], pcie_rect()[1] - 12, 'PCIe x16', 11, QUIET)
     for c in ('24pin', 'cpu8'):
         box(*socket_rect(c), (40, 40, 52))
@@ -274,6 +332,15 @@ def draw_parts():
         x1, y1, x2, y2 = cpu_rect()
         box(x1 + 8, y1 + 8, x2 - 8, y2 - 8, (190, 190, 205))
         text(x1 + 14, (y1 + y2) // 2, cpu['name'][:5], 12, (30, 30, 40))
+    if cpu and state.pc.paste and not cooler:
+        x1, y1, x2, y2 = cpu_rect()
+        draw_circle((x1 + x2) // 2, (y1 + y2) // 2, 18, 170, 170, 180, 255, True)
+    ssd = state.pc.spec('SSD')
+    if ssd:
+        x1, y1, x2, y2 = ssd_rect()
+        box(x1, y1, x2, y2, (30, 90, 60))
+        outline(x1, y1, x2, y2, GREEN)
+        text(x1 + 6, (y1 + y2) // 2, ssd['capacity'], 11, INK)
     if cooler:
         x1, y1, x2, y2 = cooler_rect()
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
@@ -306,7 +373,7 @@ def draw_parts():
         outline(x1, y1, x2, y2, (124, 92, 255))
         draw_circle(x1 + 60, (y1 + y2) // 2, 36, *QUIET, 255, False)
         text(x1 + 110, (y1 + y2) // 2, f"{psu['capacity']}W", 16, INK)
-        for c in CABLE_NAMES:
+        for c in PSU_CABLES:
             if c.startswith('pcie') and int(c[-1]) >= psu['pcie']:
                 continue
             r = psu_port(c)
@@ -333,6 +400,11 @@ def center(r):
 
 
 def draw_cables():
+    if state.pc.get('CASE'):  # 케이스 앞면 전원 버튼선 출발점
+        on = 'front' in state.pc.cables
+        box(*FRONT_SRC, (60, 50, 100) if on else (24, 16, 52))
+        outline(*FRONT_SRC, CYAN if 'front' in state.pc.cable_targets() else DIM)
+        text(FRONT_SRC[0] + 4, (FRONT_SRC[1] + FRONT_SRC[3]) // 2, '버튼선', 11, INK)
     for c in state.pc.cables:
         cable_line(mid_right(psu_port(c)), center(socket_rect(c)), GOLD if c.startswith('pcie') else (255, 160, 60))
         box(*socket_rect(c), GOLD)
@@ -343,6 +415,11 @@ def draw_drag():
         return
     kind, what = held
     x, y = game_framework.mouse
+    if kind == 'paste':
+        outline(*grow(cpu_rect(), 6), CYAN if state.pc.get('CPU') and not state.pc.get('COOLER') else PINK)
+        draw_circle(x, y, 14, 200, 200, 210, 255, True)
+        text(x + 18, y, '서멀 구리스', 13, INK)
+        return
     if kind == 'cable':
         r = socket_rect(what)
         outline(*grow(r, 6), CYAN)
@@ -351,7 +428,7 @@ def draw_drag():
     # 갈 수 있는 자리 미리 보기
     t = PARTS[what]['type']
     zones = [('RAM', i, ram_rect(i)) for i in range(state.pc.ram_slots()) if not state.pc.ram[i]] if t == 'RAM' else \
-        [(t, None, {'CASE': CASE_AREA, 'MB': mb_rect(), 'CPU': cpu_rect(), 'COOLER': cooler_rect(), 'GPU': gpu_rect(), 'PSU': PSU_BAY}[t])]
+        [(t, None, {'CASE': CASE_AREA, 'MB': mb_rect(), 'CPU': cpu_rect(), 'COOLER': cooler_rect(), 'SSD': ssd_rect(), 'GPU': gpu_rect(), 'PSU': PSU_BAY}[t])]
     for slot, rs, r in zones:
         reason = state.pc.check(what, rs)
         outline(*grow(r, 4), PINK if reason else CYAN)
@@ -364,11 +441,13 @@ def draw_side():
     x0 = 930
     text(x0, 610, '조립 순서', 18, PINK)
     pc = state.pc
-    steps = [('케이스', 'CASE' in pc.parts), ('메인보드', 'MB' in pc.parts), ('CPU', 'CPU' in pc.parts), ('쿨러', 'COOLER' in pc.parts),
-             ('RAM', any(pc.ram)), ('그래픽카드', 'GPU' in pc.parts), ('파워', 'PSU' in pc.parts),
-             ('전원선', bool(pc.cable_targets()) and set(pc.cable_targets()) <= pc.cables)]
+    psu_lines = [c for c in pc.cable_targets() if c != 'front']
+    steps = [('케이스', 'CASE' in pc.parts), ('메인보드', 'MB' in pc.parts), ('CPU (레버 닫기)', 'CPU' in pc.parts and not pc.lever_open),
+             ('서멀 구리스', pc.paste), ('쿨러', 'COOLER' in pc.parts), ('RAM', any(pc.ram)), ('M.2 SSD', 'SSD' in pc.parts),
+             ('그래픽카드', 'GPU' in pc.parts), ('파워', 'PSU' in pc.parts),
+             ('전원선', 'PSU' in pc.parts and set(psu_lines) <= pc.cables), ('전원 버튼선', 'front' in pc.cables)]
     for i, (name, done) in enumerate(steps):
-        y = 578 - i * 26
+        y = 584 - i * 21
         text(x0, y, ('●  ' if done else '○  ') + name, 15, GREEN if done else QUIET)
     need = state.request()['perf']
     stars = '★' * pc.stars() or '-'
@@ -409,9 +488,21 @@ def draw_side():
 def draw_inventory():
     box(0, 0, INV_W, HEIGHT - 70, (34, 24, 70))
     text(14, ROW_TOP + 22, '부품 재고  (끌어서 장착)', 18)
+    x1, y1, x2, y2 = PASTE_ROW
+    box(x1, y1, x2, y2, (46, 40, 90))
+    draw_circle(x1 + 16, (y1 + y2) // 2, 9, 200, 200, 210, 255, True)
+    text(x1 + 36, (y1 + y2) // 2 + 6, '서멀 구리스', 14)
+    text(x1 + 36, (y1 + y2) // 2 - 9, '도구 · CPU 위로 끌기', 11, QUIET)
     ids = inv_ids()
     if not ids:
-        text(14, ROW_TOP - 16, '부품 재고가 없어요', 15, QUIET)
+        text(14, ROW_TOP - 56, '부품 재고가 없어요', 15, QUIET)
+        text(14, ROW_TOP - 78, '쇼핑 탭에서 사 오세요', 13, DIM)
+    total = len(inv_all())
+    if total > INV_PER_PAGE:
+        ui.button(BTN_INV_PREV, '▲', (124, 92, 255))
+        ui.button(BTN_INV_NEXT, '▼', (124, 92, 255))
+        last = (total - 1) // INV_PER_PAGE
+        text(92, 85, f"{inv_page + 1}/{last + 1}", 13, QUIET)
     for i, pid in enumerate(ids):
         x1, y1, x2, y2 = inv_row(i)
         p = PARTS[pid]

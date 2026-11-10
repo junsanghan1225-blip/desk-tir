@@ -7,7 +7,7 @@ import day_end_mode
 import scorer
 import cables
 import state
-from common import WIDTH, HEIGHT, ITEMS, PARTS, THEME_NAMES, box, outline, text, wholesale
+from common import WIDTH, HEIGHT, ITEMS, PARTS, THEME_NAMES, box, outline, text
 
 result = None
 pay = tip = cost = 0
@@ -18,9 +18,9 @@ def init():
     global result, pay, tip, wanted, cost
     state.cables = cables.prune(state.cables, state.room, state.pc)
     req = state.request()
-    result = scorer.score(req, state.room, state.pc, state.spent(), state.cables)
+    cost = state.spent()
+    result = scorer.score(req, state.room, state.pc, state.cables)
     pay, tip = state.settle(result)
-    cost = sum(wholesale(ITEMS[p['id']]['price']) for p in state.room.placed) + sum(wholesale(PARTS[i]['price']) for i in state.pc.ids())
     wanted = reveal(req)
 
 
@@ -67,8 +67,10 @@ def draw():
         text(320, y, f"{v:.0f} / {scorer.MAX[k]}", 19, (255, 255, 255))
     syn = ', '.join(result['synergies']) or '없음'
     text(120, 220, f"달성 시너지: {syn}", 17, (120, 255, 170))
-    note = '  (별 0개: 절반만 냄)' if not result['stars'] else f"  · 쓴 재고 원가 약 {cost}만"
-    text(120, 175, f"받은 돈  {pay}만 + 팁 {tip}만" + note, 20, (46, 230, 214))
+    note = '  (별 0개: 절반만 냄)' if not result['stars'] else ''
+    text(120, 180, f"받은 돈  {pay}만 + 팁 {tip}만" + note, 20, (46, 230, 214))
+    margin = pay + tip - cost
+    text(120, 148, f"물건 값 {cost}만  →  이번 주문 마진 {margin:+}만", 18, (120, 255, 170) if margin >= 0 else (255, 77, 141))
 
     box(640, 470, 1180, 610, (34, 24, 70))
     outline(640, 470, 1180, 610, (255, 77, 141))

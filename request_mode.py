@@ -2,7 +2,7 @@
 from pico2d import *
 
 import game_framework
-import decorate_mode
+import shop_mode
 import state
 from common import WIDTH, HEIGHT, box, outline, text
 
@@ -17,7 +17,7 @@ def finish():
 
 def handle_event(e):
     if e.type == SDL_MOUSEBUTTONDOWN or (e.type == SDL_KEYDOWN and e.key == SDLK_RETURN):
-        game_framework.change_mode(decorate_mode)
+        game_framework.change_mode(shop_mode)
 
 
 def update():
@@ -39,4 +39,4 @@ def draw():
         text(460, 550 - i * 56, f"\"{line}\"" if i == 0 else line, 24)
     text(460, 380, f"예산은 {req['budget']}만 원 정도 생각하고 있어요.", 20, (255, 214, 92))
     text(420, 200, '무엇을 원하는지 말 속에서 찾아보세요.', 18, (170, 160, 220))
-    text(420, 120, '클릭해서 주문 받기', 18, (140, 128, 200))
+    text(420, 120, '클릭해서 주문 받기 → 쇼핑으로', 18, (140, 128, 200))

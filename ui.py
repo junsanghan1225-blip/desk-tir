@@ -41,8 +41,8 @@ def clicked(rect, x, y):
     return inside(x, y, rect)
 
 
-WORK_TABS = [('decorate', '1 책상 꾸미기'), ('build', '2 PC 조립'), ('wire', '3 배선 정리')]
-TAB_Y1, TAB_Y2, TAB_X0, TAB_W = 656, 690, 560, 128
+WORK_TABS = [('shop', '1 쇼핑'), ('decorate', '2 책상'), ('build', '3 PC 조립'), ('wire', '4 배선')]
+TAB_Y1, TAB_Y2, TAB_X0, TAB_W = 656, 690, 560, 112
 
 
 def tab_rect(i):
@@ -77,13 +77,13 @@ def tab_at(x, y):
 
 def goto_tab(key):
     """탭 이름 → 그 화면으로 전환 (모듈끼리 서로 import 하지 않게 여기서 늦게 불러온다)."""
-    import game_framework, decorate_mode, build_mode, wire_mode
-    game_framework.change_mode({'decorate': decorate_mode, 'build': build_mode, 'wire': wire_mode}[key])
+    import game_framework, shop_mode, decorate_mode, build_mode, wire_mode
+    game_framework.change_mode({'shop': shop_mode, 'decorate': decorate_mode, 'build': build_mode, 'wire': wire_mode}[key])
 
 
 def tab_key(e):
-    """숫자 1 · 2 · 3 키 → 탭 이름."""
-    from pico2d import SDL_KEYDOWN, SDLK_1, SDLK_2, SDLK_3
+    """숫자 1 · 2 · 3 · 4 키 → 탭 이름."""
+    from pico2d import SDL_KEYDOWN, SDLK_1, SDLK_2, SDLK_3, SDLK_4
     if e.type == SDL_KEYDOWN:
-        return {SDLK_1: 'decorate', SDLK_2: 'build', SDLK_3: 'wire'}.get(e.key)
+        return {SDLK_1: 'shop', SDLK_2: 'decorate', SDLK_3: 'build', SDLK_4: 'wire'}.get(e.key)
     return None

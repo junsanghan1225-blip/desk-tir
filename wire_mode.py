@@ -108,6 +108,14 @@ def cable_points(a, b):
     return pts
 
 
+def draw_dongle(x, y, owner):
+    """USB 포트에 꽂힌 작은 무선 동글 + 주인 이름."""
+    box(x - 10, y - 14, x + 10, y + 14, (200, 200, 215))
+    box(x - 7, y - 22, x + 7, y - 14, (150, 150, 165))
+    box(x - 4, y + 6, x + 4, y + 10, (46, 230, 214))
+    text(x - 30, y + 30, owner[:6], 11, (46, 230, 214))
+
+
 def draw_ports():
     x1, y1, x2, y2 = cab.PANEL
     box(x1, y1, x2, y2, (14, 9, 30))
@@ -116,14 +124,15 @@ def draw_ports():
     used = {(c['type'], c['port']) for c in state.cables}
     for t in cab.ORDER:
         n = cab.port_count(t, state.pc)
-        for i in range(3 if t == 'DP' else cab.PORT_COUNT[t]):
+        for i in range(cab.MAX_PORTS[t]):
             px, py = cab.port_pos(t, i)
             color = cab.PORT_COLOR[t] if i < n else (60, 50, 90)
             box(px - 28, py - 18, px + 28, py + 18, color if (t, i) in used else (24, 16, 52))
             outline(px - 28, py - 18, px + 28, py + 18, color)
             box(px - 12, py - 5, px + 12, py + 5, (14, 9, 30))
         lx, _ = cab.port_pos(t, 0)
-        label = cab.PORT_NAMES[t] + (' (GPU를 장착하세요)' if t == 'DP' and not n else '')
+        label = cab.PORT_NAMES[t] + {'DP': ' (GPU를 장착하세요)' if not n else f' {n}개 · 그래픽카드',
+                                     'USB': ' (보드를 장착하세요)' if not n else f' {n}개 · 메인보드', 'AUDIO': ''}[t]
         text(lx - 28, y1 + 16, label, 16, cab.PORT_COLOR[t])
 
 
@@ -133,7 +142,7 @@ def draw():
         draw_line(gx, 0, gx, HEIGHT - 70, 30, 22, 60)
     ui.top_bar()
     text(40, 610, '배선 정리  ·  책상 뒤', 24, (255, 77, 141))
-    text(40, 578, '기기를 끌어 같은 색 포트에 꽂으세요. 선이 엇갈리면 꼬임 감점! (우클릭: 선 뽑기)', 15, (170, 160, 220))
+    text(40, 578, '기기를 끌어 같은 색 포트에 꽂으세요. 무선 기기는 USB 동글을 꽂아요. 선이 엇갈리면 꼬임 감점! (우클릭: 뽑기)', 15, (170, 160, 220))
 
     plugged = {id(c['dev']) for c in state.cables}
     for p in devices():
@@ -143,15 +152,25 @@ def draw():
         outline(x - 62, DEV_Y - 58, x + 62, DEV_Y + 58, color if id(p) in plugged else (90, 78, 130))
         draw_fit(p['id'], x, DEV_Y + 6, 100, 90)
         text(x - 56, DEV_Y - 46, ITEMS[p['id']]['name'], 13)
-        draw_circle(x, y, 9, *color, 255, True)
+        if ITEMS[p['id']].get('dongle'):
+            text(x - 18, y + 4, '무선', 13, color)  # 선 대신 동글을 꽂는다
+        else:
+            draw_circle(x, y, 9, *color, 255, True)
     if not devices():
         text(360, 520, '책상 위에 모니터 · 키보드 · 스피커 같은 기기를 먼저 놓으세요', 18, (255, 214, 92))
 
     draw_ports()
     for c in state.cables:
-        thick_line(cable_points(cab.plug_pos(state.room, c['dev']), cab.port_pos(c['type'], c['port'])), cab.PORT_COLOR[c['type']])
+        px, py = cab.port_pos(c['type'], c['port'])
+        if cab.is_dongle(c):
+            draw_dongle(px, py + 28, ITEMS[c['dev']['id']]['name'])
+        else:
+            thick_line(cable_points(cab.plug_pos(state.room, c['dev']), (px, py)), cab.PORT_COLOR[c['type']])
     if wiring:
-        thick_line(cable_points(cab.plug_pos(state.room, wiring), game_framework.mouse), cab.PORT_COLOR[ITEMS[wiring['id']]['port']])
+        if ITEMS[wiring['id']].get('dongle'):
+            draw_dongle(*game_framework.mouse, ITEMS[wiring['id']]['name'])
+        else:
+            thick_line(cable_points(cab.plug_pos(state.room, wiring), game_framework.mouse), cab.PORT_COLOR[ITEMS[wiring['id']]['port']])
 
     _, unplugged, tangles = cab.wiring_score(state.cables, state.room)
     ok = not unplugged and not tangles
