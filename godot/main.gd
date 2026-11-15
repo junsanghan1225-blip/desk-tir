@@ -1,3 +1,4 @@
+class_name Main
 extends Control
 ## 화면(모드) 스택 · 입력 분배 · 자동 저장. 각 화면은 godot/*.gd 의 Mode.
 ## 터치는 마우스로 들어온다 (Godot 기본: 터치 → 마우스 에뮬레이션). 더블탭 = 우클릭(빼기).

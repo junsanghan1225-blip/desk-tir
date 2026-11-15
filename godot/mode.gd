@@ -16,7 +16,7 @@ const BG := Color8(18, 12, 38)
 const DARK := Color8(24, 16, 52)
 const TABS := [["shop", "1 쇼핑"], ["desk", "2 책상"], ["build", "3 PC 조립"], ["wire", "4 배선"]]
 
-var m: Control          # main.gd (그리기 대상 · 화면 전환)
+var m: Main          # main.gd (그리기 대상 · 화면 전환)
 var overlay := false    # true면 아래 화면 위에 겹쳐 그린다
 
 
@@ -143,3 +143,15 @@ func top_bar(current: String) -> void:
 		text(r[0] + 10, (r[1] + r[3]) / 2.0, TABS[i][1], 15, Color.WHITE if on else QUIET)
 		if TABS[i][0] == "wire" and (wire[1] > 0 or wire[2] > 0):
 			box([r[2] - 16, r[3] - 16, r[2] - 6, r[3] - 6], PINK)  # 미연결 · 꼬임이 있으면 빨간 점
+
+
+## 탭을 눌렀으면 그 화면으로 가고 true
+func tabs(x: float, y: float) -> bool:
+	var tab := tab_at(x, y)
+	if tab != "":
+		m.go(tab)
+	return tab != ""
+
+
+func grid() -> void:
+	box([0, 0, 1280, H], BG)

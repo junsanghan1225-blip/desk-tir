@@ -44,6 +44,30 @@ python main.py
 
 조작: 좌클릭 드래그(배치 · 조립 · 배선) · 클릭(소품 선택 · 색 바꾸기) · 우클릭(빼기 · 바로 담기) · 1~4 또는 상단 탭 · Space(전원 테스트) · P(사진) · M(음소거) · Enter(결제 · 납품) · ESC(일시정지)
 
+## Godot 버전 (출시용 · 안드로이드 먼저)
+
+같은 저장소에 Godot 4 프로젝트가 같이 들어 있고, `data/` · `resource/`를 pico2d 버전과 함께 씀 (데이터 · 그림을 고치면 양쪽에 반영).
+
+1. [Godot 4.7](https://godotengine.org/download) 설치 → **가져오기**로 이 폴더의 `project.godot` 열기 → F5
+2. 조작: 누르기 · 끌기(터치 = 마우스), **두 번 누르기 = 우클릭(빼기 · 바로 담기)**
+
+| 파일 | 역할 |
+|---|---|
+| `godot/main.gd`, `godot/mode.gd` | 화면 스택 · 입력 분배 · 자동 저장, 화면 공통 그리기 도우미(pico2d와 같은 좌표) |
+| `godot/screens.gd` | 타이틀 · 뉴스 · 손님 · 결과 · 영업 마감 · 상품 상세 · 영수증 |
+| `godot/shop.gd`, `desk.gd`, `build.gd`, `wire.gd` | 쇼핑 · 책상 · PC 조립 · 배선 |
+| `godot/db.gd`, `game.gd`, `pcbuild.gd`, `rules.gd` | 데이터, 가게 · 주문 상태와 저장, 조립 규칙, 배치 · 배선 · 채점 |
+| `godot/tests.gd`, `godot/smoke.gd` | 규칙 테스트, 전체 플레이 자동 테스트 |
+
+```bash
+godot --headless --path . --script godot/tests.gd   # 규칙
+godot --headless --path . --script godot/smoke.gd   # 손님 한 명 처음부터 납품까지
+```
+
+아직 Godot에 없는 것: 소리 · 부팅 연출 · 사진 앨범 · 일시정지 메뉴, 폰 화면에 맞춘 큰 글씨 · 버튼, 안드로이드 내보내기 설정
+
+![Godot 조립 화면](docs/screens/godot_8_build.png)
+
 ## 구조
 
 | 파일 | 역할 |
@@ -71,7 +95,8 @@ python main.py
 - [x] 1차: 기획 · 핵심 루프 프로토타입 (픽셀 사이버펑크 그래픽, 의뢰 3개)
 - [ ] 손님 캐릭터 그래픽 (AI 이미지 생성 툴로 직접 제작)
 - [x] 하루 영업 구조: 애매한 주문 → 쇼핑 → 작업 → 정산 (5일, 손님 15명), 가게 레벨 · 업그레이드
-- [ ] Godot 이전 (안드로이드 먼저 출시) — 이 pico2d 버전은 학기 과제 겸 설계 프로토타입
+- [x] Godot 이전 1단계: 규칙 · 전체 화면 이식 (pico2d 버전은 학기 과제용으로 계속 유지)
+- [ ] Godot: 소리 · 연출 · 폰 화면 UI · 안드로이드 내보내기
 - [ ] 손님 표정 · 단골 · 소품 24개
 - [ ] 자유 모드 · 저장 · 사운드
 
