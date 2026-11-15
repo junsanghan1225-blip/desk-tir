@@ -21,6 +21,18 @@ const monitor = (body, top, glow, baseW = 0.4) => (W, H) => {
   ${shadow(bx, H * .44, bw, H * .48, 8)}<rect x="${bx}" y="${H * .44}" width="${bw}" height="${H * .48}" rx="8" fill="${body}"/><rect x="${bx}" y="${H * .44}" width="${bw}" height="8" rx="6" fill="${top}"/>`;
 };
 
+// 키보드(+ 마우스) 공통: key가 배열이면 줄마다 색이 바뀜(RGB). pad가 있으면 마우스 밑에 패드.
+const kbTop = ({ body, top, key, cols = 15, kbW = 0.8, mouse, pad }) => (W, H) => {
+  const kw = W * kbW, kc = Array.isArray(key) ? key : [key];
+  const kx = (kw - 12) / cols - 3, ky = (H - 30) / 5;
+  const rows = [0, 1, 2, 3].map(r => keys(8, 12 + r * (ky + 3), cols, 1, kx, ky, 3, kc[r % kc.length])).join('');
+  const mx = kw + (W - kw) * .3, mw = (W - kw) * .5;
+  return `${shadow(2, 4, kw, H - 10, 4)}<rect x="2" y="4" width="${kw}" height="${H - 10}" rx="4" fill="${body}"/><rect x="2" y="4" width="${kw}" height="5" rx="3" fill="${top}"/>
+    ${rows}<rect x="${kw * .25}" y="${H - 18}" width="${kw * .45}" height="${ky}" fill="${kc[0]}"/>
+    ${pad ? `<rect x="${kw + 6}" y="${H * .08}" width="${W - kw - 8}" height="${H * .84}" rx="3" fill="#14102a" stroke="${pad}" stroke-width="2"/>` : ''}
+    ${shadow(mx, H * .2, mw, H * .62, 12)}<rect x="${mx}" y="${H * .2}" width="${mw}" height="${H * .62}" rx="12" fill="${mouse}"/><rect x="${mx + mw / 2 - 1}" y="${H * .24}" width="3" height="${H * .16}" fill="${pad || '#9aa0b4'}"/>`;
+};
+
 const DRAW = {
   monitor: monitor('#2a2440', '#4a4370', CYAN),
   monitor_27: monitor('#1c1830', '#3e3760', PINK, 0.36),
@@ -53,12 +65,41 @@ const DRAW = {
     <rect x="${W * .38}" y="${H * .6}" width="${W * .24}" height="${H * .12}" fill="${CYAN}"/><rect x="${W * .7}" y="${H * .34}" width="5" height="5" fill="${PINK}"/>`,
 
   // 키보드 + 마우스
-  keyboard: (W, H) => {
-    const kw = W * .8;
-    return `${shadow(2, 4, kw, H - 10, 4)}<rect x="2" y="4" width="${kw}" height="${H - 10}" rx="4" fill="#c9ccd6"/><rect x="2" y="4" width="${kw}" height="5" rx="3" fill="#e6e8f0"/>
-    ${keys(8, 12, 15, 4, (kw - 12) / 15 - 3, (H - 30) / 5, 3, '#f4f4fa')}<rect x="${kw * .25}" y="${H - 18}" width="${kw * .45}" height="${(H - 30) / 5}" fill="#f4f4fa"/>
-    ${shadow(W * .87, H * .2, W * .1, H * .62, 12)}<rect x="${W * .87}" y="${H * .2}" width="${W * .1}" height="${H * .62}" rx="12" fill="#e6e8f0"/><rect x="${W * .915}" y="${H * .24}" width="3" height="${H * .16}" fill="#9aa0b4"/>`;
-  },
+  keyboard: kbTop({ body: '#c9ccd6', top: '#e6e8f0', key: '#f4f4fa', mouse: '#e6e8f0' }),
+  gaming_kb: kbTop({ body: '#14102a', top: '#2a2440', key: [PINK, '#7b5cff', CYAN], mouse: '#2a2440', pad: PINK }),
+  kb_white: kbTop({ body: '#f4f4fa', top: '#ffffff', key: '#e6e8f0', mouse: '#f4f4fa' }),
+  kb_mini: kbTop({ body: '#8a7cc8', top: '#a99be0', key: ['#e6e0ff', '#e6e0ff', '#e6e0ff', PINK], cols: 11, kbW: 0.76, mouse: '#c8bcf4' }),
+
+  // 버티컬 마우스: 옆으로 세운 손잡이
+  mouse_vertical: (W, H) => `<ellipse cx="${W / 2 + 2}" cy="${H / 2 + 3}" rx="${W * .42}" ry="${H * .46}" fill="#000" opacity=".35"/>
+    <ellipse cx="${W / 2}" cy="${H / 2}" rx="${W * .42}" ry="${H * .46}" fill="#4a4566"/><path d="M${W * .5} ${H * .06} Q${W * .95} ${H * .5} ${W * .5} ${H * .94}" fill="#2e2a44"/>
+    <rect x="${W * .3}" y="${H * .3}" width="4" height="6" fill="${CYAN}"/>`,
+
+  // 차가운 스탠드: 네모 받침 · 꺾인 팔 · 하늘색 갓, 차가운 빛
+  lamp_cool: (W, H) => `<defs><radialGradient id="cool"><stop offset="0" stop-color="#cfefff" stop-opacity=".5"/><stop offset="1" stop-color="#cfefff" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="${W * .64}" cy="${H * .5}" r="${H * .52}" fill="url(#cool)"/>
+    ${shadow(W * .06, H * .58, W * .3, H * .32, 3)}<rect x="${W * .06}" y="${H * .58}" width="${W * .3}" height="${H * .32}" rx="3" fill="#2a2440"/><rect x="${W * .06}" y="${H * .58}" width="${W * .3}" height="4" fill="#4a4370"/>
+    <path d="M${W * .2} ${H * .72} L${W * .38} ${H * .3} L${W * .55} ${H * .36}" stroke="#5a4fa0" stroke-width="5" fill="none"/><rect x="${W * .36}" y="${H * .27}" width="6" height="6" fill="${CYAN}"/>
+    ${shadow(W * .52, H * .2, W * .36, H * .34, 4)}<rect x="${W * .52}" y="${H * .2}" width="${W * .36}" height="${H * .34}" rx="4" fill="#8fd8ff"/><rect x="${W * .52}" y="${H * .2}" width="${W * .36}" height="5" fill="#c8eeff"/><circle cx="${W * .7}" cy="${H * .4}" r="${H * .08}" fill="#ffffff"/>`,
+
+  // 모니터 라이트바: 얇은 막대 + 앞쪽 책상에 떨어지는 빛
+  monitor_bar: (W, H) => `<defs><linearGradient id="bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8f6ff" stop-opacity=".55"/><stop offset="1" stop-color="#e8f6ff" stop-opacity="0"/></linearGradient></defs>
+    <path d="M4 ${H * .4} L${W - 4} ${H * .4} L${W - 16} ${H} L16 ${H} Z" fill="url(#bar)"/>
+    ${shadow(2, 2, W - 4, H * .36, 3)}<rect x="2" y="2" width="${W - 4}" height="${H * .36}" rx="3" fill="#2a2440"/><rect x="6" y="${H * .3}" width="${W - 12}" height="3" fill="#ffffff"/>
+    <rect x="${W / 2 - 10}" y="0" width="20" height="${H * .24}" fill="#4a4370"/>`,
+
+  // 네온 무드등: 위에서 보면 빛나는 원기둥 윗면 (색 바꾸기 가능)
+  mood_lamp: (W, H) => `<defs><radialGradient id="mood"><stop offset="0" stop-color="${PINK}" stop-opacity=".6"/><stop offset="1" stop-color="#7b5cff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="tube" cx=".4" cy=".35"><stop offset="0" stop-color="#ffd0e4"/><stop offset=".5" stop-color="${PINK}"/><stop offset="1" stop-color="#7b5cff"/></radialGradient></defs>
+    <circle cx="${W / 2}" cy="${H / 2}" r="${W / 2}" fill="url(#mood)"/>
+    <circle cx="${W / 2 + 2}" cy="${H / 2 + 3}" r="${W * .34}" fill="#000" opacity=".35"/><circle cx="${W / 2}" cy="${H / 2}" r="${W * .34}" fill="#2a2440"/><circle cx="${W / 2}" cy="${H / 2}" r="${W * .24}" fill="url(#tube)"/>`,
+
+  // 달 무드등: 나무 받침 위 달
+  moon_lamp: (W, H) => `<defs><radialGradient id="mglow"><stop offset="0" stop-color="#fff2c0" stop-opacity=".5"/><stop offset="1" stop-color="#fff2c0" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="${W / 2}" cy="${H / 2}" r="${W / 2}" fill="url(#mglow)"/>
+    <rect x="${W * .2}" y="${H * .2}" width="${W * .6}" height="${H * .6}" rx="4" fill="#8a5a34"/>
+    <circle cx="${W / 2 + 2}" cy="${H / 2 + 3}" r="${W * .32}" fill="#000" opacity=".3"/><circle cx="${W / 2}" cy="${H / 2}" r="${W * .32}" fill="#f4e8b8"/>
+    <circle cx="${W * .4}" cy="${H * .42}" r="${W * .07}" fill="#d8c890"/><circle cx="${W * .6}" cy="${H * .6}" r="${W * .09}" fill="#d8c890"/><circle cx="${W * .42}" cy="${H * .36}" r="${W * .1}" fill="#fffbe8" opacity=".6"/>`,
 
   // 게이밍 마우스 + RGB 패드
   mouse_gaming: (W, H) => `<defs>${rgb('pad')}</defs>${shadow(3, 3, W - 6, H - 6, 6)}<rect x="3" y="3" width="${W - 6}" height="${H - 6}" rx="6" fill="url(#pad)"/><rect x="7" y="7" width="${W - 14}" height="${H - 14}" rx="5" fill="#14102a"/>
@@ -80,7 +121,7 @@ const DRAW = {
     <path d="M${cx} ${cy + r * .4} L${cx - r * .38} ${cy} A${r * .19} ${r * .19} 0 0 1 ${cx} ${cy - r * .22} A${r * .19} ${r * .19} 0 0 1 ${cx + r * .38} ${cy} Z" fill="#f2e2cc"/>`;
   },
 };
-const TINT = ['mug', 'mouse_gaming'];
+const TINT = ['mug', 'mouse_gaming', 'kb_mini', 'mood_lamp'];
 
 (async () => {
   for (const [id, draw] of Object.entries(DRAW)) {
