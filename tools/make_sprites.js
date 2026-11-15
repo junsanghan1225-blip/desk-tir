@@ -217,13 +217,19 @@ S.title_bg = [1280, 720, `<defs>${sky('tsky')}</defs><rect width="1280" height="
 
 require('./more_sprites')(S, { glow, RGB, kb, lamp, tower });
 require('./inbuild_sprites')(S, { glow, RGB });
+require('./extra_sprites')(S, { city, stars });
+
+// 색을 바꿀 수 있는 소품: 색상(hue)을 돌린 그림을 함께 만든다 (이름__c1 ~ __c3)
+const TINT = ['mood_lamp', 'neon_sign', 'neon_heart', 'wall_light', 'kb_mini', 'mug', 'headphones', 'speaker_bt', 'gamepad', 'desk_clock', 'poster_game', 'mouse_gaming'];
 
 (async () => {
   for (const [name, [w, h, body]] of Object.entries(S)) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
-    const f = w > 500 ? 3 : 2;  // 도트 느낌: 작게 줄였다가 nearest로 다시 키움
+    const f = name.startsWith('face_') ? 5 : w > 500 ? 3 : 2;  // 도트 느낌: 작게 줄였다가 nearest로 다시 키움
     const small = await sharp(Buffer.from(svg)).resize(Math.ceil(w / f), Math.ceil(h / f), { kernel: 'nearest' }).png().toBuffer();
     await sharp(small).resize(w, h, { kernel: 'nearest' }).png().toFile(path.join(OUT, name + '.png'));
+    if (TINT.includes(name))
+      for (let k = 1; k <= 3; k++) await sharp(small).modulate({ hue: 90 * k }).resize(w, h, { kernel: 'nearest' }).png().toFile(path.join(OUT, `${name}__c${k}.png`));
   }
   console.log(Object.keys(S).length, 'sprites');
 })();

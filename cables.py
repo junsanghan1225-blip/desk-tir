@@ -27,7 +27,9 @@ def port_pos(t, i):
 
 
 def plug_pos(room, p):
-    return DEV_X0 + (p['slot'] + ITEMS[p['id']]['size'] / 2) * DEV_GAP, PLUG_Y
+    from room import rect_of, SLOT_X0, SLOT_W
+    x1, _, x2, _ = rect_of(p)
+    return DEV_X0 + ((x1 + x2) / 2 - SLOT_X0) / SLOT_W * DEV_GAP, PLUG_Y
 
 
 def port_at(x, y, pc):

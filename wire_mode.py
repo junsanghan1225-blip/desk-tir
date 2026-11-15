@@ -6,6 +6,7 @@ import game_framework
 import decorate_mode
 import result_mode
 import state
+import sound
 import ui
 import cables as cab
 from common import WIDTH, HEIGHT, ITEMS, box, outline, text, to_canvas_y, inside, draw_fit
@@ -46,7 +47,7 @@ def on_down(x, y, button):
         ui.goto_tab(tab)
         return
     if inside(x, y, BTN_DONE):
-        game_framework.change_mode(result_mode)
+        decorate_mode.deliver()
         return
     port = cab.port_at(x, y, state.pc)
     p = device_at(x, y)
@@ -69,6 +70,7 @@ def on_up(x, y):
         toast = '이미 쓰고 있는 포트예요'
     elif port:
         state.cables.append({'dev': wiring, 'type': port[0], 'port': port[1]})
+        sound.play('plug')
     wiring = None
 
 
@@ -78,7 +80,7 @@ def handle_event(e):
     elif e.type == SDL_KEYDOWN and e.key in (SDLK_c, SDLK_TAB):
         game_framework.change_mode(decorate_mode)
     elif e.type == SDL_KEYDOWN and e.key == SDLK_RETURN:
-        game_framework.change_mode(result_mode)
+        decorate_mode.deliver()
     elif e.type == SDL_MOUSEBUTTONDOWN:
         on_down(*game_framework.mouse, e.button)
     elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:

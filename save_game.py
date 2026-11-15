@@ -8,8 +8,8 @@ from pcbuild import PCBuild
 from room import Room
 
 PATH = os.environ.get('DESK_TIR_SAVE') or os.path.join(os.path.expanduser('~'), '.desk-tir', 'save.json')
-RESUMABLE = {'request_mode', 'shop_mode', 'decorate_mode', 'build_mode', 'wire_mode', 'day_end_mode'}
-VERSION = 1
+RESUMABLE = {'news_mode', 'request_mode', 'shop_mode', 'decorate_mode', 'build_mode', 'wire_mode', 'day_end_mode'}
+VERSION = 2
 
 
 def to_dict(mode_name):
@@ -22,8 +22,8 @@ def to_dict(mode_name):
     return {
         'version': VERSION, 'mode': mode_name,
         'money': state.money, 'day': state.day, 'stock': state.stock, 'upgrades': sorted(state.upgrades),
-        'stars_total': state.stars_total, 'ledger': state.ledger, 'order_index': order_index,
-        'order': None if mode_name in ('request_mode', 'day_end_mode') else {
+        'stars_total': state.stars_total, 'history': state.history, 'ledger': state.ledger, 'order_index': order_index,
+        'order': None if mode_name in ('news_mode', 'request_mode', 'day_end_mode') else {
             'cart': state.cart,
             'placed': placed,
             'pc': {'parts': pc.parts, 'ram': pc.ram, 'cables': sorted(pc.cables), 'lever_open': pc.lever_open, 'paste': pc.paste},
@@ -35,7 +35,7 @@ def to_dict(mode_name):
 def from_dict(d):
     """상태를 되살리고, 이어서 열 화면 이름을 돌려준다."""
     state.money, state.day, state.stock = d['money'], d['day'], dict(d['stock'])
-    state.upgrades, state.stars_total = set(d['upgrades']), d['stars_total']
+    state.upgrades, state.stars_total, state.history = set(d['upgrades']), d['stars_total'], dict(d['history'])
     state.ledger, state.order_index = list(d['ledger']), d['order_index']
     state.reset_order()
     o = d['order']

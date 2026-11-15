@@ -83,6 +83,7 @@ def handle_event(e):
 def add():
     global toast
     if state.add_to_cart(tid, qty):
+        __import__('sound').play('cart')
         game_framework.pop_mode()
     else:
         toast = '가게 업그레이드가 필요해요 (영업 마감 화면에서 구매)'

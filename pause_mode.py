@@ -61,7 +61,7 @@ def draw():
     if in_order():
         req = state.request()
         text(PANEL[0] + 30, PANEL[3] - 84, f"{req['customer']}의 주문", 16, ui.QUIET)
-        for i, line in enumerate(req['lines']):
+        for i, line in enumerate(state.lines()):
             text(PANEL[0] + 30, PANEL[3] - 116 - i * 30, f"\"{line}\"", 17)
         text(PANEL[0] + 30, PANEL[3] - 180, f"예산 {req['budget']}만 원", 16, (255, 214, 92))
     for i, (_, label) in enumerate(BUTTONS):

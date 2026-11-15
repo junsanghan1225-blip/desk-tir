@@ -17,6 +17,7 @@ ITEMS = {it['id']: it for it in load_json('items.json')}
 PARTS = {p['id']: p for p in load_json('parts.json')}
 REQUESTS = load_json('requests.json')
 UPGRADES = {u['id']: u for u in load_json('upgrades.json')}
+DAYS = {d['day']: d for d in load_json('days.json')}
 
 
 THEME_NAMES = {'cozy': '아늑', 'focus': '집중', 'gamer': '게이머', 'minimal': '미니멀', 'plant': '플랜테리어'}
@@ -79,3 +80,15 @@ def draw_fit(name, cx, cy, max_w, max_h):
     img = sprite(name)
     k = min(max_w / img.w, max_h / img.h)
     img.draw(cx, cy, img.w * k, img.h * k)
+
+
+_sizes = {}
+
+
+def sprite_size(name):
+    """그림 파일의 (가로, 세로). 캔버스 없이도 쓸 수 있게 PNG 머리말에서 읽는다."""
+    if name not in _sizes:
+        import struct
+        with open(os.path.join(BASE, 'resource', name + '.png'), 'rb') as f:
+            _sizes[name] = struct.unpack('>II', f.read(24)[16:24])
+    return _sizes[name]

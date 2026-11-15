@@ -2,7 +2,7 @@
 가게(여러 날 유지): 돈 · 날짜 · 창고 재고 · 업그레이드 · 오늘 장부.
 주문(손님 한 명 동안): 장바구니 · 배치 · PC · 케이블.
 흐름: 주문을 듣고 → 쇼핑(장바구니 → 결제 → 창고로 배송) → 꾸미기 · 조립 · 배선 → 납품. 남은 물건은 창고에 남아 다음 주문에 쓴다."""
-from common import ITEMS, PARTS, REQUESTS, UPGRADES
+from common import ITEMS, PARTS, REQUESTS, UPGRADES, DAYS
 from room import Room
 from pcbuild import PCBuild
 
@@ -17,6 +17,7 @@ day = 1
 stock = {}        # 창고: 소품 · 부품 id -> 개수 (이미 돈을 낸 물건)
 upgrades = set()  # 산 업그레이드 id
 stars_total = 0   # 지금까지 받은 별 (가게 평판)
+history = {}      # 손님 이름 -> 지난번에 받은 별 (단골 대사가 달라진다)
 ledger = []       # 오늘 영업 기록: {'customer', 'stars', 'pay', 'tip', 'cost'}
 order_index = 0   # 오늘 몇 번째 손님인지
 
@@ -28,8 +29,8 @@ cables = []     # {'dev': room.placed의 항목, 'type': 'DP'|'USB'|'AUDIO', 'po
 
 
 def new_game():
-    global money, day, stock, upgrades, stars_total
-    money, day, stock, upgrades, stars_total = START_MONEY, 1, {}, set(), 0
+    global money, day, stock, upgrades, stars_total, history
+    money, day, stock, upgrades, stars_total, history = START_MONEY, 1, {}, set(), 0, {}
     start_day()
 
 
@@ -44,6 +45,18 @@ def todays_requests():
 
 def request():
     return todays_requests()[order_index]
+
+
+def lines(req=None):
+    """손님 대사. 다시 온 단골은 지난번 별점(2개 이상이면 좋은 기억)에 따라 말이 달라진다."""
+    req = req or request()
+    if 'lines' in req:
+        return req['lines']
+    return req['lines_good'] if history.get(req['customer'], 0) >= 2 else req['lines_bad']
+
+
+def today():
+    return DAYS[day]
 
 
 def reset_order():
@@ -153,6 +166,7 @@ def settle(result):
     pay = budget if result['stars'] else 0
     tip = result['stars'] * budget * TIP_RATE[level() - 1] // 100
     stars_total += result['stars']
+    history[request()['customer']] = result['stars']
     money += pay + tip
     ledger.append({'customer': request()['customer'], 'stars': result['stars'], 'pay': pay, 'tip': tip, 'cost': spent()})
     return pay, tip
@@ -189,4 +203,9 @@ if __name__ == '__main__':
     assert pay == 120 and tip == 12 and money == before + pay + tip and ledger[-1]['cost'] == 4
     assert settle({'stars': 0}) == (0, 0) and stars_total == 2
     assert next_customer() and next_customer() and not next_customer()
+    regular = next(r for r in REQUESTS if r.get('returns') and r['customer'] == '자취 1년차 대학생')
+    history['자취 1년차 대학생'] = 3
+    assert '학점' in lines(regular)[0]
+    history['자취 1년차 대학생'] = 1
+    assert '아쉬웠' in lines(regular)[0] and today()['weather'] == 'rain'
     print('state ok')

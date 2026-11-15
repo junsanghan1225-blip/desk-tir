@@ -6,6 +6,7 @@ import game_framework
 import product_mode
 import receipt_mode
 import state
+import sound
 import ui
 from common import WIDTH, HEIGHT, ITEMS, PARTS, THEME_NAMES, box, outline, text, inside, draw_fit
 
@@ -156,7 +157,9 @@ def pay():
     result = state.checkout()
     if not result:
         toast = '가게 돈이 모자라요'
+        sound.play('error')
         return
+    sound.play('buy')
     receipt_mode.show(*result)
 
 

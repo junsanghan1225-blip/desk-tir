@@ -2,7 +2,7 @@
 from pico2d import *
 
 import game_framework
-import request_mode
+import news_mode
 import ui
 import title_mode
 import state
@@ -33,8 +33,7 @@ def next_mode():
         game_framework.change_mode(title_mode)
     else:
         state.day += 1
-        state.start_day()
-        game_framework.change_mode(request_mode)
+        game_framework.change_mode(news_mode)
 
 
 def handle_event(e):

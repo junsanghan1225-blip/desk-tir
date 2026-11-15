@@ -5,6 +5,8 @@ from pico2d import *
 import game_framework
 import decorate_mode
 import state
+import boot_mode
+import sound
 import ui
 from common import WIDTH, HEIGHT, PARTS, box, outline, text, to_canvas_y, inside, draw_fit, sprite
 from pcbuild import POST_STAGES
@@ -169,6 +171,16 @@ def pull_out(slot, ram_slot):
         state.give_back(pid)
 
 
+def run_post():
+    """전원 테스트. 성공하면 부팅 화면이 뜬다."""
+    global post_result
+    post_result = state.pc.post()
+    ok = post_result[0] == 4
+    sound.play('boot_ok' if ok else 'boot_fail')
+    if ok:
+        game_framework.push_mode(boot_mode)
+
+
 def on_down(x, y, button):
     global held, toast, post_result
     tab = ui.tab_at(x, y)
@@ -176,7 +188,7 @@ def on_down(x, y, button):
         ui.goto_tab(tab)
         return
     if inside(x, y, BTN_POST):
-        post_result = state.pc.post()
+        run_post()
         return
     global inv_page
     if inside(x, y, BTN_INV_PREV) or inside(x, y, BTN_INV_NEXT):
@@ -185,6 +197,7 @@ def on_down(x, y, button):
         return
     if state.pc.get('MB') and inside(x, y, grow(lever_rect(), 8)):
         toast = state.pc.toggle_lever() or ('레버를 열었어요' if state.pc.lever_open else '레버를 닫았어요')
+        sound.play('lever')
         post_result = None
         return
     if inside(x, y, PASTE_ROW):
@@ -225,10 +238,12 @@ def on_up(x, y):
         if inside(x, y, grow(cpu_rect(), 16)):
             reason = state.pc.apply_paste()
             toast = reason or '서멀 구리스를 발랐어요'
+            sound.play('error' if reason else 'paste')
         return
     if kind == 'cable':
         if inside(x, y, grow(socket_rect(what), 12)):
             toast = state.pc.plug(what) or ''
+            sound.play('error' if toast else 'plug')
         return
     target = target_for(what, x, y)
     if not target:
@@ -245,6 +260,7 @@ def on_up(x, y):
     else:
         state.pc.place(what, target[1])
         toast = ''
+    sound.play('error' if toast else 'place')
 
 
 def handle_event(e):
@@ -254,7 +270,7 @@ def handle_event(e):
     elif e.type == SDL_KEYDOWN and e.key == SDLK_TAB:
         game_framework.change_mode(decorate_mode)
     elif e.type == SDL_KEYDOWN and e.key == SDLK_SPACE:
-        post_result = state.pc.post()
+        run_post()
     elif e.type == SDL_MOUSEBUTTONDOWN:
         on_down(*game_framework.mouse, e.button)
     elif e.type == SDL_MOUSEBUTTONUP and e.button == SDL_BUTTON_LEFT:

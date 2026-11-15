@@ -12,14 +12,15 @@ def synergies(placed, pc):
     case = pc.get('CASE')
     found = []
 
-    def adjacent(a, b):
-        return a['layer'] == b['layer'] and (
-            a['slot'] + ITEMS[a['id']]['size'] == b['slot'] or b['slot'] + ITEMS[b['id']]['size'] == a['slot'])
+    from room import adjacent
 
     lamps = [p for p in placed if p['id'] in ('lamp_warm', 'lamp_cool')]
     books = [p for p in placed if p['id'] == 'book']
     if any(adjacent(l, b) for l in lamps for b in books):
         found.append('독서 콤보')
+    colors = [p['color'] for p in placed if p.get('color')]
+    if any(colors.count(c) >= 3 for c in set(colors)):
+        found.append('톤 온 톤')   # 색을 바꾼 소품 3개를 같은 색으로
     if tags.count('plant') >= 3:
         found.append('플랜테리어')
     if case == 'case3' and 'rgb_bar' in ids and 'gaming_kb' in ids:

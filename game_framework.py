@@ -27,6 +27,7 @@ stack = []
 frame_time = 0.0
 mouse = (0, 0)
 pause_mode = None  # main.py가 연결 (순환 import 방지)
+hotkeys = {}       # 어느 화면에서나 듣는 키: {키: 함수} (M = 음소거). main.py가 연결
 on_change = None   # 화면이 바뀔 때 부를 함수 (자동 저장). main.py가 연결
 
 
@@ -69,6 +70,9 @@ def dispatch(e, height):
         return
     if e.type in (SDL_MOUSEMOTION, SDL_MOUSEBUTTONDOWN, SDL_MOUSEBUTTONUP):
         mouse = (e.x, height - 1 - e.y)
+    if e.type == SDL_KEYDOWN and e.key in hotkeys:
+        hotkeys[e.key]()
+        return
     if e.type == SDL_KEYDOWN and e.key == SDLK_ESCAPE:
         rule = getattr(top(), 'ESC', 'pause')
         if rule == 'quit':

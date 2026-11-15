@@ -25,7 +25,7 @@ def top_bar():
     box(0, HEIGHT - 72, WIDTH, HEIGHT - 70, PINK)
     n = len(state.todays_requests())
     text(20, HEIGHT - 24, f"{state.day}일차 손님 {state.order_index + 1}/{n}  ·  {req['customer']}", 20, AMBER)
-    text(20, HEIGHT - 52, f"\"{req['lines'][0]}\"", 16, WHITE)
+    text(20, HEIGHT - 52, f"\"{state.lines()[0]}\"", 16, WHITE)
     left = state.money_left()
     text(WIDTH - 200, HEIGHT - 24, f"손님 예산 {req['budget']}만", 16, QUIET)
     text(WIDTH - 200, HEIGHT - 52, f"남은 예산 {left}만", 18, AMBER if left >= 0 else PINK)

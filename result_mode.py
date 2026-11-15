@@ -7,7 +7,8 @@ import day_end_mode
 import scorer
 import cables
 import state
-from common import WIDTH, HEIGHT, ITEMS, PARTS, THEME_NAMES, box, outline, text
+import sound
+from common import WIDTH, HEIGHT, ITEMS, PARTS, THEME_NAMES, box, outline, text, sprite
 
 result = None
 pay = tip = cost = 0
@@ -22,6 +23,7 @@ def init():
     result = scorer.score(req, state.room, state.pc, state.cables)
     pay, tip = state.settle(result)
     wanted = reveal(req)
+    sound.play('star' if result['stars'] else 'sad')
 
 
 def reveal(req):
@@ -72,9 +74,18 @@ def draw():
     margin = pay + tip - cost
     text(120, 148, f"물건 값 {cost}만  →  이번 주문 마진 {margin:+}만", 18, (120, 255, 170) if margin >= 0 else (255, 77, 141))
 
-    box(640, 470, 1180, 610, (34, 24, 70))
-    outline(640, 470, 1180, 610, (255, 77, 141))
-    text(665, 540, f"\"{result['line']}\"", 19)
+    mood = 'happy' if result['stars'] == 3 else 'neutral' if result['stars'] else 'sad'
+    sprite(f"face_{state.request()['face']}_{mood}").draw(710, 545, 140, 150)
+    outline(640, 470, 780, 620, (255, 77, 141))
+    box(800, 470, 1250, 620, (34, 24, 70))
+    outline(800, 470, 1250, 620, (255, 77, 141))
+    rows = ['']
+    for w in result['line'].split(' '):  # 말풍선 너비에 맞춰 줄바꿈
+        if len(rows[-1]) + len(w) > 20:
+            rows.append('')
+        rows[-1] = (rows[-1] + ' ' + w).strip()
+    for i, row in enumerate(rows[:4]):
+        text(820, 590 - i * 30, row, 18)
     text(640, 430, '손님이 사실 원했던 것', 18, (255, 77, 141))
     for i, line in enumerate(wanted):
         text(640, 395 - i * 34, line, 17, (232, 226, 255))
