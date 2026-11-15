@@ -36,6 +36,11 @@ func art(p: Dictionary) -> String:
 	return p["id"] + ("__c%d" % p["color"] if p.get("color", 0) else "")
 
 
+## 위에서 본 그림 (top_<id>). 아직 없으면 ""
+func top_art(name: String) -> String:
+	return "top_" + name if ResourceLoader.exists("res://resource/top_%s.png" % name) else ""
+
+
 func all_ids() -> Array:
 	return DB.ITEMS.keys().filter(func(i): return Game.stock.get(i, 0) > 0 or (i == held and moving == null))
 
@@ -223,8 +228,11 @@ func draw_top() -> void:
 		if is_same(p, moving):
 			continue
 		var r := shown_rect(p)
-		frame("ui_slot", r)
-		fit(art(p), (r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0, r[2] - r[0] - 6, r[3] - r[1] - 6)   # ponytail: 위에서 본 그림이 생기기 전까지 정면 그림을 임시로
+		if top_art(art(p)) != "":
+			put(top_art(art(p)), r)
+		else:   # ponytail: 위에서 본 그림이 아직 없는 소품은 정면 그림을 칸에 넣어 임시로
+			frame("ui_slot", r)
+			fit(art(p), (r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0, r[2] - r[0] - 6, r[3] - r[1] - 6)
 
 
 func draw_room() -> void:
@@ -287,6 +295,11 @@ func draw() -> void:
 		var a: String = art(moving) if moving != null else held
 		if top_view:
 			var hs := DB.size_of(held)
-			fit(a, m.mouse.x, m.mouse.y, hs.x * K, Rules.depth_of(held) * K)
+			var w: float = hs.x * K
+			var dd: float = Rules.depth_of(held) * K
+			if top_art(a) != "":
+				put(top_art(a), [m.mouse.x - w / 2, m.mouse.y - dd / 2, m.mouse.x + w / 2, m.mouse.y + dd / 2])
+			else:
+				fit(a, m.mouse.x, m.mouse.y, w, dd)
 		else:
 			spr(a, m.mouse.x, m.mouse.y)

@@ -34,8 +34,15 @@ func shot(name: String) -> void:
 		root.get_texture().get_image().save_png("res://docs/screens/godot_%s.png" % name)
 
 
+## 실패하면 이유를 찍고 바로 끝낸다 (assert는 헤드리스에서 멈춰 버림)
+func check(cond: bool, what := "") -> void:
+	if not cond:
+		printerr("smoke 실패: ", what, " @ 줄 ", get_stack()[1]["line"] if get_stack().size() > 1 else "?")
+		quit(1)
+
+
 func on(name: String) -> void:
-	assert(main.top() == main.modes[name], "화면이 %s 이어야 함" % name)
+	check(main.top() == main.modes[name], "화면이 %s 이어야 함" % name)
 
 
 func run() -> void:
@@ -55,30 +62,34 @@ func run() -> void:
 	await shot("4_product")
 	tap(main.modes["product"].BTN_ADD)
 	on("shop")
-	assert(Game.cart.size() == 1)
+	check(Game.cart.size() == 1)
 	Game.cart.clear()
-	for id in ["monitor", "keyboard", "case1", "mb1", "cpu1", "cool1", "ssd1", "gpu1", "ram1", "psu1"]:
+	Game.upgrades["gamer"] = true               # 게이밍 마우스는 게이밍 라인 업그레이드 상품
+	for id in ["monitor", "keyboard", "mouse_gaming", "lamp_warm", "mug", "case1", "mb1", "cpu1", "cool1", "ssd1", "gpu1", "ram1", "psu1"]:
 		Game.add_to_cart(id)
 	await shot("5_shop")
 	tap(shop.BTN_PAY)
 	on("receipt")
 	await shot("6_receipt")
 	tap(main.modes["receipt"].BTN_OK)
-	assert(Game.stock["monitor"] == 1 and Game.cart.is_empty())
+	check(Game.stock["monitor"] == 1 and Game.cart.is_empty())
 
 	tap(shop.tab_rect(1))
 	on("desk")
 	var desk = main.modes["desk"]
 	drag(desk.row_rect(desk.rows().find("monitor")), [500, 250, 500, 250])
 	drag(desk.row_rect(desk.rows().find("keyboard")), [800, 250, 800, 250])
-	assert(Game.placed.size() == 2, desk.toast)
+	check(Game.placed.size() == 2, desk.toast)
 	await shot("7_desk")
 	tap(desk.BTN_VIEW)                         # 탑뷰: 키보드를 모니터 앞으로 옮기기 (같은 x, 다른 앞뒤)
-	assert(desk.top_view)
+	check(desk.top_view)
 	var kb: Dictionary = Game.placed[1]
 	var mon_r: Array = desk.shown_rect(Game.placed[0])
 	drag(desk.shown_rect(kb), [mon_r[0] + 60, 200, mon_r[0] + 60, 200])
-	assert(kb["z"] > 0 and kb["x"] < mon_r[2], "탑뷰 이동: %s %s" % [kb, desk.toast])
+	check(kb["z"] > 0 and kb["x"] < mon_r[2], "탑뷰 이동: %s %s" % [kb, desk.toast])
+	for d in [["mouse_gaming", 940, 160], ["lamp_warm", 1060, 520], ["mug", 1150, 200]]:
+		drag(desk.row_rect(desk.rows().find(d[0])), [d[1], d[2], d[1], d[2]])
+	check(Game.placed.size() == 5, desk.toast)
 	await shot("7b_desk_top")
 	tap(desk.BTN_VIEW)
 
@@ -100,35 +111,38 @@ func run() -> void:
 	for c in Game.pc.cable_targets():
 		drag(b.psu_port(c), b.socket_rect(c))
 	tap(b.BTN_POST)
-	assert(b.post[0] == 4, "부팅 실패: %s / %s" % [b.post, b.toast])
+	check(b.post[0] == 4, "부팅 실패: %s / %s" % [b.post, b.toast])
 	await shot("8_build")
 	tap(b.zone("GPU"), true)                   # 두 번 누르기 = 빼기 → 다시 꽂기
-	assert(not Game.pc.has("GPU") and Game.stock["gpu1"] == 1)
+	check(not Game.pc.has("GPU") and Game.stock["gpu1"] == 1)
 	part.call("gpu1", b.gpu_rect())
 	for c in Game.pc.cable_targets():
 		drag(b.psu_port(c), b.socket_rect(c))
-	assert(Game.pc.boots())
+	check(Game.pc.boots())
 
 	tap(b.tab_rect(3))
 	on("wire")
 	var w = main.modes["wire"]
+	var used := {}
 	for p in w.devices():
 		var pos := Rules.plug_pos(p)
-		var port := Rules.port_pos(DB.ITEMS[p["id"]]["port"], 0)
+		var t: String = DB.ITEMS[p["id"]]["port"]
+		used[t] = used.get(t, -1) + 1
+		var port := Rules.port_pos(t, used[t])
 		drag([pos.x, 470, pos.x, 470], [port.x, port.y, port.x, port.y])
-	assert(Game.cables.size() == 2 and Rules.wiring_score(Game.cables, Game.placed)[1] == 0, w.toast)
+	check(Game.cables.size() == 3 and Rules.wiring_score(Game.cables, Game.placed)[1] == 0, w.toast)
 	await shot("9_wire")
 
 	var saved := Game.peek()                   # 자동 저장 → 이어하기
-	assert(saved["day"] == 1)
+	check(saved["day"] == 1)
 	tap(w.BTN_DONE)
 	on("result")
-	assert(main.modes["result"].result["boot"] == "" or true)
+	check(main.modes["result"].result["boot"] == "" or true)
 	await shot("10_result")
 	var money := Game.money
 	tap([0, 0, 100, 100])
 	on("request")
-	assert(Game.order_index == 1 and Game.placed.is_empty())
+	check(Game.order_index == 1 and Game.placed.is_empty())
 	Game.order_index = Game.todays_requests().size() - 1
 	main.go("result")
 	tap([0, 0, 100, 100])
@@ -136,7 +150,7 @@ func run() -> void:
 	await shot("11_day_end")
 	tap(main.modes["day_end"].BTN_NEXT)
 	on("news")
-	assert(Game.day == 2)
-	assert(Game.load_save() == "news")
+	check(Game.day == 2)
+	check(Game.load_save() == "news")
 	print("godot smoke ok  (가게 돈 %d만)" % money)
 	quit()
