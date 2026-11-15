@@ -56,8 +56,9 @@ func row_rect(i: int) -> Array:
 
 # ---------- 탑뷰 좌표 ----------
 func top_rect(id: String, x: float, z: float) -> Array:
-	var sx: float = Rules.AREA_X1 + (x - Rules.AREA_X1) * K
-	return [sx, TOP_BACK - (z + Rules.depth_of(id)) * K, sx + DB.size_of(id).x * K, TOP_BACK - z * K]
+	var f := Rules.foot_x(id, x)
+	var sx: float = Rules.AREA_X1 + (f.x - Rules.AREA_X1) * K
+	return [sx, TOP_BACK - (z + Rules.depth_of(id)) * K, sx + (f.y - f.x) * K, TOP_BACK - z * K]
 
 
 func desk_rect() -> Array:
@@ -91,7 +92,8 @@ func target(id: String, x: float, y: float) -> Dictionary:
 			return {}
 		var s := DB.size_of(id)
 		var d := Rules.depth_of(id)
-		var bx := int(clamp(Rules.AREA_X1 + (x - Rules.AREA_X1) / K - s.x / 2.0, Rules.AREA_X1, Rules.AREA_X2 - s.x))
+		var w: float = max(s.x, Rules.foot_of(id).x)
+		var bx := int(clamp(Rules.AREA_X1 + (x - Rules.AREA_X1) / K, Rules.AREA_X1 + w / 2.0, Rules.AREA_X2 - w / 2.0) - s.x / 2.0)
 		var z := int(clamp(snappedf((TOP_BACK - y) / K - d / 2.0, Rules.Z_STEP), 0, Rules.DESK_DEPTH - d))
 		return {"layer": layer, "x": bx, "y": Rules.DESK_Y, "z": z, "ok": Rules.fits_at(Game.placed, id, layer, bx, Rules.DESK_Y, moving, z)}
 	var t = Rules.drop_target(id, x, y)
@@ -294,8 +296,7 @@ func draw() -> void:
 	if held != "":
 		var a: String = art(moving) if moving != null else held
 		if top_view:
-			var hs := DB.size_of(held)
-			var w: float = hs.x * K
+			var w: float = Rules.foot_of(held).x * K
 			var dd: float = Rules.depth_of(held) * K
 			if top_art(a) != "":
 				put(top_art(a), [m.mouse.x - w / 2, m.mouse.y - dd / 2, m.mouse.x + w / 2, m.mouse.y + dd / 2])

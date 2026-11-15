@@ -44,14 +44,15 @@ func _initialize() -> void:
 
 	# --- 배치 (room.py) ---
 	var placed := []
-	ok(Rules.fits_at(placed, "monitor", "desk", 306, Rules.DESK_Y) and not Rules.fits_at(placed, "monitor", "wall", 306, 450), "레이어")
+	ok(Rules.fits_at(placed, "monitor", "desk", 360, Rules.DESK_Y) and not Rules.fits_at(placed, "monitor", "wall", 306, 450), "레이어")
 	var lamp := Rules.place_slot(placed, "lamp_warm", "desk", 0)
 	ok(not Rules.fits_at(placed, "book", "desk", lamp["x"] + 10, Rules.DESK_Y), "겹침 금지")
 	var book := {"id": "book", "layer": "desk", "x": lamp["x"] + DB.size_of("lamp_warm").x + 10, "y": Rules.DESK_Y}
 	placed.append(book)
 	var mz := {"id": "monitor", "layer": "desk", "x": 400, "y": Rules.DESK_Y, "z": 0}
-	ok(not Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, 30) and Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, 100), "탑뷰: 앞뒤로 비키면 같은 x에 놓임")
+	ok(not Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, 30) and Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, Rules.depth_of("monitor")), "탑뷰: 앞뒤로 비키면 같은 x에 놓임")
 	ok(Rules.free_z([mz], "monitor", 400) == Rules.depth_of("monitor") and not Rules.fits_at([], "monitor", "desk", 400, Rules.DESK_Y, null, 350), "빈 앞뒤 자리 · 책상 밖")
+	ok(not Rules.fits_at([], "keyboard", "desk", Rules.AREA_X1, Rules.DESK_Y) and Rules.drop_target("keyboard", 0, Rules.DESK_Y) != null and Rules.fits_at([], "keyboard", "desk", Rules.drop_target("keyboard", 0, Rules.DESK_Y)[1], Rules.DESK_Y), "실제 크기도 책상 안에")
 	ok(Rules.adjacent(lamp, book) and Rules.fits_at(placed, "mug", "desk", book["x"] + 20, Rules.DESK_Y, book), "인접 · 자기 자리 무시")
 	ok(Rules.drop_target("frame", 500, 100) == null and Rules.drop_target("mug", 10, 300) == ["desk", Rules.AREA_X1, Rules.DESK_Y], "놓을 자리")
 

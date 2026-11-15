@@ -11,6 +11,7 @@ const WALL_Y2 := 640
 const SLOT_X0 := 300
 const SLOT_W := 110
 const COLORS := 4
+const UNIT := 5.5          # 책상 좌표 1cm. 책상 = 770 x 380 = 140 x 69cm
 const DESK_DEPTH := 380   # 책상 앞뒤 깊이 (탑뷰). z = 0이 벽쪽, 클수록 앞
 const Z_STEP := 10
 const LAYER_NAMES := {"wall": "벽", "desk": "책상 위"}
@@ -25,9 +26,21 @@ static func rect_of(p: Dictionary) -> Array:
 	return [p["x"], p["y"], p["x"] + s.x, p["y"] + s.y]
 
 
-## 책상 위 소품이 앞뒤로 차지하는 깊이 (items.json의 depth, 없으면 60)
+## 책상 위에서 차지하는 실제 크기 (items.json foot = [가로 cm, 앞뒤 cm]). 없으면 정면 그림 너비 x 60.
+static func foot_of(id: String) -> Vector2i:
+	if DB.ITEMS[id].has("foot"):
+		return Vector2i(roundi(DB.ITEMS[id]["foot"][0] * UNIT), roundi(DB.ITEMS[id]["foot"][1] * UNIT))
+	return Vector2i(DB.size_of(id).x, 60)
+
+
 static func depth_of(id: String) -> int:
-	return DB.ITEMS[id].get("depth", 60)
+	return foot_of(id).y
+
+
+## 책상 위 좌우 범위: 정면 그림 가운데를 중심으로 실제 가로 크기만큼
+static func foot_x(id: String, x: float) -> Vector2:
+	var c := x + DB.size_of(id).x / 2.0
+	return Vector2(c - foot_of(id).x / 2.0, c + foot_of(id).x / 2.0)
 
 
 ## 책상 위는 좌우(x)와 앞뒤(z)가 둘 다 겹칠 때만 부딪힌다. 벽은 z 없음.
@@ -38,16 +51,20 @@ static func fits_at(placed: Array, id: String, layer: String, x: int, y: int, ig
 		return false
 	if layer == "wall" and (y < WALL_Y1 or y + s.y > WALL_Y2):
 		return false
-	if layer == "desk" and (z < 0 or z + d > DESK_DEPTH):
+	if layer == "desk" and (z < 0 or z + d > DESK_DEPTH or foot_x(id, x).x < AREA_X1 - 1 or foot_x(id, x).y > AREA_X2 + 1):
 		return false
 	for p in placed:
 		if is_same(p, ignore) or p["layer"] != layer:
 			continue
-		var r := rect_of(p)
-		if not (x < r[2] - 2 and r[0] < x + s.x - 2 and y < r[3] - 2 and r[1] < y + s.y - 2):
+		if layer == "wall":
+			var r := rect_of(p)
+			if x < r[2] - 2 and r[0] < x + s.x - 2 and y < r[3] - 2 and r[1] < y + s.y - 2:
+				return false
 			continue
+		var a := foot_x(id, x)   # 책상 위: 실제 크기로 좌우 · 앞뒤가 둘 다 겹치면 부딪힘
+		var b := foot_x(p["id"], p["x"])
 		var pz: int = p.get("z", 0)
-		if layer == "wall" or (z < pz + depth_of(p["id"]) - 2 and pz < z + d - 2):
+		if a.x < b.y - 2 and b.x < a.y - 2 and z < pz + depth_of(p["id"]) - 2 and pz < z + d - 2:
 			return false
 	return true
 
@@ -94,7 +111,8 @@ static func adjacent(a: Dictionary, b: Dictionary, gap := 30) -> bool:
 static func drop_target(id: String, x: float, y: float):
 	var layer: String = DB.ITEMS[id]["layer"]
 	var s := DB.size_of(id)
-	var left := int(clamp(x - s.x / 2.0, AREA_X1, AREA_X2 - s.x))
+	var w: float = max(s.x, foot_of(id).x) if layer == "desk" else s.x   # 정면 그림 · 실제 크기 둘 다 책상 안에
+	var left := int(clamp(x, AREA_X1 + w / 2.0, AREA_X2 - w / 2.0) - s.x / 2.0)
 	if layer == "desk":
 		return [layer, left, DESK_Y] if y >= DESK_Y - 60 and y <= DESK_Y + 240 else null
 	if y < WALL_Y1 - 30:
