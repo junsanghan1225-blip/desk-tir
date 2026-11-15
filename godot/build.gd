@@ -415,8 +415,7 @@ func draw_inventory() -> void:
 	text(14, ROW_TOP + 22, "부품 재고  (끌어서 장착)", 18)
 	box(PASTE_ROW, Color8(46, 40, 90))
 	circle(26, 585, 9, Color8(200, 200, 210))
-	text(46, 591, "서멀 구리스", 14)
-	text(46, 576, "도구 · CPU 위로 끌기", 11, QUIET)
+	text(46, 585, "서멀 구리스 (CPU 위로)", 16)
 	var ids := inv_ids()
 	if ids.is_empty():
 		text(14, ROW_TOP - 56, "부품 재고가 없어요", 15, QUIET)
@@ -431,9 +430,8 @@ func draw_inventory() -> void:
 		var p: Dictionary = DB.PARTS[ids[i]]
 		var cy: float = (r[1] + r[3]) / 2.0
 		fit(icon_of(ids[i]), r[0] + 16, cy, 28, 26)
-		text(r[0] + 36, cy + 6, p["name"], 14)
-		text(r[0] + 36, cy - 9, "%s · %d만" % [TYPE_NAMES[p["type"]], p["price"]], 11, QUIET)
-		text(r[2] - 34, cy, "x%d" % Game.stock[ids[i]], 13, CYAN)
+		text(r[0] + 36, cy, p["name"], 16)
+		text(r[2] - 34, cy, "x%d" % Game.stock[ids[i]], 16, CYAN)
 
 
 func draw() -> void:

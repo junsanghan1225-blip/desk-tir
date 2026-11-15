@@ -3,6 +3,8 @@ class_name Mode
 ## 사각형은 [x1, y1, x2, y2].
 
 const H := 720
+const MIN_TEXT := 16
+const OUTLINE := Color8(5, 3, 12)
 const INK := Color8(232, 226, 255)
 const QUIET := Color8(170, 160, 220)
 const DIM := Color8(90, 78, 130)
@@ -61,9 +63,12 @@ func outline(r: Array, c := VIOLET, w := 1.0) -> void:
 	m.draw_rect(_rect(r), c, false, w)
 
 
-## (x, y) = 글자 왼쪽 · 세로 가운데
+## (x, y) = 글자 왼쪽 · 세로 가운데. 폰에서 읽히도록 MIN_TEXT보다 작게는 안 그린다.
 func text(x: float, y: float, s, size := 18, c := INK) -> void:
-	m.draw_string(m.font, Vector2(x, H - y + size * 0.36), str(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
+	size = max(size, MIN_TEXT)
+	var pos := Vector2(x, H - y + (m.font.get_ascent(size) - m.font.get_descent(size)) / 2.0)   # 글자 세로 가운데
+	m.draw_string_outline(m.font, pos, str(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5, OUTLINE)   # 픽셀 게임식 검은 외곽선
+	m.draw_string(m.font, pos, str(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
 
 
 ## 가운데 (cx, cy)에 원래 크기로
@@ -84,10 +89,31 @@ func fit(name: String, cx: float, cy: float, mw: float, mh: float) -> void:
 	put(name, [cx - s.x * k / 2, cy - s.y * k / 2, cx + s.x * k / 2, cy + s.y * k / 2])
 
 
+static var _styles := {}
+
+
+## 픽셀 테두리 판 (resource/ui_*.png, 9-slice). tint를 곱해서 색을 입힌다.
+func frame(name: String, r: Array, tint := Color.WHITE) -> void:
+	var key := name + tint.to_html()
+	if not _styles.has(key):
+		var sb := StyleBoxTexture.new()
+		sb.texture = DB.tex(name)
+		sb.set_texture_margin_all(12)
+		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+		sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+		sb.modulate_color = tint
+		_styles[key] = sb
+	m.draw_style_box(_styles[key], _rect(r))
+
+
+func panel(r: Array, hot := false) -> void:
+	frame("ui_panel_pink" if hot else "ui_panel", r)
+
+
+## 두께 있는 버튼: 글자는 윗면 가운데
 func button(r: Array, label: String, c := CYAN) -> void:
-	box(r, c)
-	outline(r)
-	text(r[0] + 14, (r[1] + r[3]) / 2.0, label, 18, BG)
+	frame("ui_button", r, c)
+	text(r[0] + 14, (r[1] + r[3]) / 2.0 + 1, label, 18, Color.WHITE)
 
 
 func line(a: Vector2, b: Vector2, c: Color, w := 2.0) -> void:
@@ -127,8 +153,7 @@ func tab_at(x: float, y: float) -> String:
 
 func top_bar(current: String) -> void:
 	var req := Game.request()
-	box([0, H - 70, 1280, H], DARK)
-	box([0, H - 72, 1280, H - 70], PINK)
+	frame("ui_panel", [-12, H - 74, 1292, H + 12])
 	text(20, H - 24, "%d일차 손님 %d/%d  ·  %s" % [Game.day, Game.order_index + 1, Game.todays_requests().size(), req["customer"]], 20, CYAN)
 	text(20, H - 52, "\"%s\"" % Game.lines()[0], 16, Color.WHITE)
 	var left := Game.money_left()
@@ -138,9 +163,8 @@ func top_bar(current: String) -> void:
 	for i in TABS.size():
 		var r := tab_rect(i)
 		var on: bool = TABS[i][0] == current
-		box(r, VIOLET if on else PANEL)
-		outline(r, CYAN if on else DIM)
-		text(r[0] + 10, (r[1] + r[3]) / 2.0, TABS[i][1], 15, Color.WHITE if on else QUIET)
+		frame("ui_button", r, PINK if on else Color8(80, 66, 140))
+		text(r[0] + 12, (r[1] + r[3]) / 2.0 + 1, TABS[i][1], 16, Color.WHITE if on else QUIET)
 		if TABS[i][0] == "wire" and (wire[1] > 0 or wire[2] > 0):
 			box([r[2] - 16, r[3] - 16, r[2] - 6, r[3] - 6], PINK)  # 미연결 · 꼬임이 있으면 빨간 점
 

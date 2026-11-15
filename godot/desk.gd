@@ -128,7 +128,7 @@ func draw_room() -> void:
 	var case_name: String = Game.pc.parts.get("CASE", "case_empty")
 	var s := DB.size_of(case_name)
 	put(case_name, [1175 - s.x / 2.0, PC_RECT[1], 1175 + s.x / 2.0, PC_RECT[1] + s.y])
-	text(PC_RECT[0] + 20, PC_RECT[3] + 16, "부팅 OK" if Game.pc.boots() else "PC 조립 필요 (누르기)", 14, CYAN)
+	text(PC_RECT[0] + 20, PC_RECT[3] + 16, "부팅 OK" if Game.pc.boots() else "PC 조립 필요", 14, CYAN)
 	if held != "":   # 놓일 자리 미리 보기
 		var t = Rules.drop_target(held, m.mouse.x, m.mouse.y)
 		if t != null:
@@ -168,7 +168,7 @@ func draw_stock() -> void:
 		var cy: float = (r[1] + r[3]) / 2.0
 		fit(ids[i], r[0] + 14, cy, 28, 25)
 		text(r[0] + 34, cy, it["name"], 15, DIM if it["price"] > left else INK)
-		text(r[2] - 96, cy, "%d만 · x%d" % [it["price"], Game.stock.get(ids[i], 0)], 13, QUIET)
+		text(r[2] - 34, cy, "x%d" % Game.stock.get(ids[i], 0), 16, CYAN)
 
 
 func draw() -> void:
