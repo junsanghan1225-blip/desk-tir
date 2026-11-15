@@ -11,6 +11,8 @@ const WALL_Y2 := 640
 const SLOT_X0 := 300
 const SLOT_W := 110
 const COLORS := 4
+const DESK_DEPTH := 380   # 책상 앞뒤 깊이 (탑뷰). z = 0이 벽쪽, 클수록 앞
+const Z_STEP := 10
 const LAYER_NAMES := {"wall": "벽", "desk": "책상 위"}
 
 
@@ -23,19 +25,41 @@ static func rect_of(p: Dictionary) -> Array:
 	return [p["x"], p["y"], p["x"] + s.x, p["y"] + s.y]
 
 
-static func fits_at(placed: Array, id: String, layer: String, x: int, y: int, ignore = null) -> bool:
+## 책상 위 소품이 앞뒤로 차지하는 깊이 (items.json의 depth, 없으면 60)
+static func depth_of(id: String) -> int:
+	return DB.ITEMS[id].get("depth", 60)
+
+
+## 책상 위는 좌우(x)와 앞뒤(z)가 둘 다 겹칠 때만 부딪힌다. 벽은 z 없음.
+static func fits_at(placed: Array, id: String, layer: String, x: int, y: int, ignore = null, z := 0) -> bool:
 	var s := DB.size_of(id)
+	var d := depth_of(id)
 	if DB.ITEMS[id]["layer"] != layer or x < AREA_X1 or x + s.x > AREA_X2 + 1:
 		return false
 	if layer == "wall" and (y < WALL_Y1 or y + s.y > WALL_Y2):
+		return false
+	if layer == "desk" and (z < 0 or z + d > DESK_DEPTH):
 		return false
 	for p in placed:
 		if is_same(p, ignore) or p["layer"] != layer:
 			continue
 		var r := rect_of(p)
-		if x < r[2] - 2 and r[0] < x + s.x - 2 and y < r[3] - 2 and r[1] < y + s.y - 2:
+		if not (x < r[2] - 2 and r[0] < x + s.x - 2 and y < r[3] - 2 and r[1] < y + s.y - 2):
+			continue
+		var pz: int = p.get("z", 0)
+		if layer == "wall" or (z < pz + depth_of(p["id"]) - 2 and pz < z + d - 2):
 			return false
 	return true
+
+
+## 정면 뷰에서 놓을 때: 그 x에서 비어 있는 앞뒤 자리 (벽쪽부터). prefer 자리가 비어 있으면 그대로. 없으면 -1.
+static func free_z(placed: Array, id: String, x: int, ignore = null, prefer := -1) -> int:
+	if prefer >= 0 and fits_at(placed, id, "desk", x, DESK_Y, ignore, prefer):
+		return prefer
+	for z in range(0, DESK_DEPTH - depth_of(id) + 1, Z_STEP):
+		if fits_at(placed, id, "desk", x, DESK_Y, ignore, z):
+			return z
+	return -1
 
 
 ## 예전 칸 번호 → 자유 좌표 (테스트 · 자동 배치용)

@@ -73,6 +73,14 @@ func run() -> void:
 	drag(desk.row_rect(desk.rows().find("keyboard")), [800, 250, 800, 250])
 	assert(Game.placed.size() == 2, desk.toast)
 	await shot("7_desk")
+	tap(desk.BTN_VIEW)                         # 탑뷰: 키보드를 모니터 앞으로 옮기기 (같은 x, 다른 앞뒤)
+	assert(desk.top_view)
+	var kb: Dictionary = Game.placed[1]
+	var mon_r: Array = desk.shown_rect(Game.placed[0])
+	drag(desk.shown_rect(kb), [mon_r[0] + 60, 200, mon_r[0] + 60, 200])
+	assert(kb["z"] > 0 and kb["x"] < mon_r[2], "탑뷰 이동: %s %s" % [kb, desk.toast])
+	await shot("7b_desk_top")
+	tap(desk.BTN_VIEW)
 
 	tap(desk.tab_rect(2))
 	on("build")
