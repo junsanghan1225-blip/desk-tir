@@ -73,8 +73,7 @@ func dongle(x: float, y: float, owner: String) -> void:
 
 func draw_ports() -> void:
 	var pn: Array = Rules.PORT_PANEL
-	box(pn, Color8(14, 9, 30))
-	outline(pn)
+	panel(grow(pn, 8))
 	text(pn[0], pn[3] + 16, "PC 후면 포트", 16, QUIET)
 	for t in Rules.PORT_ORDER:
 		var n := Rules.port_count(t, Game.pc)
@@ -109,8 +108,7 @@ func draw() -> void:
 		var it: Dictionary = DB.ITEMS[p["id"]]
 		var col: Color = Rules.PORT_COLOR[it["port"]]
 		var r := [pos.x - 62, DEV_Y - 58, pos.x + 62, DEV_Y + 58]
-		box(r, Color8(28, 20, 58))
-		outline(r, col if Game.cables.any(func(c): return is_same(c["dev"], p)) else DIM)
+		panel(r, Game.cables.any(func(c): return is_same(c["dev"], p)))
 		fit(p["id"], pos.x, DEV_Y + 6, 100, 90)
 		text(pos.x - 56, DEV_Y - 46, it["name"], 13)
 		if it.get("dongle", false):

@@ -139,8 +139,7 @@ func draw_room() -> void:
 		if DB.ITEMS[selected["id"]].get("tint", false):
 			for k in Rules.COLORS:
 				var r := chip_rect(selected, k)
-				box(r, DARK)
-				outline(r, GOLD if selected.get("color", 0) == k else VIOLET)
+				frame("ui_button", r, GOLD if selected.get("color", 0) == k else Color8(80, 66, 140))
 				fit(selected["id"] + ("__c%d" % k if k else ""), (r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0, 30, 30)
 	if Time.get_ticks_msec() / 333 % 2:   # 케이블이 안 꽂힌 기기 위에 깜빡이는 점
 		for p in Game.placed:
@@ -150,7 +149,7 @@ func draw_room() -> void:
 
 
 func draw_stock() -> void:
-	box([0, 0, SHOP_W, 650], PANEL)
+	panel([-12, -12, SHOP_W, 650])
 	text(14, ROW_TOP + 20, "창고 재고  (끌어서 배치)", 18)
 	var ids := rows()
 	if ids.is_empty():

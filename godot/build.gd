@@ -232,8 +232,7 @@ func draw_case() -> void:
 		text(CASE_AREA[0] + 150, 353, "케이스를 여기에 끌어다 놓으세요", 20, DIM)
 		return
 	var case: Dictionary = pc.spec("CASE")
-	box(CASE_AREA, Color8(14, 9, 30))
-	outline(CASE_AREA, PINK if pc.parts["CASE"] == "case3" else VIOLET, 2)
+	frame("ui_slot", grow(CASE_AREA, 6))
 	var mb = pc.spec("MB")
 	text(CASE_AREA[0] + 12, CASE_AREA[3] - 16, case["name"] + ("  ·  %s (%s)" % [mb["name"], mb["size"]] if mb else ""), 13, QUIET)
 	for fy in [420, 540]:   # 뒷면 케이스 팬
@@ -377,6 +376,7 @@ func draw_drag() -> void:
 func draw_side() -> void:
 	var pc := Game.pc
 	var x0 := 930
+	panel([912, 130, 1276, 638])
 	text(x0, 610, "조립 순서", 18, PINK)
 	var steps := [["케이스", pc.has("CASE")], ["메인보드", pc.has("MB")], ["CPU (레버 닫기)", pc.has("CPU") and not pc.lever_open],
 		["서멀 구리스", pc.paste], ["쿨러", pc.has("COOLER")], ["RAM", pc.ram.any(func(r): return r != "")], ["M.2 SSD", pc.has("SSD")],
@@ -402,8 +402,8 @@ func draw_side() -> void:
 			c = Color8(60, 120, 90)
 		elif stage != -9 and i == max(stage, 0):
 			c = PINK
-		box([x0 + i * 84, 180, x0 + i * 84 + 72, 218], c)
-		text(x0 + i * 84 + 10, 199, PCBuild.POST_STAGES[i], 14, BG if c == GREEN or c == PINK else INK)
+		frame("ui_button", [x0 + i * 84, 176, x0 + i * 84 + 74, 220], c)
+		text(x0 + i * 84 + 10, 199, PCBuild.POST_STAGES[i], 16, Color.WHITE)
 	if not post.is_empty():
 		text(x0, 154, post[1].left(22), 15, GREEN if stage == 4 else PINK)
 		text(x0, 132, post[1].substr(22), 15, GREEN if stage == 4 else PINK)
@@ -411,9 +411,9 @@ func draw_side() -> void:
 
 
 func draw_inventory() -> void:
-	box([0, 0, INV_W, 650], PANEL)
+	panel([-12, -12, INV_W, 650])
 	text(14, ROW_TOP + 22, "부품 재고  (끌어서 장착)", 18)
-	box(PASTE_ROW, Color8(46, 40, 90))
+	frame("ui_slot", PASTE_ROW)
 	circle(26, 585, 9, Color8(200, 200, 210))
 	text(46, 585, "서멀 구리스 (CPU 위로)", 16)
 	var ids := inv_ids()

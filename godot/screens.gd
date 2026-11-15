@@ -27,7 +27,7 @@ class Title extends Mode:
 		else:
 			button(BTN_CONTINUE, "이어하기  ·  %d일차 · 가게 돈 %d만" % [saved["day"], saved["money"]], PINK)
 			button(BTN_NEW, "새 게임 (저장 기록이 지워져요)", VIOLET)
-		box([116, 180, 520, 212], Color(0.07, 0.05, 0.15, 0.8))
+		frame("ui_slot", [112, 176, 400, 216])
 		text(124, 196, "진행은 자동으로 저장돼요", 15, Color8(200, 192, 240))
 		if message != "":
 			text(124, 610, message, 20, GREEN)
@@ -47,8 +47,7 @@ class News extends Mode:
 		box([0, 0, 1280, H], BG)
 		m.draw_texture_rect_region(DB.tex("room_bg_" + d["weather"]), Rect2(120, H - 603, 1040, 266), Rect2(28, 242, 744, 190))  # 창밖 풍경만 크게
 		text(120, 660, "%d일차 아침  ·  오늘 날씨: %s" % [Game.day, WEATHER[d["weather"]]], 24, CYAN)
-		box([120, 180, 1160, 310], PANEL)
-		outline([120, 180, 1160, 310], PINK)
+		panel([120, 180, 1160, 310], true)
 		text(150, 270, d["news"], 22)
 		text(150, 222, d["hint"], 17, GOLD)
 		text(120, 130, "가게 돈 %d만 원  ·  가게 레벨 %d  ·  오늘 손님 %d명" % [Game.money, Game.level(), Game.todays_requests().size()], 17, QUIET)
@@ -72,14 +71,13 @@ class Request extends Mode:
 		var req := Game.request()
 		box([0, 0, 1280, H], BG)
 		text(80, 650, "%d일차  ·  손님 %d/%d" % [Game.day, Game.order_index + 1, Game.todays_requests().size()], 20, CYAN)
+		panel([68, 288, 372, 612], true)
 		spr("face_%s_%s" % [req["face"], mood()], 220, 450)
-		outline([80, 300, 360, 600], PINK)
 		text(80, 260, req["customer"], 30)
 		if req.get("returns", false):
-			box([80, 206, 190, 236], GOLD)
+			frame("ui_button", [76, 202, 200, 240], GOLD)
 			text(92, 221, "단골 손님", 15, BG)
-		box([420, 330, 1200, 600], PANEL)
-		outline([420, 330, 1200, 600], PINK)
+		panel([420, 330, 1200, 600])
 		var lines := Game.lines()
 		for i in lines.size():
 			text(460, 550 - i * 56, "\"%s\"" % lines[i] if i == 0 else lines[i], 24)
@@ -128,10 +126,9 @@ class Result extends Mode:
 		var margin := pay + tip - cost
 		text(120, 148, "물건 값 %d만  →  이번 주문 마진 %+d만" % [cost, margin], 18, GREEN if margin >= 0 else PINK)
 		var mood := "happy" if result["stars"] == 3 else "neutral" if result["stars"] > 0 else "sad"
+		panel([628, 458, 792, 632], true)
 		put("face_%s_%s" % [Game.request()["face"], mood], [640, 470, 780, 620])
-		outline([640, 470, 780, 620], PINK)
-		box([800, 470, 1250, 620], PANEL)
-		outline([800, 470, 1250, 620], PINK)
+		panel([800, 470, 1250, 620], true)
 		var rows := [""]
 		for w in result["line"].split(" "):   # 말풍선 너비에 맞춰 줄바꿈
 			if rows[-1].length() + w.length() > 20:
@@ -184,7 +181,7 @@ class DayEnd extends Mode:
 		text(120, 670, "%d일차 영업 마감" % Game.day, 34, PINK)
 		var lv := Game.level()
 		text(700, 680, "가게 레벨 %d" % lv, 22, CYAN)
-		box([700, 640, 1160, 660], Color8(50, 38, 96))
+		frame("ui_slot", [692, 632, 1168, 668])
 		if lv < Game.LEVELS.size():
 			var prev: int = Game.LEVELS[lv - 1]
 			var need: int = Game.LEVELS[lv]
@@ -193,8 +190,7 @@ class DayEnd extends Mode:
 		else:
 			box([700, 640, 1160, 660], CYAN)
 			text(700, 622, "최고 레벨 · 팁 %d%%" % Game.TIP_RATE[lv - 1], 14, QUIET)
-		box([120, 250, 1160, 600], PANEL)
-		outline([120, 250, 1160, 600])
+		panel([120, 250, 1160, 600])
 		var heads := [[160, "손님"], [500, "별점"], [650, "받은 돈"], [820, "물건 값"], [990, "마진"]]
 		for h in heads:
 			text(h[0], 570, h[1], 17, QUIET)
@@ -217,11 +213,10 @@ class DayEnd extends Mode:
 			var r := up_rect(i)
 			var owned: bool = Game.upgrades.has(ids[i])
 			var locked: bool = Game.level() < up["level"]
-			box(r, VIOLET if owned else PANEL)
-			outline(r, DIM if locked else VIOLET)
+			panel(r, owned)
 			text(r[0] + 14, r[3] - 22, up["name"], 17, DIM if locked else INK)
 			text(r[0] + 14, r[3] - 48, "보유 중" if owned else ("레벨 %d 필요" % up["level"] if locked else "%d만 원 · 눌러서 구매" % up["price"]), 14, GOLD)
-			text(r[0] + 14, r[3] - 74, up["desc"].left(30), 12, QUIET)
+			text(r[0] + 14, r[3] - 74, up["desc"].left(22), 12, QUIET)
 		if toast != "":
 			text(120, 60, toast, 16, PINK)
 		button(BTN_NEXT, "타이틀로" if Game.day >= Game.last_day() else "다음 날 영업", PINK)
@@ -284,9 +279,8 @@ class Product extends Mode:
 	func draw() -> void:
 		var p := DB.spec(id)
 		dim()
-		box(BOX, Color8(28, 20, 60))
-		outline(BOX, PINK)
-		box([210, 260, 600, 580], BG)
+		panel(BOX, true)
+		frame("ui_slot", [210, 260, 600, 580])
 		fit(icon_of(id), 405, 420, 340, 280)
 		text(640, 560, p["name"], 28)
 		text(640, 520, "%d만 원" % p["price"], 26, GOLD)
