@@ -67,7 +67,7 @@ def draw():
         text(320, y, f"{v:.0f} / {scorer.MAX[k]}", 19, (255, 255, 255))
     syn = ', '.join(result['synergies']) or '없음'
     text(120, 220, f"달성 시너지: {syn}", 17, (120, 255, 170))
-    note = '  (별 0개: 절반만 냄)' if not result['stars'] else ''
+    note = '  (별 0개: 손님이 돈을 안 냄)' if not result['stars'] else ''
     text(120, 180, f"받은 돈  {pay}만 + 팁 {tip}만" + note, 20, (46, 230, 214))
     margin = pay + tip - cost
     text(120, 148, f"물건 값 {cost}만  →  이번 주문 마진 {margin:+}만", 18, (120, 255, 170) if margin >= 0 else (255, 77, 141))

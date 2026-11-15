@@ -7,7 +7,7 @@ from room import Room
 from pcbuild import PCBuild
 
 START_MONEY = 200
-LEVELS = [0, 4, 10, 18, 28]   # 가게 레벨 n이 되려면 필요한 누적 별 (Lv1 = 0개)
+LEVELS = [0, 3, 9, 17, 27]   # 가게 레벨 n이 되려면 필요한 누적 별 (Lv1 = 0개)
 TIP_RATE = [5, 6, 8, 10, 12]  # 레벨별 별 1개당 팁 (예산의 %)
 LAST_DAY = max(r['day'] for r in REQUESTS)
 
@@ -147,10 +147,10 @@ def money_left():
 
 def settle(result):
     """납품 정산 (좋은 피자처럼 정가 + 팁): 손님은 자기 예산만큼 내고, 별 1개당 예산의 5%를 팁으로 준다.
-    별 0개면 절반만 낸다. 물건 값은 살 때 이미 냈으니, 싸게 맞출수록 남는다."""
+    별 0개면 한 푼도 안 낸다 (빈손 납품 방지). 물건 값은 살 때 이미 냈으니, 싸게 맞출수록 남는다."""
     global money, stars_total
     budget = request()['budget']
-    pay = budget if result['stars'] else budget // 2
+    pay = budget if result['stars'] else 0
     tip = result['stars'] * budget * TIP_RATE[level() - 1] // 100
     stars_total += result['stars']
     money += pay + tip
@@ -186,7 +186,7 @@ if __name__ == '__main__':
     room.place('lamp_warm', 'desk', 0)
     before = money
     pay, tip = settle({'stars': 2})
-    assert pay == 100 and tip == 10 and money == before + pay + tip and ledger[-1]['cost'] == 4
-    assert settle({'stars': 0}) == (50, 0) and stars_total == 2
+    assert pay == 120 and tip == 12 and money == before + pay + tip and ledger[-1]['cost'] == 4
+    assert settle({'stars': 0}) == (0, 0) and stars_total == 2
     assert next_customer() and next_customer() and not next_customer()
     print('state ok')
