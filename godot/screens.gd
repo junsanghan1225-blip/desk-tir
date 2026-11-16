@@ -57,6 +57,7 @@ class News extends Mode:
 class Request extends Mode:
 	func enter() -> void:
 		Game.reset_order()
+		sfx("door")
 
 	func down(_x: float, _y: float, _right: bool) -> void:
 		m.go("shop")
@@ -101,6 +102,7 @@ class Result extends Mode:
 		var paid := Game.settle(result)
 		pay = paid[0]
 		tip = paid[1]
+		sfx("star" if result["stars"] else "sad")
 		wanted = ["분위기: " + " · ".join(req["theme"].map(func(t): return DB.THEME_NAMES[t]))]   # 숨겨져 있던 조건 공개
 		for r in req["required"]:
 			wanted.append("꼭 필요: %s %d개" % ["/".join(r["any"].map(func(i): return DB.ITEMS[i]["name"])), r["count"]])
@@ -174,6 +176,7 @@ class DayEnd extends Mode:
 					toast = "돈이 부족해요"
 				else:
 					toast = "%s 완료! 내일부터 쇼핑몰에 새 상품이 들어와요" % up["name"]
+					sfx("buy")
 					Game.save("day_end")
 
 	func draw() -> void:
@@ -270,9 +273,11 @@ class Product extends Mode:
 			qty = min(9, qty + 1)
 		elif inside(x, y, BTN_ADD):
 			if Game.add_to_cart(id, qty):
+				sfx("cart")
 				m.pop()
 			else:
 				toast = "가게 업그레이드가 필요해요 (영업 마감 화면에서 구매)"
+				sfx("error")
 		elif inside(x, y, BTN_SELL):
 			toast = "반품했어요 (산 값의 절반 환불)" if Game.sell_back(id) else "창고에 없어요"
 

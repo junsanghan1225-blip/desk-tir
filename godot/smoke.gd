@@ -152,5 +152,7 @@ func run() -> void:
 	on("news")
 	check(Game.day == 2)
 	check(Game.load_save() == "news")
+	for n in ["door", "click", "cart", "buy", "pick", "place", "lever", "paste", "plug", "boot_ok"]:   # 그 순간에 실제 소리 파일을 불러와 틀었는지
+		check(main.sounds.get(n) != null, "소리 " + n)
 	print("godot smoke ok  (가게 돈 %d만)" % money)
 	quit()

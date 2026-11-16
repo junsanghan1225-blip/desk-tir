@@ -149,6 +149,7 @@ func down(x: float, y: float, right: bool) -> void:
 		return
 	if inside(x, y, BTN_POST):
 		post = pc.post()
+		sfx("boot_ok" if post[0] == 4 else "boot_fail")
 		return
 	if inside(x, y, BTN_PREV) or inside(x, y, BTN_NEXT):
 		var last: int = max(0, (inv_all().size() - 1) / PER)
@@ -156,6 +157,7 @@ func down(x: float, y: float, right: bool) -> void:
 		return
 	if pc.has("MB") and inside(x, y, grow(lever_rect(), 12)):
 		toast = pc.toggle_lever()
+		sfx("lever" if toast == "" else "error")
 		if toast == "":
 			toast = "레버를 열었어요" if pc.lever_open else "레버를 닫았어요"
 		post = []
@@ -200,12 +202,14 @@ func up(x: float, y: float) -> void:
 	if h[0] == "paste":
 		if inside(x, y, grow(cpu_rect(), 16)):
 			toast = pc.apply_paste()
+			sfx("paste" if toast == "" else "error")
 			if toast == "":
 				toast = "서멀 구리스를 발랐어요"
 		return
 	if h[0] == "cable":
 		if inside(x, y, grow(socket_rect(h[1]), 16)):
 			toast = pc.plug(h[1])
+			sfx("plug" if toast == "" else "error")
 		return
 	var pid: String = h[1]
 	var slot := target_for(pid, x, y)
@@ -215,6 +219,7 @@ func up(x: float, y: float) -> void:
 		return
 	toast = pc.check(pid, slot)
 	if toast != "":
+		sfx("error")
 		return
 	if DB.PARTS[pid]["price"] > Game.money_left():
 		toast = "손님 예산을 넘어요!"
@@ -222,6 +227,7 @@ func up(x: float, y: float) -> void:
 		toast = "재고가 없어요"
 	else:
 		pc.place(pid, slot)
+		sfx("place")
 
 
 # ---------- 그리기 ----------

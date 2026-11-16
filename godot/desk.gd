@@ -139,6 +139,7 @@ func down(x: float, y: float, right: bool) -> void:
 		for k in Rules.COLORS:
 			if inside(x, y, chip_rect(selected, k)):
 				selected["color"] = k
+				sfx("click")
 				return
 	var p = hit(x, y)
 	if right:
@@ -152,7 +153,9 @@ func down(x: float, y: float, right: bool) -> void:
 		if inside(x, y, row_rect(i)):
 			if DB.ITEMS[ids[i]]["price"] > Game.money_left():
 				toast = "손님 예산을 넘어요!"
+				sfx("error")
 			else:
+				sfx("pick")
 				held = ids[i]
 				moving = null
 				selected = null
@@ -178,8 +181,10 @@ func up(x: float, y: float) -> void:
 	moving = null
 	if mv != null and abs(x - origin.x) + abs(y - origin.y) < 6:   # 움직이지 않은 누름 = 선택
 		selected = null if is_same(selected, mv) else mv
+		sfx("click")
 		return
 	var ok: bool = not t.is_empty() and t["ok"]
+	sfx("place" if ok else "error")
 	if mv != null:
 		if ok:
 			mv["x"] = t["x"]

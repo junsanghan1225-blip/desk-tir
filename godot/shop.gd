@@ -86,7 +86,9 @@ func down(x: float, y: float, right: bool) -> void:
 	for i in shown.size():
 		if inside(x, y, card_rect(i)):
 			if right:
-				toast = "%s 담음" % DB.spec(shown[i])["name"] if Game.add_to_cart(shown[i]) else "업그레이드가 필요해요"
+				var added := Game.add_to_cart(shown[i])
+				toast = "%s 담음" % DB.spec(shown[i])["name"] if added else "업그레이드가 필요해요"
+				sfx("cart" if added else "error")
 			else:
 				m.modes["product"].open(shown[i])
 			return
@@ -104,7 +106,9 @@ func pay() -> void:
 	var r := Game.checkout()
 	if r.is_empty():
 		toast = "가게 돈이 모자라요"
+		sfx("error")
 	else:
+		sfx("buy")
 		m.modes["receipt"].show(r)
 
 

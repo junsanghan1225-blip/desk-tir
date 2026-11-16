@@ -26,6 +26,10 @@ func enter() -> void:
 	pass
 
 
+func sfx(n: String) -> void:
+	m.sfx(n)
+
+
 func draw() -> void:
 	pass
 
@@ -173,6 +177,7 @@ func top_bar(current: String) -> void:
 func tabs(x: float, y: float) -> bool:
 	var tab := tab_at(x, y)
 	if tab != "":
+		sfx("click")
 		m.go(tab)
 	return tab != ""
 

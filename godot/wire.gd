@@ -48,10 +48,13 @@ func up(x: float, y: float) -> void:
 	var port = Rules.port_at(x, y, Game.pc)
 	if port != null and port[0] != need:
 		toast = HINT[need] + " 꽂아야 해요"
+		sfx("error")
 	elif port != null and Game.cables.any(func(c): return [c["type"], c["port"]] == port):
 		toast = "이미 쓰고 있는 포트예요"
+		sfx("error")
 	elif port != null:
 		Game.cables.append({"dev": wiring, "type": port[0], "port": port[1]})
+		sfx("plug")
 	wiring = null
 
 
