@@ -64,7 +64,9 @@ godot --headless --path . --script godot/tests.gd   # 규칙
 godot --headless --path . --script godot/smoke.gd   # 손님 한 명 처음부터 납품까지
 ```
 
-아직 Godot에 없는 것: 소리 · 부팅 연출 · 사진 앨범 · 일시정지 메뉴, 폰 화면에 맞춘 큰 글씨 · 버튼, 안드로이드 내보내기 설정
+안드로이드로 내보내기: [docs/ANDROID.md](docs/ANDROID.md) (JDK · SDK 설치 → 폰 테스트 → .aab → Play 내부 테스트)
+
+폰 조작: ll 버튼 · 뒤로 버튼 = 일시정지(주문 다시 보기), ♪ = 음소거, 책상 화면 '사진' 버튼, 타이틀 → 앨범
 
 ![Godot 조립 화면](docs/screens/godot_8_build.png)
 
@@ -96,7 +98,8 @@ godot --headless --path . --script godot/smoke.gd   # 손님 한 명 처음부�
 - [ ] 손님 캐릭터 그래픽 (AI 이미지 생성 툴로 직접 제작)
 - [x] 하루 영업 구조: 애매한 주문 → 쇼핑 → 작업 → 정산 (5일, 손님 15명), 가게 레벨 · 업그레이드
 - [x] Godot 이전 1단계: 규칙 · 전체 화면 이식 (pico2d 버전은 학기 과제용으로 계속 유지)
-- [ ] Godot: 소리 · 연출 · 폰 화면 UI · 안드로이드 내보내기
+- [x] Godot: 픽셀 UI · 책상 탑뷰(실제 크기) · 소리 · 부팅 연출 · 일시정지 · 앨범 · 안드로이드 내보내기 설정
+- [ ] 실제 폰 테스트 · 버튼 크기 조정 · Play 내부 테스트
 - [ ] 손님 표정 · 단골 · 소품 24개
 - [ ] 자유 모드 · 저장 · 사운드
 
