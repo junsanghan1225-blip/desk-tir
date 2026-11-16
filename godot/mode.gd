@@ -161,8 +161,8 @@ func top_bar(current: String) -> void:
 	text(20, H - 24, "%d일차 손님 %d/%d  ·  %s" % [Game.day, Game.order_index + 1, Game.todays_requests().size(), req["customer"]], 20, CYAN)
 	text(20, H - 52, "\"%s\"" % Game.lines()[0], 16, Color.WHITE)
 	var left := Game.money_left()
-	text(1080, H - 24, "손님 예산 %d만" % req["budget"], 16, QUIET)
-	text(1080, H - 52, "남은 예산 %d만" % left, 18, CYAN if left >= 0 else PINK)
+	text(1036, H - 24, "손님 예산 %d만" % req["budget"], 16, QUIET)
+	text(1036, H - 52, "남은 예산 %d만" % left, 18, CYAN if left >= 0 else PINK)
 	var wire := Rules.wiring_score(Game.cables, Game.placed)
 	for i in TABS.size():
 		var r := tab_rect(i)

@@ -9,6 +9,7 @@ const ROOM := [270, 0, 1280, 650]
 const PC_RECT := [1095, 210, 1255, 470]
 const BTN_DONE := [1100, 10, 1270, 50]
 const BTN_VIEW := [920, 10, 1090, 50]
+const BTN_PHOTO := [800, 10, 910, 50]
 const PER := 16
 const BTN_PREV := [14, 66, 64, 96]
 const BTN_NEXT := [206, 66, 256, 96]
@@ -17,6 +18,7 @@ const K := 1.2
 const TOP_BACK := 590.0   # 책상 뒤쪽(벽) 가장자리 화면 높이
 
 var top_view := false
+var capturing := false   # 사진 찍는 프레임: 선택 표시 · 버튼 없이 방만
 var held := ""       # 끌고 있는 소품 id
 var moving = null    # 책상에서 집어 든 소품 (실패하면 제자리 그대로)
 var origin := Vector2.ZERO
@@ -128,7 +130,10 @@ func down(x: float, y: float, right: bool) -> void:
 	if tabs(x, y):
 		return
 	if inside(x, y, BTN_DONE):
-		m.go("result")
+		m.deliver()
+		return
+	if inside(x, y, BTN_PHOTO):
+		take_photo()
 		return
 	if inside(x, y, BTN_VIEW):
 		top_view = not top_view
@@ -169,6 +174,12 @@ func down(x: float, y: float, right: bool) -> void:
 		selected = null
 		if not top_view and inside(x, y, PC_RECT):
 			m.go("build")
+
+
+func take_photo() -> void:
+	await m.photo(Time.get_datetime_string_from_system().replace(":", "").replace("-", "").replace("T", "_").insert(0, "free_"))
+	m.sfx("photo")
+	toast = "사진을 찍었어요 (타이틀 → 앨범)"
 
 
 func up(x: float, y: float) -> void:
@@ -251,6 +262,8 @@ func draw_room() -> void:
 		var t := target(held, m.mouse.x, m.mouse.y)
 		if not t.is_empty():
 			outline(preview_rect(held, t), CYAN if t["ok"] else PINK, 2)
+	if capturing:
+		return
 	if selected != null and Game.placed.has(selected) and not shown_rect(selected).is_empty():
 		outline(shown_rect(selected), GOLD, 2)
 		if DB.ITEMS[selected["id"]].get("tint", false):
@@ -291,8 +304,11 @@ func draw_stock() -> void:
 func draw() -> void:
 	Game.cables = Rules.prune(Game.cables, Game.placed, Game.pc)   # 치운 기기 · 사라진 포트의 선은 자동으로 뽑힘
 	draw_room()
+	if capturing:
+		return
 	draw_stock()
 	top_bar("desk")
+	button(BTN_PHOTO, "사진", VIOLET)
 	button(BTN_VIEW, "정면 뷰" if top_view else "탑뷰", VIOLET)
 	button(BTN_DONE, "납품하기", PINK)
 	text(SHOP_W + 10, 30, "탑뷰: 앞뒤로도 배치 · 두 번 누르기: 창고로" if top_view else "누르기: 선택 · 색   두 번 누르기: 창고로", 14, QUIET)

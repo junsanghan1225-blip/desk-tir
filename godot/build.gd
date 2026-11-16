@@ -150,6 +150,8 @@ func down(x: float, y: float, right: bool) -> void:
 	if inside(x, y, BTN_POST):
 		post = pc.post()
 		sfx("boot_ok" if post[0] == 4 else "boot_fail")
+		if post[0] == 4:
+			m.modes["boot"].open()
 		return
 	if inside(x, y, BTN_PREV) or inside(x, y, BTN_NEXT):
 		var last: int = max(0, (inv_all().size() - 1) / PER)

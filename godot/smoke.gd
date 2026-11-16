@@ -112,6 +112,12 @@ func run() -> void:
 		drag(b.psu_port(c), b.socket_rect(c))
 	tap(b.BTN_POST)
 	check(b.post[0] == 4, "부팅 실패: %s / %s" % [b.post, b.toast])
+	on("boot")
+	await shot("8b_boot")
+	main.modes["boot"].t0 -= 10000                 # 바이오스 글자 다 지나간 뒤 = 바탕화면
+	await shot("8c_boot_desktop")
+	tap([0, 0, 100, 100])
+	on("build")
 	await shot("8_build")
 	tap(b.zone("GPU"), true)                   # 두 번 누르기 = 빼기 → 다시 꽂기
 	check(not Game.pc.has("GPU") and Game.stock["gpu1"] == 1)
@@ -135,7 +141,14 @@ func run() -> void:
 
 	var saved := Game.peek()                   # 자동 저장 → 이어하기
 	check(saved["day"] == 1)
+	main.back()                                # 뒤로 = 일시정지 (주문 다시 보기)
+	on("pause")
+	await shot("9b_pause")
+	tap(main.modes["pause"].btn_rect(0))
+	on("wire")
 	tap(w.BTN_DONE)
+	for i in 10:                               # 납품 사진 찍고 넘어갈 때까지
+		await process_frame
 	on("result")
 	check(main.modes["result"].result["boot"] == "" or true)
 	await shot("10_result")
@@ -151,6 +164,15 @@ func run() -> void:
 	tap(main.modes["day_end"].BTN_NEXT)
 	on("news")
 	check(Game.day == 2)
+	if shots:                                  # 납품 사진 → 앨범
+		check(FileAccess.file_exists(Main.PHOTOS + "/day1_1.png"), "납품 사진")
+		main.go("title")
+		tap(main.modes["title"].BTN_ALBUM)
+		on("album")
+		check(main.modes["album"].files.size() >= 1, "앨범")
+		await shot("12_album")
+		main.back()
+		on("title")
 	check(Game.load_save() == "news")
 	for n in ["door", "click", "cart", "buy", "pick", "place", "lever", "paste", "plug", "boot_ok"]:   # 그 순간에 실제 소리 파일을 불러와 틀었는지
 		check(main.sounds.get(n) != null, "소리 " + n)

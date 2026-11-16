@@ -4,6 +4,7 @@
 class Title extends Mode:
 	const BTN_CONTINUE := [124, 300, 524, 352]
 	const BTN_NEW := [124, 230, 524, 282]
+	const BTN_ALBUM := [544, 300, 704, 352]
 	var saved := {}
 	var message := ""
 
@@ -11,7 +12,10 @@ class Title extends Mode:
 		saved = Game.peek()
 
 	func down(x: float, y: float, _right: bool) -> void:
-		if not saved.is_empty() and inside(x, y, BTN_CONTINUE):
+		if inside(x, y, BTN_ALBUM):
+			sfx("click")
+			m.push("album")
+		elif not saved.is_empty() and inside(x, y, BTN_CONTINUE):
 			m.go(Game.load_save())
 		elif inside(x, y, BTN_CONTINUE if saved.is_empty() else BTN_NEW):
 			Game.delete_save()
@@ -27,6 +31,7 @@ class Title extends Mode:
 		else:
 			button(BTN_CONTINUE, "이어하기  ·  %d일차 · 가게 돈 %d만" % [saved["day"], saved["money"]], PINK)
 			button(BTN_NEW, "새 게임 (저장 기록이 지워져요)", VIOLET)
+		button(BTN_ALBUM, "앨범", CYAN)
 		frame("ui_slot", [112, 176, 400, 216])
 		text(124, 196, "진행은 자동으로 저장돼요", 15, Color8(200, 192, 240))
 		if message != "":
@@ -344,3 +349,153 @@ class Receipt extends Mode:
 		text(430, 186, "결제 금액  %d만 원" % bought["total"], 20, ink)
 		text(430, 160, "남은 가게 돈  %d만 원  ·  창고로 배송 완료" % Game.money, 14, quiet)
 		button(BTN_OK, "확인", PINK)
+
+
+class Boot extends Mode:
+	## 부팅 연출 (조립 화면 위): 바이오스 글자가 한 줄씩 → 바탕화면. 눌러서 닫기.
+	const SCREEN := [240, 110, 1040, 610]
+	const STEP := 0.35
+	var t0 := 0
+
+	func _init() -> void:
+		overlay = true
+
+	func open() -> void:
+		t0 = Time.get_ticks_msec()
+		m.push("boot")
+
+	func t() -> float:
+		return (Time.get_ticks_msec() - t0) / 1000.0
+
+	func lines() -> Array:
+		var pc := Game.pc
+		var ram := " + ".join(pc.ram.filter(func(r): return r != "").map(func(r): return DB.PARTS[r]["name"].replace("RAM ", "")))
+		return ["DESK-BIOS v1.0", "CPU   %s ... OK" % pc.spec("CPU")["name"], "RAM   %s%s ... OK" % [ram, " (듀얼 채널)" if pc.dual_channel() else ""],
+			"VGA   %s ... OK" % pc.spec("GPU")["name"], "M.2   %s ... OK" % pc.spec("SSD")["name"], "부팅 중 ..."]
+
+	func down(_x: float, _y: float, _right: bool) -> void:
+		if t() > 0.3:
+			m.pop()
+
+	func draw() -> void:
+		var s := SCREEN
+		dim()
+		frame("ui_panel", grow(s, 18))   # 모니터 테두리
+		box(s, Color8(4, 4, 10))
+		var bios := lines()
+		if t() < STEP * (bios.size() + 1.5):
+			for i in min(bios.size(), int(t() / STEP) + 1):
+				text(s[0] + 30, s[3] - 40 - i * 34, bios[i], 18, GREEN)
+			return
+		put("title_bg", s)   # 바탕화면
+		var icons := [["내 PC", CYAN], ["게임", PINK], ["작업", GOLD]]
+		for i in icons.size():
+			frame("ui_button", [s[0] + 30, s[3] - 96 - i * 90, s[0] + 84, s[3] - 40 - i * 90], icons[i][1])
+			text(s[0] + 26, s[3] - 110 - i * 90, icons[i][0], 16, Color.WHITE)
+		box([s[0], s[1], s[2], s[1] + 36], Color8(18, 12, 38))
+		var pc := Game.pc
+		text(s[0] + 14, s[1] + 18, "성능 %s  ·  전력 %dW / %dW" % ["★".repeat(pc.stars()) if pc.stars() else "-", pc.watt(), pc.capacity()], 16)
+		text(s[2] - 150, s[1] + 18, "눌러서 닫기", 16, QUIET)
+
+
+class Pause extends Mode:
+	## 일시정지 (ll 버튼 · ESC · 안드로이드 뒤로). 주문 중이면 손님이 한 말을 다시 보여 준다.
+	const BOX := [340, 140, 940, 600]
+	const BUTTONS := [["resume", "계속하기"], ["title", "타이틀로"], ["quit", "게임 종료"]]
+
+	func _init() -> void:
+		overlay = true
+
+	func btn_rect(i: int) -> Array:
+		var y := 330 - i * 64
+		return [440, y - 46, 840, y]
+
+	func in_order() -> bool:
+		return m.stack.size() > 1 and m.stack[0] in [m.modes["shop"], m.modes["desk"], m.modes["build"], m.modes["wire"]]
+
+	func down(x: float, y: float, _right: bool) -> void:
+		for i in BUTTONS.size():
+			if inside(x, y, btn_rect(i)):
+				sfx("click")
+				match BUTTONS[i][0]:
+					"resume": m.pop()
+					"title": m.go("title")
+					_: m.get_tree().quit()
+
+	func draw() -> void:
+		dim()
+		panel(BOX, true)
+		text(BOX[0] + 30, BOX[3] - 40, "일시정지", 28, PINK)
+		if in_order():
+			var req := Game.request()
+			text(BOX[0] + 30, BOX[3] - 84, "%s의 주문" % req["customer"], 16, QUIET)
+			var lines := Game.lines()
+			for i in lines.size():
+				text(BOX[0] + 30, BOX[3] - 116 - i * 30, "\"%s\"" % lines[i], 17)
+			text(BOX[0] + 30, BOX[3] - 116 - lines.size() * 30, "예산 %d만 원" % req["budget"], 16, GOLD)
+		for i in BUTTONS.size():
+			button(btn_rect(i), BUTTONS[i][1], PINK if i == 0 else VIOLET)
+
+
+class Album extends Mode:
+	## 앨범: 납품할 때 자동으로 찍힌 책상 사진 + 직접 찍은 사진 (user://photos)
+	const COLS := 3
+	const ROWS := 2
+	const TW := 370
+	const TH := 216
+	const BTN_PREV := [500, 20, 560, 60]
+	const BTN_NEXT := [720, 20, 780, 60]
+	const BTN_BACK := [1060, 20, 1260, 60]
+	var files: Array = []
+	var page := 0
+	var cache := {}
+
+	func enter() -> void:
+		page = 0
+		files = Array(DirAccess.get_files_at(Main.PHOTOS)).filter(func(f): return f.ends_with(".png"))
+		files.sort_custom(func(a, b): return FileAccess.get_modified_time(Main.PHOTOS + "/" + a) > FileAccess.get_modified_time(Main.PHOTOS + "/" + b))
+
+	func pages() -> int:
+		return max(1, ceili(files.size() / float(COLS * ROWS)))
+
+	func thumb(i: int) -> Array:
+		var x := 50 + (i % COLS) * (TW + 30)
+		var y2 := 620 - (i / COLS) * (TH + 64)
+		return [x, y2 - TH, x + TW, y2]
+
+	func caption(f: String) -> String:
+		var n := f.get_basename()
+		if n.begins_with("day"):
+			var p := n.substr(3).split("_")
+			return "%s일차 손님 %s 납품" % [p[0], p[1]]
+		return "직접 찍은 사진"
+
+	func tex(f: String) -> Texture2D:
+		if not cache.has(f):
+			cache[f] = ImageTexture.create_from_image(Image.load_from_file(Main.PHOTOS + "/" + f))
+		return cache[f]
+
+	func down(x: float, y: float, _right: bool) -> void:
+		if inside(x, y, BTN_BACK):
+			m.pop()
+		elif inside(x, y, BTN_PREV):
+			page = max(0, page - 1)
+		elif inside(x, y, BTN_NEXT):
+			page = min(pages() - 1, page + 1)
+
+	func draw() -> void:
+		box([0, 0, 1280, H], BG)
+		text(50, 680, "앨범  ·  사진 %d장" % files.size(), 26, PINK)
+		if files.is_empty():
+			text(50, 600, "아직 사진이 없어요. 납품하면 자동으로 찍히고, 책상 화면의 '사진' 버튼으로 직접 찍을 수 있어요.", 17, QUIET)
+		var per := COLS * ROWS
+		var shown := files.slice(page * per, (page + 1) * per)
+		for i in shown.size():
+			var r := thumb(i)
+			panel(grow(r, 10), true)
+			m.draw_texture_rect(tex(shown[i]), _rect(r), false)
+			text(r[0], r[1] - 26, caption(shown[i]), 16)
+		button(BTN_PREV, "◀", VIOLET)
+		button(BTN_NEXT, "▶", VIOLET)
+		text(600, 40, "%d / %d" % [page + 1, pages()], 16, QUIET)
+		button(BTN_BACK, "돌아가기", PINK)

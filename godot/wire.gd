@@ -29,7 +29,7 @@ func down(x: float, y: float, right: bool) -> void:
 	if tabs(x, y):
 		return
 	if inside(x, y, BTN_DONE):
-		m.go("result")
+		m.deliver()
 		return
 	var port = Rules.port_at(x, y, Game.pc)
 	var p = device_at(x, y)
