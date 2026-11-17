@@ -30,9 +30,8 @@ module.exports = (S, h) => {
   S.tablet = [98, 60, `<path d="M4 58 L94 58 L84 30 L14 30 Z" fill="#14102a"/><path d="M18 52 L80 52 L74 34 L22 34 Z" fill="#2a2350"/>
     <path d="M60 10 L74 48" stroke="#c9ccd6" stroke-width="4"/><circle cx="74" cy="48" r="2" fill="#2ee6d6"/><rect x="8" y="54" width="6" height="3" fill="#2ee6d6"/>`];
   // 키보드 · 마우스
-  S.kb_white = kb('#f4f2fa', '#ffffff', false, `<rect x="80" y="20" width="16" height="22" rx="8" fill="#f4f2fa"/><rect x="87" y="22" width="2" height="7" fill="#c9b8ff"/>`);
-  S.kb_mini = [98, 44, `<rect x="16" y="14" width="62" height="24" rx="3" fill="#2a2350"/>${[0, 1, 2, 3].map(r => [...Array(r == 3 ? 3 : 8)].map((_, c) => `<rect x="${r == 3 ? [19, 30, 66][c] : 19 + c * 7.2}" y="${17 + r * 5.3}" width="${r == 3 && c == 1 ? 32 : 5.4}" height="4" fill="${(r + c) % 5 == 0 ? '#ff4d8d' : '#c9b8ff'}"/>`).join('')).join('')}
-    <rect x="84" y="22" width="12" height="18" rx="6" fill="#c9b8ff"/>`];
+  S.kb_white = kb('#f4f2fa', '#ffffff', false);
+  S.kb_mini = [80, 44, `<rect x="16" y="14" width="62" height="24" rx="3" fill="#2a2350"/>${[0, 1, 2, 3].map(r => [...Array(r == 3 ? 3 : 8)].map((_, c) => `<rect x="${r == 3 ? [19, 30, 66][c] : 19 + c * 7.2}" y="${17 + r * 5.3}" width="${r == 3 && c == 1 ? 32 : 5.4}" height="4" fill="${(r + c) % 5 == 0 ? '#ff4d8d' : '#c9b8ff'}"/>`).join('')).join('')}`];
   S.mouse_gaming = [98, 40, `<defs>${RGB('mr')}</defs><rect x="4" y="30" width="90" height="8" rx="2" fill="#14102a"/><rect x="4" y="36" width="90" height="2" fill="url(#mr)"/>
     <path d="M40 30 Q40 6 54 6 Q68 6 68 30 Z" fill="#14102a"/><rect x="53" y="8" width="2" height="10" fill="#2ee6d6"/><path d="M42 26 L66 26" stroke="url(#mr)" stroke-width="2"/>`];
   S.mouse_vertical = [98, 56, `<path d="M34 56 L70 56 Q74 20 56 6 Q40 10 34 56 Z" fill="#4a4e69"/><path d="M56 6 Q62 26 60 56" stroke="#2a2350" stroke-width="3" fill="none"/>

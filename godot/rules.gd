@@ -54,7 +54,7 @@ static func fits_at(placed: Array, id: String, layer: String, x: int, y: int, ig
 	if layer == "desk" and (z < 0 or z + d > DESK_DEPTH or foot_x(id, x).x < AREA_X1 - 1 or foot_x(id, x).y > AREA_X2 + 1):
 		return false
 	for p in placed:
-		if is_same(p, ignore) or p["layer"] != layer:
+		if is_same(p, ignore) or p["layer"] != layer or is_mounted(p):   # 붙는 소품은 책상 칸을 차지하지 않음
 			continue
 		if layer == "wall":
 			var r := rect_of(p)
@@ -92,9 +92,9 @@ static func place_slot(placed: Array, id: String, layer: String, slot: int) -> D
 
 
 static func item_at(placed: Array, x: float, y: float):
-	for want in ["desk", "wall"]:  # 앞에 있는 책상 소품 먼저
+	for want in ["mount", "desk", "wall"]:  # 모니터에 붙은 것 → 책상 위 → 벽 순서로 (앞에 있는 것 먼저)
 		for p in placed:
-			if p["layer"] == want and inside(x, y, rect_of(p)):
+			if (p["layer"] if not is_mounted(p) else "mount") == want and inside(x, y, rect_of(p)):
 				return p
 	return null
 
@@ -118,6 +118,129 @@ static func drop_target(id: String, x: float, y: float):
 	if y < WALL_Y1 - 30:
 		return null
 	return [layer, left, int(clamp(y - s.y / 2.0, WALL_Y1, WALL_Y2 - s.y))]
+
+
+# ---------- 현실적인 배치: 붙는 소품 · 자석 ----------
+## mount: "monitor" = 모니터 윗면에 끼움 (host · slot) / "edge" = 책상 앞 가장자리 걸이 / "clamp" = 책상 뒤 가장자리 집게
+const MONITORS := ["monitor", "monitor_27", "monitor_white", "monitor_curve"]
+const KEYBOARDS := ["keyboard", "gaming_kb", "kb_white", "kb_mini"]
+const MICE := ["mouse_gaming", "mouse_vertical"]
+const SPEAKERS := ["speaker", "speaker_bt"]
+const MOUNT_TOP := {"monitor_bar": 14, "webcam": 26}   # 그림 윗변이 모니터 윗변보다 몇 px 위인지
+const MAGNET := 230    # 이 거리 안이면 짝 소품 옆 제자리로 끌려감
+
+
+static func mount_of(id: String) -> String:
+	return DB.ITEMS[id].get("mount", "")
+
+
+static func is_mounted(p: Dictionary) -> bool:
+	return mount_of(p["id"]) != ""
+
+
+static func center_x(p: Dictionary) -> float:
+	return p["x"] + DB.size_of(p["id"]).x / 2.0
+
+
+## 붙은 소품의 위치를 붙은 곳에 맞춘다 (모니터를 옮기면 같이 따라감). 그림 · 클릭 · 배선 모두 이 x · y · z를 쓴다.
+static func mount_pos(p: Dictionary) -> void:
+	var s := DB.size_of(p["id"])
+	match mount_of(p["id"]):
+		"monitor":
+			var h: Dictionary = p["host"]
+			var hr := rect_of(h)
+			var cx: float = (hr[0] + hr[2]) / 2.0 + (0.0 if p.get("slot", 0) == 0 else (hr[2] - hr[0]) * 0.3)
+			p["x"] = int(cx - s.x / 2.0)
+			p["y"] = int(hr[3] + MOUNT_TOP.get(p["id"], 10) - s.y)
+			p["z"] = h.get("z", 0)
+		"edge":
+			p["y"] = DESK_Y + 8 - s.y   # 집게가 상판 앞 모서리를 물고 아래로 늘어짐
+			p["z"] = DESK_DEPTH - depth_of(p["id"]) / 2
+		"clamp":
+			p["y"] = DESK_Y
+			p["z"] = 0
+
+
+static func sync_mounts(placed: Array) -> void:
+	for p in placed:
+		if is_mounted(p) and (mount_of(p["id"]) != "monitor" or placed.has(p["host"])):
+			mount_pos(p)
+
+
+## 모니터에 붙은 소품들 (모니터를 치우면 같이 창고로)
+static func mounts_on(placed: Array, host: Dictionary) -> Array:
+	return placed.filter(func(p): return mount_of(p["id"]) == "monitor" and is_same(p.get("host"), host))
+
+
+## 모니터 위 빈 자리: 0 = 가운데, 1 = 오른쪽. 없으면 -1
+static func free_slot(placed: Array, host: Dictionary, ignore = null) -> int:
+	var used := mounts_on(placed, host).filter(func(p): return not is_same(p, ignore)).map(func(p): return p.get("slot", 0))
+	for k in [0, 1]:
+		if not k in used:
+			return k
+	return -1
+
+
+## 가장자리 걸이 · 집게: 책상 안 + 같은 종류끼리 안 겹침
+static func edge_fits(placed: Array, id: String, x: int, ignore = null) -> bool:
+	var w := DB.size_of(id).x
+	if x < AREA_X1 or x + w > AREA_X2 + 1:
+		return false
+	for p in placed:
+		if not is_same(p, ignore) and mount_of(p["id"]) == mount_of(id) and x < p["x"] + DB.size_of(p["id"]).x - 4 and p["x"] < x + w - 4:
+			return false
+	return true
+
+
+static func _nearest(placed: Array, ids: Array, cx: float, ignore = null):
+	var best = null
+	for p in placed:
+		if p["id"] in ids and not is_same(p, ignore) and abs(center_x(p) - cx) < MAGNET and (best == null or abs(center_x(p) - cx) < abs(center_x(best) - cx)):
+			best = p
+	return best
+
+
+## 놓을 자리 후보 [x, z] (앞쪽이 우선). x = 정면 그림 왼쪽. z < 0 이면 정면 뷰(앞뒤 정보 없음).
+## 짝 소품 옆 제자리 → 앞뒤 구역(뒤 = 벽쪽, 앞 = 손 닿는 곳) → 손가락 위치 그대로.
+static func magnet(placed: Array, id: String, x: int, z: int, ignore = null) -> Array:
+	var s := DB.size_of(id)
+	var f := foot_of(id)
+	var cx := x + s.x / 2.0
+	var out := []
+	var at := func(ncx: float, nz: float): out.append([int(ncx - s.x / 2.0), int(nz)])
+	if id in KEYBOARDS:   # 모니터 바로 앞 가운데
+		var m = _nearest(placed, MONITORS, cx, ignore)
+		if m != null:
+			at.call(center_x(m), m.get("z", 0) + depth_of(m["id"]) + 10)
+	elif id in MICE:      # 키보드 오른쪽
+		var k = _nearest(placed, KEYBOARDS, cx, ignore)
+		if k != null:
+			var mx: float = foot_x(k["id"], k["x"]).y + 8 + f.x / 2.0
+			var kz: int = k.get("z", 0)
+			for mz in [kz + depth_of(k["id"]) / 2.0 - f.y / 2.0, kz, kz + depth_of(k["id"]) - f.y]:   # 키보드와 가운데 · 뒷선 · 앞선 맞춤
+				at.call(mx, mz)
+	elif id in SPEAKERS:  # 모니터 양옆 (가까운 쪽 먼저)
+		var m = _nearest(placed, MONITORS, cx, ignore)
+		if m != null:
+			var mr := foot_x(m["id"], m["x"])
+			var sides := [mr.x - 8 - f.x / 2.0, mr.y + 8 + f.x / 2.0]
+			sides.sort_custom(func(a, b): return abs(a - cx) < abs(b - cx))
+			for side in sides:
+				at.call(side, m.get("z", 0))
+	elif id == "soundbar":  # 모니터 받침 바로 앞
+		var m = _nearest(placed, MONITORS, cx, ignore)
+		if m != null:
+			at.call(center_x(m), m.get("z", 0) + depth_of(m["id"]))
+	match DB.ITEMS[id].get("zone", ""):
+		"back":
+			out.append([x, 0])
+			if z >= 0:
+				out.append([x, min(z, DESK_DEPTH / 2)])
+		"front":
+			out.append([x, z if z >= DESK_DEPTH * 0.45 else DESK_DEPTH - f.y - 20])
+	if z >= 0:
+		out.append([x, z])
+	return out
 
 
 # ---------- 배선 ----------
@@ -146,9 +269,12 @@ static func port_pos(t: String, i: int) -> Vector2:
 	return Vector2(PORT_X0 + (SLOT_OFFSET[t] + i) * PORT_GAP, PORT_Y)
 
 
-static func plug_pos(p: Dictionary) -> Vector2:
-	var r := rect_of(p)
-	return Vector2(150 + ((r[0] + r[2]) / 2.0 - SLOT_X0) / SLOT_W * 145, PLUG_Y)
+## 배선 화면의 기기 자리: 책상 위 왼쪽 → 오른쪽 순서 그대로, 고르게 펼침 (같은 x에 겹친 모니터 · 키보드도 안 겹치게)
+static func plug_pos(p: Dictionary, placed: Array) -> Vector2:
+	var devs := placed.filter(needs_cable)
+	devs.sort_custom(func(a, b): return center_x(a) < center_x(b) or (center_x(a) == center_x(b) and a.get("z", 0) < b.get("z", 0)))
+	var gap: float = min(145.0, 980.0 / max(devs.size(), 1))
+	return Vector2(640 - gap * devs.size() / 2.0 + gap * (devs.find(p) + 0.5), PLUG_Y)
 
 
 static func port_at(x: float, y: float, pc: PCBuild):
@@ -177,11 +303,11 @@ static func _orient(p: Vector2, q: Vector2, r: Vector2) -> float:
 	return (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)
 
 
-static func crossings(cables: Array) -> int:
+static func crossings(cables: Array, placed: Array) -> int:
 	var segs := []
 	for c in cables:
 		if not is_dongle(c):  # 동글은 선이 없어 안 꼬인다
-			segs.append([plug_pos(c["dev"]), port_pos(c["type"], c["port"])])
+			segs.append([plug_pos(c["dev"], placed), port_pos(c["type"], c["port"])])
 	var n := 0
 	for i in segs.size():
 		for j in range(i + 1, segs.size()):
@@ -200,7 +326,7 @@ static func wiring_score(cables: Array, placed: Array) -> Array:
 	if devices.is_empty():
 		return [10.0, 0, 0]
 	var connected := devices.filter(func(p): return cables.any(func(c): return is_same(c["dev"], p))).size()
-	var x := crossings(cables)
+	var x := crossings(cables, placed)
 	return [max(0.0, 10.0 * connected / devices.size() - 2 * x), devices.size() - connected, x]
 
 

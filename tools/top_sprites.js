@@ -29,15 +29,15 @@ const monitor = (body, top, glow, baseW = 0.4) => (W, H) => {
 };
 
 // 키보드(+ 마우스) 공통: key가 배열이면 줄마다 색이 바뀜(RGB). pad가 있으면 마우스 밑에 패드.
-const kbTop = ({ body, top, key, cols = 15, kbW = 0.8, mouse, pad }) => (W, H) => {
+const kbTop = ({ body, top, key, cols = 15, kbW = 0.97, mouse, pad }) => (W, H) => {
   const kw = W * kbW, kc = Array.isArray(key) ? key : [key];
   const kx = (kw - 12) / cols - 3, ky = (H - 30) / 5;
   const rows = [0, 1, 2, 3].map(r => keys(8, 12 + r * (ky + 3), cols, 1, kx, ky, 3, kc[r % kc.length])).join('');
   const mx = kw + (W - kw) * .3, mw = (W - kw) * .5;
   return `${shadow(2, 4, kw, H - 10, 4)}<rect x="2" y="4" width="${kw}" height="${H - 10}" rx="4" fill="${body}"/><rect x="2" y="4" width="${kw}" height="5" rx="3" fill="${top}"/>
     ${rows}<rect x="${kw * .25}" y="${H - 18}" width="${kw * .45}" height="${ky}" fill="${kc[0]}"/>
-    ${pad ? `<rect x="${kw + 6}" y="${H * .08}" width="${W - kw - 8}" height="${H * .84}" rx="3" fill="#14102a" stroke="${pad}" stroke-width="2"/>` : ''}
-    ${shadow(mx, H * .2, mw, H * .62, 12)}<rect x="${mx}" y="${H * .2}" width="${mw}" height="${H * .62}" rx="12" fill="${mouse}"/><rect x="${mx + mw / 2 - 1}" y="${H * .24}" width="3" height="${H * .16}" fill="${pad || '#9aa0b4'}"/>`;
+    ${!mouse ? '' : pad ? `<rect x="${kw + 6}" y="${H * .08}" width="${W - kw - 8}" height="${H * .84}" rx="3" fill="#14102a" stroke="${pad}" stroke-width="2"/>` : ''}
+    ${!mouse ? '' : `${shadow(mx, H * .2, mw, H * .62, 12)}`}${!mouse ? '' : `<rect x="${mx}" y="${H * .2}" width="${mw}" height="${H * .62}" rx="12" fill="${mouse}"/><rect x="${mx + mw / 2 - 1}" y="${H * .24}" width="3" height="${H * .16}" fill="${pad || '#9aa0b4'}"/>`}`;
 };
 
 const DRAW = {
@@ -66,16 +66,16 @@ const DRAW = {
     ${[0, 1, 2, 3].map(i => `<rect x="8" y="${14 + i * (H - 28) / 4}" width="${W * .1}" height="${(H - 28) / 4 - 5}" rx="2" fill="#3e3760"/>`).join('')}
     <path d="M${W * .45} ${H * .75} L${W * .85} ${H * .3}" stroke="#000" stroke-opacity=".35" stroke-width="7" transform="translate(3 4)"/><path d="M${W * .45} ${H * .75} L${W * .85} ${H * .3}" stroke="#e6e8f0" stroke-width="7"/><path d="M${W * .45} ${H * .75} L${W * .5} ${H * .69}" stroke="${PINK}" stroke-width="7"/>`,
 
-  // 웹캠 (작은 삼각대): 다리 3개 + 렌즈가 앞을 봄
-  webcam: (W, H) => `<path d="M${W / 2} ${H / 2} L6 ${H - 6} M${W / 2} ${H / 2} L${W - 6} ${H - 6} M${W / 2} ${H / 2} L${W / 2} 4" stroke="#3e3760" stroke-width="5"/>
-    ${shadow(W * .18, H * .28, W * .64, H * .4, 6)}<rect x="${W * .18}" y="${H * .28}" width="${W * .64}" height="${H * .4}" rx="6" fill="#2a2440"/><rect x="${W * .18}" y="${H * .28}" width="${W * .64}" height="5" rx="3" fill="#4a4370"/>
-    <rect x="${W * .38}" y="${H * .6}" width="${W * .24}" height="${H * .12}" fill="${CYAN}"/><rect x="${W * .7}" y="${H * .34}" width="5" height="5" fill="${PINK}"/>`,
+  // 웹캠: 모니터 윗면에 끼운 작은 카메라 (렌즈가 앞을 봄)
+  webcam: (W, H) => `<rect x="${W * .4}" y="2" width="${W * .2}" height="${H * .3}" fill="#2a2440"/>
+    ${shadow(W * .12, H * .28, W * .76, H * .5, 6)}<rect x="${W * .12}" y="${H * .28}" width="${W * .76}" height="${H * .5}" rx="6" fill="#1c1830"/><rect x="${W * .12}" y="${H * .28}" width="${W * .76}" height="4" rx="3" fill="#3e3760"/>
+    <rect x="${W * .38}" y="${H * .7}" width="${W * .24}" height="${H * .12}" fill="#3a7ac8"/><rect x="${W * .76}" y="${H * .36}" width="4" height="4" fill="${PINK}"/>`,
 
   // 키보드 + 마우스
-  keyboard: kbTop({ body: '#c9ccd6', top: '#e6e8f0', key: '#f4f4fa', mouse: '#e6e8f0' }),
-  gaming_kb: kbTop({ body: '#14102a', top: '#2a2440', key: [PINK, '#7b5cff', CYAN], mouse: '#2a2440', pad: PINK }),
-  kb_white: kbTop({ body: '#f4f4fa', top: '#ffffff', key: '#e6e8f0', mouse: '#f4f4fa' }),
-  kb_mini: kbTop({ body: '#8a7cc8', top: '#a99be0', key: ['#e6e0ff', '#e6e0ff', '#e6e0ff', PINK], cols: 11, kbW: 0.76, mouse: '#c8bcf4' }),
+  keyboard: kbTop({ body: '#c9ccd6', top: '#e6e8f0', key: '#f4f4fa' }),   // 마우스는 따로 파는 소품
+  gaming_kb: kbTop({ body: '#14102a', top: '#2a2440', key: [PINK, '#7b5cff', CYAN] }),
+  kb_white: kbTop({ body: '#f4f4fa', top: '#ffffff', key: '#e6e8f0' }),
+  kb_mini: kbTop({ body: '#8a7cc8', top: '#a99be0', key: ['#e6e0ff', '#e6e0ff', '#e6e0ff', PINK], cols: 11 }),
 
   // 버티컬 마우스: 옆으로 세운 손잡이
   mouse_vertical: (W, H) => `<ellipse cx="${W / 2 + 2}" cy="${H / 2 + 3}" rx="${W * .42}" ry="${H * .46}" fill="#000" opacity=".35"/>
@@ -139,10 +139,12 @@ const DRAW = {
     ${cshadow(W * .66, H * .68, W * .2)}<circle cx="${W * .66}" cy="${H * .68}" r="${W * .2}" fill="#2a2440"/><circle cx="${W * .66}" cy="${H * .68}" r="${W * .2}" fill="none" stroke="${PINK}" stroke-width="3"/>${dots(W * .66, H * .68, W * .12, '#8a84a8')}`,
   mic_desk: (W, H) => `${cshadow(W / 2, H / 2, W * .46)}<circle cx="${W / 2}" cy="${H / 2}" r="${W * .46}" fill="#2a2440"/>
     <circle cx="${W / 2}" cy="${H / 2}" r="${W * .3}" fill="#c9ccd6"/><circle cx="${W / 2}" cy="${H / 2}" r="${W * .3}" fill="none" stroke="${PINK}" stroke-width="3"/>${dots(W / 2, H / 2, W * .2, '#9aa0b4')}`,
-  headset: (W, H) => `${cshadow(W / 2, H / 2, W * .42)}<circle cx="${W / 2}" cy="${H / 2}" r="${W * .42}" fill="#2a2440"/>
-    <rect x="${W * .12}" y="${H * .44}" width="${W * .76}" height="${H * .12}" fill="#3e3760"/>
-    <rect x="4" y="${H * .28}" width="${W * .18}" height="${H * .44}" rx="4" fill="#1c1830"/><rect x="${W * .1}" y="${H * .34}" width="3" height="${H * .32}" fill="${PINK}"/>
-    <rect x="${W * .78}" y="${H * .28}" width="${W * .18}" height="${H * .44}" rx="4" fill="#1c1830"/><rect x="${W * .84}" y="${H * .34}" width="3" height="${H * .32}" fill="${CYAN}"/>`,
+  // 헤드셋 걸이: 책상 앞 모서리 집게(위) → 모서리 밖으로 매달린 헤드셋(아래)
+  headset: (W, H) => `<rect x="${W * .36}" y="0" width="${W * .28}" height="${H * .4}" fill="#4a4370"/><rect x="${W * .36}" y="0" width="${W * .28}" height="4" fill="#5a5280"/>
+    <path d="M${W * .14} ${H * .62} Q${W / 2} ${H * .2} ${W * .86} ${H * .62}" stroke="#000" stroke-opacity=".35" stroke-width="7" fill="none" transform="translate(3 4)"/>
+    <path d="M${W * .14} ${H * .62} Q${W / 2} ${H * .2} ${W * .86} ${H * .62}" stroke="#1c1830" stroke-width="7" fill="none"/>
+    <rect x="2" y="${H * .5}" width="${W * .24}" height="${H * .44}" rx="6" fill="#1c1830"/><rect x="${W * .08}" y="${H * .56}" width="4" height="${H * .3}" fill="${PINK}"/>
+    <rect x="${W * .74}" y="${H * .5}" width="${W * .24}" height="${H * .44}" rx="6" fill="#1c1830"/><rect x="${W * .86}" y="${H * .56}" width="4" height="${H * .3}" fill="${CYAN}"/>`,
   headphones: (W, H) => `<path d="M${W * .2} ${H * .7} Q${W / 2} ${-H * .1} ${W * .8} ${H * .7}" stroke="#000" stroke-opacity=".35" stroke-width="8" fill="none" transform="translate(3 4)"/>
     <path d="M${W * .2} ${H * .7} Q${W / 2} ${-H * .1} ${W * .8} ${H * .7}" stroke="#e6e8f0" stroke-width="8" fill="none"/>
     ${[.2, .8].map(k => `${cshadow(W * k, H * .72, W * .17)}<circle cx="${W * k}" cy="${H * .72}" r="${W * .17}" fill="#c8bcf4"/><circle cx="${W * k}" cy="${H * .72}" r="${W * .1}" fill="#a99be0"/>`).join('')}`,

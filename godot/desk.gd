@@ -74,37 +74,90 @@ func shown_rect(p: Dictionary) -> Array:
 	return top_rect(p["id"], p["x"], p.get("z", 0)) if p["layer"] == "desk" else []
 
 
+## 그리는 순서 · 누르는 순서: 뒤(z 작은 것) → 앞, 같은 깊이면 모니터에 붙은 소품이 위
+func depth_key(p: Dictionary) -> float:
+	return p.get("z", 0) + (0.5 if Rules.is_mounted(p) else 0.0)
+
+
 func hit(x: float, y: float):
 	if not top_view:
 		return Rules.item_at(Game.placed, x, y)
 	var best = null   # 겹치면 앞에 있는 것(z 큰 것)
 	for p in Game.placed:
 		var r := shown_rect(p)
-		if not r.is_empty() and inside(x, y, r) and (best == null or p.get("z", 0) > best.get("z", 0)):
+		if not r.is_empty() and inside(x, y, r) and (best == null or depth_key(p) > depth_key(best)):
 			best = p
 	return best
 
 
 ## 놓일 자리 {layer, x, y, z, ok}. 근처가 아니면 {}.
+## 놓일 자리 {id, layer, x, y, z, ok, why?, host?, slot?}. 근처가 아니면 {}.
+## 책상 위 소품은 자석처럼 제자리(짝 소품 옆 · 앞뒤 구역)로 끌려간다. 붙는 소품은 붙을 곳에만.
 func target(id: String, x: float, y: float) -> Dictionary:
 	var layer: String = DB.ITEMS[id]["layer"]
+	if Rules.is_mounted({"id": id}):
+		return mount_target(id, x, y)
 	var keep: int = moving.get("z", 0) if moving != null else -1
+	var s := DB.size_of(id)
+	var bx: int
+	var z := -1
 	if top_view:
 		if layer != "desk" or not inside(x, y, grow(desk_rect(), 40)):
 			return {}
-		var s := DB.size_of(id)
 		var d := Rules.depth_of(id)
 		var w: float = max(s.x, Rules.foot_of(id).x)
-		var bx := int(clamp(Rules.AREA_X1 + (x - Rules.AREA_X1) / K, Rules.AREA_X1 + w / 2.0, Rules.AREA_X2 - w / 2.0) - s.x / 2.0)
-		var z := int(clamp(snappedf((TOP_BACK - y) / K - d / 2.0, Rules.Z_STEP), 0, Rules.DESK_DEPTH - d))
-		return {"layer": layer, "x": bx, "y": Rules.DESK_Y, "z": z, "ok": Rules.fits_at(Game.placed, id, layer, bx, Rules.DESK_Y, moving, z)}
-	var t = Rules.drop_target(id, x, y)
-	if t == null:
+		bx = int(clamp(Rules.AREA_X1 + (x - Rules.AREA_X1) / K, Rules.AREA_X1 + w / 2.0, Rules.AREA_X2 - w / 2.0) - s.x / 2.0)
+		z = int(clamp(snappedf((TOP_BACK - y) / K - d / 2.0, Rules.Z_STEP), 0, Rules.DESK_DEPTH - d))
+	else:
+		var t = Rules.drop_target(id, x, y)
+		if t == null:
+			return {}
+		if layer == "wall":
+			return {"id": id, "layer": layer, "x": t[1], "y": t[2], "z": 0, "ok": Rules.fits_at(Game.placed, id, layer, t[1], t[2], moving)}
+		bx = t[1]
+	for c in Rules.magnet(Game.placed, id, bx, z, moving):
+		if Rules.fits_at(Game.placed, id, "desk", c[0], Rules.DESK_Y, moving, c[1]):
+			return {"id": id, "layer": layer, "x": c[0], "y": Rules.DESK_Y, "z": c[1], "ok": true}
+	if not top_view:   # 정면: 그 x에서 비어 있는 앞뒤 자리
+		var fz := Rules.free_z(Game.placed, id, bx, moving, keep)
+		return {"id": id, "layer": layer, "x": bx, "y": Rules.DESK_Y, "z": max(fz, 0), "ok": fz >= 0}
+	return {"id": id, "layer": layer, "x": bx, "y": Rules.DESK_Y, "z": z, "ok": false}
+
+
+## 붙는 소품: 모니터 윗면 / 책상 앞 가장자리 걸이 / 책상 뒤 가장자리 집게
+func mount_target(id: String, x: float, y: float) -> Dictionary:
+	var s := DB.size_of(id)
+	var t := {"id": id, "layer": "desk", "x": int(x - s.x / 2.0), "y": Rules.DESK_Y, "z": 0, "ok": false}
+	if Rules.mount_of(id) == "monitor":
+		var best = null
+		var bd := 260.0
+		for h in Game.placed:
+			if h["id"] in Rules.MONITORS and not shown_rect(h).is_empty():
+				var dist := Vector2(x, y).distance_to(center(shown_rect(h)))
+				if dist < bd:
+					best = h
+					bd = dist
+		if best == null:
+			t["why"] = "%s은(는) 모니터 위에 끼워요. 모니터 근처에 놓아 주세요" % DB.ITEMS[id]["name"]
+			return t
+		var slot := Rules.free_slot(Game.placed, best, moving)
+		if slot < 0:
+			t["why"] = "이 모니터 위엔 더 끼울 자리가 없어요"
+			return t
+		t["host"] = best
+		t["slot"] = slot
+		Rules.mount_pos(t)
+		t["ok"] = true
+		return t
+	var near: bool = inside(x, y, grow(desk_rect(), 60)) if top_view else (y > 40 and y < Rules.DESK_Y + 260)
+	if not near:
 		return {}
-	if layer == "wall":
-		return {"layer": layer, "x": t[1], "y": t[2], "z": 0, "ok": Rules.fits_at(Game.placed, id, layer, t[1], t[2], moving)}
-	var fz := Rules.free_z(Game.placed, id, t[1], moving, keep)   # 정면에선 비어 있는 앞뒤 자리를 알아서 찾는다
-	return {"layer": layer, "x": t[1], "y": t[2], "z": max(fz, 0), "ok": fz >= 0}
+	t["x"] = int(clamp(Rules.AREA_X1 + (x - Rules.AREA_X1) / K - s.x / 2.0 if top_view else x - s.x / 2.0, Rules.AREA_X1, Rules.AREA_X2 - s.x))
+	Rules.mount_pos(t)
+	t["ok"] = Rules.edge_fits(Game.placed, id, t["x"], moving)
+	if not t["ok"]:
+		t["why"] = "그 자리엔 이미 걸이 · 집게가 있어요"
+	return t
 
 
 func preview_rect(id: String, t: Dictionary) -> Array:
@@ -149,8 +202,9 @@ func down(x: float, y: float, right: bool) -> void:
 	var p = hit(x, y)
 	if right:
 		if p != null:
-			Game.placed.erase(p)
-			Game.give_back(p["id"])
+			for q in Rules.mounts_on(Game.placed, p) + [p]:   # 모니터를 빼면 위에 끼운 것도 같이 창고로
+				Game.placed.erase(q)
+				Game.give_back(q["id"])
 			selected = null
 		return
 	var ids := rows()
@@ -198,15 +252,21 @@ func up(x: float, y: float) -> void:
 	sfx("place" if ok else "error")
 	if mv != null:
 		if ok:
-			mv["x"] = t["x"]
-			mv["y"] = t["y"]
-			mv["z"] = t["z"]
+			for k in ["x", "y", "z", "host", "slot"]:
+				if t.has(k):
+					mv[k] = t[k]
+			toast = ""
 		else:
-			toast = "그 자리엔 못 놓아서 원래 자리에 뒀어요"
+			toast = t.get("why", "그 자리엔 못 놓아서 원래 자리에 뒀어요")
 	elif ok and Game.take(id):
-		selected = {"id": id, "layer": t["layer"], "x": t["x"], "y": t["y"], "z": t["z"]}
+		selected = {}
+		for k in ["id", "layer", "x", "y", "z", "host", "slot"]:
+			if t.has(k):
+				selected[k] = t[k]
 		Game.placed.append(selected)
 		toast = ""
+	elif t.has("why"):
+		toast = t["why"]
 	elif top_view and DB.ITEMS[id]["layer"] == "wall":
 		toast = "벽 장식은 정면 뷰에서 걸어 주세요"
 	elif not t.is_empty() or inside(x, y, ROOM):
@@ -214,16 +274,21 @@ func up(x: float, y: float) -> void:
 
 
 # ---------- 그리기 ----------
+## 들고 있는 소품 (모니터를 들면 위에 끼운 것도 같이 들림)
+func lifted(p: Dictionary) -> bool:
+	return moving != null and (is_same(p, moving) or is_same(p.get("host"), moving))
+
+
 func by_depth() -> Array:
 	var desk := Game.placed.filter(func(p): return p["layer"] == "desk")
-	desk.sort_custom(func(a, b): return a.get("z", 0) < b.get("z", 0))   # 벽쪽(뒤) 먼저, 앞이 위에
+	desk.sort_custom(func(a, b): return depth_key(a) < depth_key(b))   # 벽쪽(뒤) 먼저, 앞이 위에
 	return desk
 
 
 func draw_front() -> void:
 	spr("room_bg_" + Game.today()["weather"], 775, 325)
 	for p in Game.placed.filter(func(p): return p["layer"] == "wall") + by_depth():
-		if not is_same(p, moving):
+		if not lifted(p):
 			put(art(p), Rules.rect_of(p))
 	var case_name: String = Game.pc.parts.get("CASE", "case_empty")
 	var s := DB.size_of(case_name)
@@ -243,7 +308,7 @@ func draw_top() -> void:
 	box([d[0], d[1] - 4, d[2], d[1]], PINK)            # 앞쪽 가장자리 네온
 	text(d[0] + 12, d[1] - 20, "앞 (손님 자리)", 16, DIM)
 	for p in by_depth():
-		if is_same(p, moving):
+		if lifted(p):
 			continue
 		var r := shown_rect(p)
 		if top_art(art(p)) != "":
@@ -273,7 +338,7 @@ func draw_room() -> void:
 				fit(selected["id"] + ("__c%d" % k if k else ""), (r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0 + 2, 26, 26)
 	if Time.get_ticks_msec() / 333 % 2:   # 케이블이 안 꽂힌 기기 위에 깜빡이는 점
 		for p in Game.placed:
-			if Rules.needs_cable(p) and not is_same(p, moving) and not shown_rect(p).is_empty() and not Game.cables.any(func(c): return is_same(c["dev"], p)):
+			if Rules.needs_cable(p) and not lifted(p) and not shown_rect(p).is_empty() and not Game.cables.any(func(c): return is_same(c["dev"], p)):
 				var r := shown_rect(p)
 				circle((r[0] + r[2]) / 2.0, r[1] + 8, 6, PINK)
 
@@ -302,6 +367,7 @@ func draw_stock() -> void:
 
 
 func draw() -> void:
+	Rules.sync_mounts(Game.placed)   # 옮긴 모니터를 따라 위에 끼운 것도 이동
 	Game.cables = Rules.prune(Game.cables, Game.placed, Game.pc)   # 치운 기기 · 사라진 포트의 선은 자동으로 뽑힘
 	draw_room()
 	if capturing:

@@ -25,13 +25,13 @@ S.monitor = [208, 176, `<defs>${glow('mg', 10)}</defs>
   <rect x="6" y="110" width="196" height="6" fill="#7b5cff"/><rect x="10" y="111" width="20" height="4" fill="#ffffff" opacity=".6"/>
   <rect x="98" y="120" width="12" height="3" fill="#2a2350"/><rect x="190" y="121" width="4" height="3" fill="#2ee6d6"/>
   <path d="M150 6 L202 6 L202 40 Z" fill="#fff" opacity=".05"/>`];
-const kb = (body, key, under, mouse) => [98, 44, `<defs>${RGB('kr')}${glow('kg', 3)}</defs>
+const kb = (body, key, under, mouse = '') => [78, 44, `<defs>${RGB('kr')}${glow('kg', 3)}</defs>
   ${under ? `<rect x="2" y="30" width="72" height="8" fill="url(#kr)" filter="url(#kg)"/>` : ''}
   <rect x="0" y="12" width="76" height="26" rx="3" fill="${body}"/><rect x="0" y="34" width="76" height="4" fill="#000" opacity=".25"/>
   ${[0,1,2,3].map(r=>[...Array(r==3?5:10)].map((_,c)=>{const w=r==3?(c==2?22:7):5.6, x=r==3?[3,12,21,45,55][c]:3+c*7.1;return `<rect x="${x}" y="${15+r*5.5}" width="${w}" height="4" fill="${key==='rgb'?`url(#kr)`:key}"/>`}).join('')).join('')}
   ${mouse}`];
-S.keyboard = kb('#c9ccd6', '#f4f4fa', false, `<rect x="80" y="20" width="16" height="22" rx="8" fill="#e6e8f0"/><rect x="87" y="22" width="2" height="7" fill="#9aa0b4"/>`);
-S.gaming_kb = kb('#14102a', 'rgb', true, `<rect x="80" y="20" width="16" height="22" rx="8" fill="#14102a"/><rect x="87" y="22" width="2" height="7" fill="#2ee6d6"/><rect x="80" y="36" width="16" height="3" fill="#ff4d8d"/>`);
+S.keyboard = kb('#c9ccd6', '#f4f4fa', false);
+S.gaming_kb = kb('#14102a', 'rgb', true);
 const lamp = (shade, light) => [98, 180, `<defs>${glow('lg', 6)}</defs>
   <path d="M74 66 L98 180 L22 180 Z" fill="${light}" opacity=".18"/>
   <ellipse cx="74" cy="66" rx="16" ry="8" fill="${light}" filter="url(#lg)"/>
@@ -218,6 +218,7 @@ S.title_bg = [1280, 720, `<defs>${sky('tsky')}</defs><rect width="1280" height="
 require('./more_sprites')(S, { glow, RGB, kb, lamp, tower });
 require('./inbuild_sprites')(S, { glow, RGB });
 require('./extra_sprites')(S, { city, stars });
+// 붙는 소품(라이트바 · 웹캠 · 헤드셋 걸이)은 이 다음에 node tools/mount_sprites.js 가 덮어씀
 
 // 색을 바꿀 수 있는 소품: 색상(hue)을 돌린 그림을 함께 만든다 (이름__c1 ~ __c3)
 const TINT = ['mood_lamp', 'neon_sign', 'neon_heart', 'wall_light', 'kb_mini', 'mug', 'headphones', 'speaker_bt', 'gamepad', 'desk_clock', 'poster_game', 'mouse_gaming'];

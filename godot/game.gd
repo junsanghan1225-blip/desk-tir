@@ -180,7 +180,12 @@ static func save(mode: String) -> void:
 		oi += 1 if more else 0
 	var order = null
 	if mode in ["shop", "desk", "build", "wire"]:
-		order = {"cart": cart, "placed": placed, "pc": pc.to_dict(),
+		var flat := placed.map(func(p):   # 모니터에 붙은 소품의 host는 번호로
+			var q: Dictionary = p.duplicate()
+			if q.has("host"):
+				q["host"] = placed.find(p["host"])
+			return q)
+		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(),
 			"cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
 	var d := {"mode": mode, "money": money, "day": day, "stock": stock, "upgrades": upgrades.keys(), "stars_total": stars_total,
 		"history": history, "ledger": ledger, "order_index": oi, "order": order}
@@ -216,6 +221,9 @@ static func load_save() -> String:
 	if d["order"] != null:
 		cart = d["order"]["cart"]
 		placed = d["order"]["placed"]
+		for p in placed:
+			if p.has("host"):
+				p["host"] = placed[p["host"]]
 		pc = PCBuild.from_dict(d["order"]["pc"])
 		cables = d["order"]["cables"].map(func(c): return {"dev": placed[c["dev"]], "type": c["type"], "port": c["port"]})
 	return d["mode"]

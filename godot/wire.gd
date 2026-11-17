@@ -20,7 +20,7 @@ func devices() -> Array:
 
 func device_at(x: float, y: float):
 	for p in devices():
-		if abs(x - Rules.plug_pos(p).x) <= 60 and y >= Rules.PLUG_Y - 20 and y <= DEV_Y + 60:
+		if abs(x - Rules.plug_pos(p, Game.placed).x) <= 60 and y >= Rules.PLUG_Y - 20 and y <= DEV_Y + 60:
 			return p
 	return null
 
@@ -107,7 +107,7 @@ func draw() -> void:
 	text(40, 40, "두 번 누르기(우클릭): 선 뽑기", 16, QUIET)
 	var devs := devices()
 	for p in devs:
-		var pos := Rules.plug_pos(p)
+		var pos := Rules.plug_pos(p, Game.placed)
 		var it: Dictionary = DB.ITEMS[p["id"]]
 		var col: Color = Rules.PORT_COLOR[it["port"]]
 		var r := [pos.x - 62, DEV_Y - 58, pos.x + 62, DEV_Y + 58]
@@ -126,13 +126,13 @@ func draw() -> void:
 		if Rules.is_dongle(c):
 			dongle(pp.x, pp.y + 28, DB.ITEMS[c["dev"]["id"]]["name"])
 		else:
-			cable(Rules.plug_pos(c["dev"]), pp, Rules.PORT_COLOR[c["type"]])
+			cable(Rules.plug_pos(c["dev"], Game.placed), pp, Rules.PORT_COLOR[c["type"]])
 	if wiring != null:
 		var it: Dictionary = DB.ITEMS[wiring["id"]]
 		if it.get("dongle", false):
 			dongle(m.mouse.x, m.mouse.y, it["name"])
 		else:
-			cable(Rules.plug_pos(wiring), m.mouse, Rules.PORT_COLOR[it["port"]])
+			cable(Rules.plug_pos(wiring, Game.placed), m.mouse, Rules.PORT_COLOR[it["port"]])
 	var w := Rules.wiring_score(Game.cables, Game.placed)
 	var ok: bool = w[1] == 0 and w[2] == 0
 	text(880, 610, "미연결 %d   꼬임 %d" % [w[1], w[2]], 22, GREEN if ok else GOLD)

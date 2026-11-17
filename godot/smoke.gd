@@ -131,7 +131,7 @@ func run() -> void:
 	var w = main.modes["wire"]
 	var used := {}
 	for p in w.devices():
-		var pos := Rules.plug_pos(p)
+		var pos := Rules.plug_pos(p, Game.placed)
 		var t: String = DB.ITEMS[p["id"]]["port"]
 		used[t] = used.get(t, -1) + 1
 		var port := Rules.port_pos(t, used[t])

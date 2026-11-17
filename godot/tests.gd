@@ -53,6 +53,25 @@ func _initialize() -> void:
 	ok(not Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, 30) and Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, Rules.depth_of("monitor")), "탑뷰: 앞뒤로 비키면 같은 x에 놓임")
 	ok(Rules.free_z([mz], "monitor", 400) == Rules.depth_of("monitor") and not Rules.fits_at([], "monitor", "desk", 400, Rules.DESK_Y, null, 350), "빈 앞뒤 자리 · 책상 밖")
 	ok(not Rules.fits_at([], "keyboard", "desk", Rules.AREA_X1, Rules.DESK_Y) and Rules.drop_target("keyboard", 0, Rules.DESK_Y) != null and Rules.fits_at([], "keyboard", "desk", Rules.drop_target("keyboard", 0, Rules.DESK_Y)[1], Rules.DESK_Y), "실제 크기도 책상 안에")
+	# 현실적인 배치: 키보드는 모니터 앞, 마우스는 키보드 오른쪽, 라이트바는 모니터 위 (모니터 따라 이동)
+	var mn := {"id": "monitor", "layer": "desk", "x": 500, "y": Rules.DESK_Y, "z": 0}
+	var kc: Array = Rules.magnet([mn], "keyboard", 470, -1)[0]
+	ok(absf(kc[0] + DB.size_of("keyboard").x / 2.0 - Rules.center_x(mn)) < 1 and kc[1] == Rules.depth_of("monitor") + 10, "키보드 → 모니터 앞 가운데")
+	var kbd := {"id": "keyboard", "layer": "desk", "x": kc[0], "y": Rules.DESK_Y, "z": kc[1]}
+	var mc: Array = Rules.magnet([mn, kbd], "mouse_vertical", kc[0] + 200, -1)[0]
+	ok(Rules.foot_x("mouse_vertical", mc[0]).x > Rules.foot_x("keyboard", kbd["x"]).y, "마우스 → 키보드 오른쪽")
+	ok(Rules.magnet([], "monitor", 600, 250)[0][1] == 0, "모니터는 벽쪽으로 끌림")
+	var bar := {"id": "monitor_bar", "layer": "desk", "host": mn, "slot": 0}
+	var cam := {"id": "webcam", "layer": "desk", "host": mn, "slot": 1}
+	var lay := [mn, kbd, bar, cam]
+	Rules.sync_mounts(lay)
+	ok(absf(Rules.center_x(bar) - Rules.center_x(mn)) < 1 and bar["y"] > Rules.rect_of(mn)[3] - 30 and Rules.free_slot(lay, mn) == -1, "라이트바 · 웹캠 → 모니터 위")
+	mn["x"] = 700
+	Rules.sync_mounts(lay)
+	ok(absf(Rules.center_x(bar) - Rules.center_x(mn)) < 1 and Rules.mounts_on(lay, mn).size() == 2, "모니터 옮기면 따라감")
+	var hs := {"id": "headset", "layer": "desk", "x": 400}
+	Rules.mount_pos(hs)
+	ok(Rules.rect_of(hs)[3] == Rules.DESK_Y + 8 and not Rules.edge_fits([hs], "headset", 420), "헤드셋 → 책상 모서리 걸이, 겹치지 않게")
 	ok(Rules.adjacent(lamp, book) and Rules.fits_at(placed, "mug", "desk", book["x"] + 20, Rules.DESK_Y, book), "인접 · 자기 자리 무시")
 	ok(Rules.drop_target("frame", 500, 100) == null and Rules.drop_target("mug", 10, 300) == ["desk", Rules.AREA_X1, Rules.DESK_Y], "놓을 자리")
 
@@ -66,7 +85,7 @@ func _initialize() -> void:
 	ok(Rules.wiring_score(wired, placed) == [10.0, 0, 0], "배선 만점")
 	var sp := Rules.place_slot(placed, "speaker", "desk", 4)
 	var tangled := [{"dev": kb, "type": "AUDIO", "port": 1}, {"dev": sp, "type": "USB", "port": 0}]
-	ok(Rules.crossings(tangled) == 1, "꼬임 1")
+	ok(Rules.crossings(tangled, placed) == 1, "꼬임 1")
 	ok(Rules.prune(wired, placed, PCBuild.new()).is_empty(), "부품이 없으면 선이 뽑힘")
 
 	# --- 채점 (scorer.py) ---
