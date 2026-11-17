@@ -45,7 +45,8 @@ static func spec(id: String) -> Dictionary:
 
 static func tex(name: String) -> Texture2D:
 	if not _tex.has(name):
-		_tex[name] = load("res://resource/%s.png" % name)
+		var real := "res://resource/real/%s.png" % name   # 실제 비율 정면 그림이 있으면 그걸로 (pico2d는 원래 그림)
+		_tex[name] = load(real if ResourceLoader.exists(real) else "res://resource/%s.png" % name)
 	return _tex[name]
 
 

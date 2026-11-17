@@ -1,7 +1,6 @@
-// 붙는 소품의 정면 그림: 모니터 위 라이트바 · 모니터에 끼운 웹캠 · 책상 앞 모서리에 거는 헤드셋 걸이.
-// make_sprites.js · more_sprites.js 다음에 실행 (같은 이름 그림을 덮어씀).  실행: node tools/mount_sprites.js
-const sharp = require('sharp'), path = require('path');
-const OUT = path.join(__dirname, '..', 'resource');
+// 붙는 소품의 정면 그림 (Godot 전용, 실제 비율): 모니터 위 라이트바 · 모니터에 끼운 웹캠 · 책상 앞 모서리에 거는 헤드셋 걸이.
+// → resource/real/ (pico2d는 책상 위에 세우는 원래 그림을 그대로 씀).  실행: node tools/mount_sprites.js
+const real = require('./real_scale');
 const CYAN = '#2ee6d6', PINK = '#ff4d8d';
 const S = {
   // 라이트바: 모니터 윗변에 걸쳐 앉고(아래 14px가 모니터 위로 내려옴), 빛이 화면 쪽으로 떨어짐
@@ -26,9 +25,7 @@ const S = {
 };
 (async () => {
   for (const [name, [w, h, body]] of Object.entries(S)) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`;
-    const small = await sharp(Buffer.from(svg)).resize(Math.ceil(w / 2), Math.ceil(h / 2), { kernel: 'nearest' }).png().toBuffer();
-    await sharp(small).resize(w, h, { kernel: 'nearest' }).png().toFile(path.join(OUT, name + '.png'));
+    await real(name, w, h, body);
   }
   console.log(Object.keys(S).length, 'mount sprites');
 })();

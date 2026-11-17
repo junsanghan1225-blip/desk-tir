@@ -218,9 +218,11 @@ S.title_bg = [1280, 720, `<defs>${sky('tsky')}</defs><rect width="1280" height="
 require('./more_sprites')(S, { glow, RGB, kb, lamp, tower });
 require('./inbuild_sprites')(S, { glow, RGB });
 require('./extra_sprites')(S, { city, stars });
-// 붙는 소품(라이트바 · 웹캠 · 헤드셋 걸이)은 이 다음에 node tools/mount_sprites.js 가 덮어씀
+// 붙는 소품(라이트바 · 웹캠 · 헤드셋 걸이)의 Godot용 그림은 node tools/mount_sprites.js
 
 // 색을 바꿀 수 있는 소품: 색상(hue)을 돌린 그림을 함께 만든다 (이름__c1 ~ __c3)
+const real = require('./real_scale');
+const MOUNTED = ['monitor_bar', 'webcam', 'headset'];   // 붙는 모양은 mount_sprites.js가 실제 비율로 그림
 const TINT = ['mood_lamp', 'neon_sign', 'neon_heart', 'wall_light', 'kb_mini', 'mug', 'headphones', 'speaker_bt', 'gamepad', 'desk_clock', 'poster_game', 'mouse_gaming'];
 
 (async () => {
@@ -231,6 +233,7 @@ const TINT = ['mood_lamp', 'neon_sign', 'neon_heart', 'wall_light', 'kb_mini', '
     await sharp(small).resize(w, h, { kernel: 'nearest' }).png().toFile(path.join(OUT, name + '.png'));
     if (TINT.includes(name))
       for (let k = 1; k <= 3; k++) await sharp(small).modulate({ hue: 90 * k }).resize(w, h, { kernel: 'nearest' }).png().toFile(path.join(OUT, `${name}__c${k}.png`));
+    if (!MOUNTED.includes(name)) await real(name, w, h, body, TINT.includes(name) ? 3 : 0);   // Godot용 실제 비율
   }
   console.log(Object.keys(S).length, 'sprites');
 })();

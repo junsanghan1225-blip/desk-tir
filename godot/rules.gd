@@ -126,7 +126,7 @@ const MONITORS := ["monitor", "monitor_27", "monitor_white", "monitor_curve"]
 const KEYBOARDS := ["keyboard", "gaming_kb", "kb_white", "kb_mini"]
 const MICE := ["mouse_gaming", "mouse_vertical"]
 const SPEAKERS := ["speaker", "speaker_bt"]
-const MOUNT_TOP := {"monitor_bar": 14, "webcam": 26}   # 그림 윗변이 모니터 윗변보다 몇 px 위인지
+const MOUNT_TOP := {"monitor_bar": 14.0 / 34, "webcam": 26.0 / 40}   # 그림 윗변이 모니터 윗변보다 (그림 높이의) 얼마나 위인지
 const MAGNET := 230    # 이 거리 안이면 짝 소품 옆 제자리로 끌려감
 
 
@@ -151,10 +151,10 @@ static func mount_pos(p: Dictionary) -> void:
 			var hr := rect_of(h)
 			var cx: float = (hr[0] + hr[2]) / 2.0 + (0.0 if p.get("slot", 0) == 0 else (hr[2] - hr[0]) * 0.3)
 			p["x"] = int(cx - s.x / 2.0)
-			p["y"] = int(hr[3] + MOUNT_TOP.get(p["id"], 10) - s.y)
+			p["y"] = int(hr[3] + MOUNT_TOP.get(p["id"], 0.3) * s.y - s.y)
 			p["z"] = h.get("z", 0)
 		"edge":
-			p["y"] = DESK_Y + 8 - s.y   # 집게가 상판 앞 모서리를 물고 아래로 늘어짐
+			p["y"] = int(DESK_Y + s.y * 0.06 - s.y)   # 집게가 상판 앞 모서리를 물고 아래로 늘어짐
 			p["z"] = DESK_DEPTH - depth_of(p["id"]) / 2
 		"clamp":
 			p["y"] = DESK_Y

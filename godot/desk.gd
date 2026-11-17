@@ -120,8 +120,18 @@ func target(id: String, x: float, y: float) -> Dictionary:
 			return {"id": id, "layer": layer, "x": c[0], "y": Rules.DESK_Y, "z": c[1], "ok": true}
 	if not top_view:   # 정면: 그 x에서 비어 있는 앞뒤 자리
 		var fz := Rules.free_z(Game.placed, id, bx, moving, keep)
-		return {"id": id, "layer": layer, "x": bx, "y": Rules.DESK_Y, "z": max(fz, 0), "ok": fz >= 0}
-	return {"id": id, "layer": layer, "x": bx, "y": Rules.DESK_Y, "z": z, "ok": false}
+		if fz >= 0:
+			return {"id": id, "layer": layer, "x": bx, "y": Rules.DESK_Y, "z": fz, "ok": true}
+	var zone: String = DB.ITEMS[id].get("zone", "")
+	for strict in [true, false]:   # 그 자리가 꽉 찼으면 가장 가까운 빈자리: 먼저 제 구역(뒤 · 앞) 안에서, 없으면 아무 데나
+		for dx in range(10, 800, 10):
+			for nx in [bx - dx, bx + dx]:
+				var nz := Rules.free_z(Game.placed, id, nx, moving, z if z >= 0 else keep)
+				var in_zone: bool = zone == "" or (nz + Rules.depth_of(id) / 2.0 < Rules.DESK_DEPTH / 2.0) == (zone == "back")
+				if nz >= 0 and (in_zone or not strict) and Rules.fits_at(Game.placed, id, "desk", nx, Rules.DESK_Y, moving, nz):
+					return {"id": id, "layer": layer, "x": nx, "y": Rules.DESK_Y, "z": nz, "ok": true}
+	return {"id": id, "layer": layer, "x": bx, "y": Rules.DESK_Y, "z": max(z, 0), "ok": false,
+		"why": "책상에 %s을(를) 놓을 자리가 없어요. 다른 소품을 치우거나 옮겨 주세요" % DB.ITEMS[id]["name"]}
 
 
 ## 붙는 소품: 모니터 윗면 / 책상 앞 가장자리 걸이 / 책상 뒤 가장자리 집게

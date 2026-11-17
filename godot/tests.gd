@@ -52,7 +52,7 @@ func _initialize() -> void:
 	var mz := {"id": "monitor", "layer": "desk", "x": 400, "y": Rules.DESK_Y, "z": 0}
 	ok(not Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, 30) and Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, Rules.depth_of("monitor")), "탑뷰: 앞뒤로 비키면 같은 x에 놓임")
 	ok(Rules.free_z([mz], "monitor", 400) == Rules.depth_of("monitor") and not Rules.fits_at([], "monitor", "desk", 400, Rules.DESK_Y, null, 350), "빈 앞뒤 자리 · 책상 밖")
-	ok(not Rules.fits_at([], "keyboard", "desk", Rules.AREA_X1, Rules.DESK_Y) and Rules.drop_target("keyboard", 0, Rules.DESK_Y) != null and Rules.fits_at([], "keyboard", "desk", Rules.drop_target("keyboard", 0, Rules.DESK_Y)[1], Rules.DESK_Y), "실제 크기도 책상 안에")
+	ok(not Rules.fits_at([], "monitor_curve", "desk", Rules.AREA_X2 - 100, Rules.DESK_Y) and Rules.drop_target("keyboard", 0, Rules.DESK_Y) != null and Rules.fits_at([], "keyboard", "desk", Rules.drop_target("keyboard", 0, Rules.DESK_Y)[1], Rules.DESK_Y), "실제 크기도 책상 안에")
 	# 현실적인 배치: 키보드는 모니터 앞, 마우스는 키보드 오른쪽, 라이트바는 모니터 위 (모니터 따라 이동)
 	var mn := {"id": "monitor", "layer": "desk", "x": 500, "y": Rules.DESK_Y, "z": 0}
 	var kc: Array = Rules.magnet([mn], "keyboard", 470, -1)[0]
@@ -65,13 +65,13 @@ func _initialize() -> void:
 	var cam := {"id": "webcam", "layer": "desk", "host": mn, "slot": 1}
 	var lay := [mn, kbd, bar, cam]
 	Rules.sync_mounts(lay)
-	ok(absf(Rules.center_x(bar) - Rules.center_x(mn)) < 1 and bar["y"] > Rules.rect_of(mn)[3] - 30 and Rules.free_slot(lay, mn) == -1, "라이트바 · 웹캠 → 모니터 위")
+	ok(absf(Rules.center_x(bar) - Rules.center_x(mn)) < 1 and Rules.rect_of(bar)[1] < Rules.rect_of(mn)[3] and Rules.rect_of(bar)[3] > Rules.rect_of(mn)[3] and Rules.free_slot(lay, mn) == -1, "라이트바 · 웹캠 → 모니터 위")
 	mn["x"] = 700
 	Rules.sync_mounts(lay)
 	ok(absf(Rules.center_x(bar) - Rules.center_x(mn)) < 1 and Rules.mounts_on(lay, mn).size() == 2, "모니터 옮기면 따라감")
 	var hs := {"id": "headset", "layer": "desk", "x": 400}
 	Rules.mount_pos(hs)
-	ok(Rules.rect_of(hs)[3] == Rules.DESK_Y + 8 and not Rules.edge_fits([hs], "headset", 420), "헤드셋 → 책상 모서리 걸이, 겹치지 않게")
+	ok(Rules.rect_of(hs)[3] > Rules.DESK_Y and Rules.rect_of(hs)[3] < Rules.DESK_Y + 20 and not Rules.edge_fits([hs], "headset", 420), "헤드셋 → 책상 모서리 걸이, 겹치지 않게")
 	ok(Rules.adjacent(lamp, book) and Rules.fits_at(placed, "mug", "desk", book["x"] + 20, Rules.DESK_Y, book), "인접 · 자기 자리 무시")
 	ok(Rules.drop_target("frame", 500, 100) == null and Rules.drop_target("mug", 10, 300) == ["desk", Rules.AREA_X1, Rules.DESK_Y], "놓을 자리")
 
