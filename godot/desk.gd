@@ -6,7 +6,11 @@ const SHOP_W := 270
 const ROW_H := 31
 const ROW_TOP := 600
 const ROOM := [270, 0, 1280, 650]
-const PC_RECT := [1095, 210, 1255, 470]
+const PC_RECT := [1076, 210, 1272, 420]   # 책상 오른쪽 PC (유리 옆판이 보이는 옆모습)
+const BTN_POWER := [1238, 384, 1264, 410]
+const CASE_BODY := {"case1": Color8(42, 35, 80), "case2": Color8(232, 230, 242), "case3": Color8(20, 16, 42), "case4": Color8(232, 230, 242), "case5": Color8(42, 35, 80)}
+## 모니터 그림 속 화면 위치 [x1, y1, x2, y2, 그림 너비, 그림 높이] (위에서부터, 원래 그림 기준)
+const SCREEN := {"monitor": [6, 6, 202, 116, 208, 176], "monitor_27": [6, 6, 202, 116, 208, 176], "monitor_white": [6, 6, 202, 116, 208, 176], "monitor_curve": [10, 16, 308, 112, 318, 176]}
 const BTN_DONE := [1100, 10, 1270, 50]
 const BTN_VIEW := [920, 10, 1090, 50]
 const BTN_PHOTO := [800, 10, 910, 50]
@@ -25,6 +29,7 @@ var origin := Vector2.ZERO
 var selected = null
 var toast := ""
 var page := 0
+var fail_t := -100000   # 전원이 안 켜졌을 때 LED 깜빡임
 
 
 func enter() -> void:
@@ -198,6 +203,9 @@ func down(x: float, y: float, right: bool) -> void:
 	if inside(x, y, BTN_PHOTO):
 		take_photo()
 		return
+	if not top_view and inside(x, y, grow(BTN_POWER, 10)) and Game.pc.has("CASE"):
+		press_power()
+		return
 	if inside(x, y, BTN_VIEW):
 		top_view = not top_view
 		selected = null
@@ -238,6 +246,29 @@ func down(x: float, y: float, right: bool) -> void:
 		selected = null
 		if not top_view and inside(x, y, PC_RECT):
 			m.go("build")
+
+
+## 케이스 전원 버튼: 부팅되면 켜지고(연결된 모니터가 켜짐), 안 되면 LED가 빨갛게 깜빡이며 이유를 알려 줌
+func press_power() -> void:
+	if Game.power:
+		Game.power = false
+		sfx("click")
+		toast = "PC를 껐어요"
+		return
+	if not Game.pc.boots():
+		fail_t = Time.get_ticks_msec()
+		sfx("boot_fail")
+		toast = "전원이 안 켜져요: " + Game.pc.post()[1]
+		return
+	Game.power = true
+	Game.power_t = Time.get_ticks_msec()
+	sfx("boot_ok")
+	var shown := Game.placed.filter(func(q): return SCREEN.has(q["id"]) and dp_linked(q))
+	toast = "" if not shown.is_empty() else "PC는 켜졌는데 모니터가 DP로 연결 안 됐어요 (배선 탭)"
+
+
+func dp_linked(p: Dictionary) -> bool:
+	return Game.cables.any(func(c): return is_same(c["dev"], p) and c["type"] == "DP")
 
 
 func take_photo() -> void:
@@ -300,10 +331,101 @@ func draw_front() -> void:
 	for p in Game.placed.filter(func(p): return p["layer"] == "wall") + by_depth():
 		if not lifted(p):
 			put(art(p), Rules.rect_of(p))
-	var case_name: String = Game.pc.parts.get("CASE", "case_empty")
-	var s := DB.size_of(case_name)
-	put(case_name, [1175 - s.x / 2.0, PC_RECT[1], 1175 + s.x / 2.0, PC_RECT[1] + s.y])
-	text(PC_RECT[0] + 20, PC_RECT[3] + 16, "부팅 OK" if Game.pc.boots() else "PC 조립 필요", 14, CYAN)
+			if SCREEN.has(p["id"]):
+				draw_screen(p)   # 앞에 놓인 소품이 화면을 가리도록 모니터 바로 다음에
+	draw_pc()
+
+
+## 조립한 PC: 유리 옆판 안에 조립 화면의 부품 배치를 그대로 줄여서 + 앞쪽 전원 버튼
+func draw_pc() -> void:
+	var pc := Game.pc
+	var r := PC_RECT
+	if not pc.has("CASE"):
+		put("case_empty", r)
+		text(r[0] + 30, r[3] + 18, "PC 조립 필요", 16, CYAN)
+		return
+	var body: Color = CASE_BODY.get(pc.parts["CASE"], Color8(42, 35, 80))
+	box([r[0] + 10, r[1] - 6, r[0] + 36, r[1]], Color8(10, 6, 24))   # 받침발
+	box([r[2] - 36, r[1] - 6, r[2] - 10, r[1]], Color8(10, 6, 24))
+	box(r, body)
+	box([r[2] - 24, r[1], r[2], r[3]], Color8(139, 94, 60) if pc.parts["CASE"] == "case5" else body.darkened(0.25))   # 앞면
+	outline(r, Color8(10, 6, 24), 2)
+	var g := [r[0] + 8, r[1] + 10, r[2] - 32, r[3] - 8]   # 유리
+	box(g, Color8(10, 6, 24))
+	var b = m.modes["build"]
+	var ca: Array = b.CASE_AREA
+	var k: float = min(float(g[2] - g[0]) / (ca[2] - ca[0]), float(g[3] - g[1]) / (ca[3] - ca[1]))
+	var ox: float = g[0] + ((g[2] - g[0]) - (ca[2] - ca[0]) * k) / 2.0
+	var oy: float = (H - g[3]) + ((g[3] - g[1]) - (ca[3] - ca[1]) * k) / 2.0
+	m.draw_set_transform(Vector2(ox - ca[0] * k, oy - (H - ca[3]) * k), 0.0, Vector2(k, k))   # 조립 화면 좌표 → 유리 안
+	if pc.has("MB"):
+		b.draw_board()
+		b.draw_parts()
+	m.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var t := Time.get_ticks_msec() / 1000.0
+	if Game.power:   # 켜지면 안쪽 RGB가 천천히 색이 돎
+		box(g, Color.from_hsv(fmod(t * 0.08, 1.0), 0.7, 1.0, 0.13))
+	line(Vector2(g[0] + 6, g[3] - 30), Vector2(g[0] + 36, g[3] - 4), Color(1, 1, 1, 0.12), 3)   # 유리 반사
+	outline(g, Color8(60, 50, 100), 2)
+	var failing: bool = Time.get_ticks_msec() - fail_t < 1500
+	var c := center(BTN_POWER)
+	circle(c.x, c.y, 12, Color8(10, 6, 24))
+	circle(c.x, c.y, 10, (PINK if int(t * 6) % 2 else DARK) if failing else (CYAN if Game.power else Color8(90, 78, 130)))
+	circle(c.x, c.y, 5, Color8(10, 6, 24))
+	box([c.x - 2, c.y + 1, c.x + 2, c.y + 8], (CYAN if Game.power else Color8(140, 130, 180)))
+	text(r[0], r[3] + 18, "켜짐" if Game.power else ("전원 ↘ 눌러서 켜기" if pc.boots() else "조립 미완성"), 16, CYAN if Game.power or pc.boots() else PINK)
+
+
+## 모니터 화면: 꺼짐 = 검정 / 켜짐 + DP 연결 = 부팅 로고 → 바탕화면 · 작업표시줄 · 창 / 켜졌는데 선 없음 = 신호 없음
+func draw_screen(p: Dictionary) -> void:
+	var f: Array = SCREEN[p["id"]]
+	var r := Rules.rect_of(p)
+	var w: float = r[2] - r[0]
+	var h: float = r[3] - r[1]
+	var fw := float(f[4])   # 정수끼리 나누면 0이 되므로 실수로
+	var fh := float(f[5])
+	var s := [r[0] + f[0] / fw * w, r[3] - f[3] / fh * h, r[0] + f[2] / fw * w, r[3] - f[1] / fh * h]
+	var sw: float = s[2] - s[0]
+	var sh: float = s[3] - s[1]
+	box(s, Color8(6, 5, 12))
+	if not Game.power:
+		line(Vector2(s[0] + sw * 0.55, s[3] - 2), Vector2(s[0] + sw * 0.75, s[1] + 2), Color(1, 1, 1, 0.05), sw * 0.08)   # 꺼진 화면 반사
+		box([s[2] - 8, s[1] - 7, s[2] - 4, s[1] - 4], Color8(255, 150, 60))   # 대기 LED
+		return
+	if not dp_linked(p):
+		box([s[0] + sw * 0.3, s[1] + sh * 0.4, s[0] + sw * 0.7, s[1] + sh * 0.6], Color8(30, 30, 60))
+		text(s[0] + sw * 0.3 + 8, s[1] + sh * 0.5, "신호 없음", 16, QUIET)
+		return
+	var t := (Time.get_ticks_msec() - Game.power_t) / 1000.0
+	var cx: float = s[0] + sw / 2.0
+	var cy: float = s[1] + sh / 2.0
+	if t < 1.6:   # 부팅 로고 + 돌아가는 점
+		for q in 4:
+			box([cx - 13 + (q % 2) * 14, cy + 4 - (q / 2) * 14, cx - 1 + (q % 2) * 14, cy + 16 - (q / 2) * 14], CYAN)
+		for d in 6:
+			var a := t * 6.0 + d * TAU / 6.0
+			circle(cx + cos(a) * 9, cy - 24 + sin(a) * 9, 2.0 if d else 3.0, Color(1, 1, 1, 0.3 + d * 0.12))
+		return
+	m.draw_texture_rect(DB.tex("title_bg"), _rect(s), false)   # 바탕화면
+	var th: float = max(10.0, sh * 0.1)
+	box([s[0], s[1], s[2], s[1] + th], Color(0.05, 0.03, 0.12, 0.92))   # 작업표시줄
+	var ic: float = th * 0.55
+	var icons := [CYAN, PINK, GOLD, VIOLET]
+	for i in icons.size():
+		var x0: float = cx - icons.size() * ic * 0.75 + i * ic * 1.5
+		box([x0, s[1] + (th - ic) / 2.0, x0 + ic, s[1] + (th + ic) / 2.0], icons[i])
+	if th >= 16:
+		text(s[2] - 54, s[1] + th / 2.0, Time.get_time_string_from_system().left(5), 16)
+	for i in 3:   # 바탕화면 아이콘
+		box([s[0] + 6, s[3] - 8 - (i + 1) * ic * 1.6, s[0] + 6 + ic, s[3] - 8 - (i + 1) * ic * 1.6 + ic], [CYAN, GOLD, PINK][i])
+	var win := [s[0] + sw * 0.24, s[1] + th + sh * 0.12, s[0] + sw * 0.84, s[3] - sh * 0.1]   # 열린 창
+	box(win, Color8(24, 18, 48))
+	box([win[0], win[3] - th * 0.8, win[2], win[3]], Color8(46, 34, 90))
+	for i in 3:
+		circle(win[2] - 6 - i * 8, win[3] - th * 0.4, 2.5, [PINK, GOLD, GREEN][i])
+	for i in 6:   # 창 내용 (코드 줄)
+		var ly: float = win[3] - th * 0.8 - 6 - i * (win[3] - win[1] - th) / 7.0
+		box([win[0] + 6 + (i % 3) * 6, ly - 2, win[0] + 6 + (i % 3) * 6 + (win[2] - win[0]) * [0.5, 0.3, 0.6, 0.4, 0.25, 0.45][i], ly + 1], [CYAN, PINK, INK, GOLD, VIOLET, CYAN][i])
 
 
 func draw_top() -> void:

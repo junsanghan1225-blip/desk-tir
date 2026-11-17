@@ -26,6 +26,7 @@ var page := 0
 
 
 func enter() -> void:
+	Game.power = false   # 조립을 만지면 전원은 꺼진 상태로
 	held = []
 	toast = ""
 	post = []

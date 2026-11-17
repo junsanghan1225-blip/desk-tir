@@ -141,6 +141,17 @@ func run() -> void:
 
 	var saved := Game.peek()                   # 자동 저장 → 이어하기
 	check(saved["day"] == 1)
+	tap(w.tab_rect(1))                         # 책상에서 PC 전원 → 모니터가 켜짐
+	on("desk")
+	check(not Game.power)
+	tap(desk.BTN_POWER)
+	check(Game.power and desk.dp_linked(Game.placed[0]), "전원: " + desk.toast)
+	Game.power_t -= 1000
+	await shot("7g_power_boot")
+	Game.power_t -= 5000
+	await shot("7h_power_desktop")
+	tap(desk.tab_rect(3))
+	on("wire")
 	main.back()                                # 뒤로 = 일시정지 (주문 다시 보기)
 	on("pause")
 	await shot("9b_pause")

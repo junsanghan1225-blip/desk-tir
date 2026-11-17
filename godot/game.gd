@@ -20,6 +20,8 @@ static var cart := {}
 static var placed := []
 static var pc := PCBuild.new()
 static var cables := []
+static var power := false   # 책상에서 PC 전원을 켰는지 (조립을 바꾸면 꺼짐)
+static var power_t := 0     # 켠 시각 (부팅 화면 → 바탕화면)
 
 
 static func new_game() -> void:
@@ -64,6 +66,7 @@ static func today() -> Dictionary:
 
 
 static func reset_order() -> void:
+	power = false
 	cart = {}
 	placed = []
 	pc = PCBuild.new()
