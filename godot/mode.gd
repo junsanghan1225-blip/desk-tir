@@ -3,7 +3,8 @@ class_name Mode
 ## 사각형은 [x1, y1, x2, y2].
 
 const H := 720
-const MIN_TEXT := 16
+const MIN_TEXT := 22   # 폰에서 읽히는 최소 크기 (갈무리 글꼴은 11의 배수에서 가장 또렷함)
+const BAR := 640      # 위쪽 바 아래 경계: 화면 작업 영역은 0 ~ BAR
 const OUTLINE := Color8(5, 3, 12)
 const INK := Color8(232, 226, 255)
 const QUIET := Color8(170, 160, 220)
@@ -16,7 +17,7 @@ const VIOLET := Color8(124, 92, 255)
 const PANEL := Color8(34, 24, 70)
 const BG := Color8(18, 12, 38)
 const DARK := Color8(24, 16, 52)
-const TABS := [["shop", "1 쇼핑"], ["desk", "2 책상"], ["build", "3 PC 조립"], ["wire", "4 배선"]]
+const TABS := [["shop", "쇼핑"], ["desk", "책상"], ["build", "조립"], ["wire", "배선"]]
 
 var m: Main          # main.gd (그리기 대상 · 화면 전환)
 var overlay := false    # true면 아래 화면 위에 겹쳐 그린다
@@ -115,9 +116,40 @@ func panel(r: Array, hot := false) -> void:
 
 
 ## 두께 있는 버튼: 글자는 윗면 가운데
-func button(r: Array, label: String, c := CYAN) -> void:
+func button(r: Array, label: String, c := CYAN, size := 22) -> void:
 	frame("ui_button", r, c)
-	text(r[0] + 14, (r[1] + r[3]) / 2.0 + 1, label, 18, Color.WHITE)
+	text_c(r, label, size, Color.WHITE)
+
+
+func text_w(s: String, size: int) -> float:
+	return m.font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, max(size, MIN_TEXT)).x
+
+
+## 너비에 맞게 단어 단위로 줄바꿈 (한 단어가 너무 길면 글자 단위로)
+func wrap_text(s: String, width: float, size := 22) -> Array:
+	var lines := [""]
+	for w in s.split(" "):
+		var t: String = (lines[-1] + " " + w).strip_edges()
+		if text_w(t, size) <= width or lines[-1] == "":
+			lines[-1] = t
+		else:
+			lines.append(w)
+	var out := []
+	for line: String in lines:
+		var l := line
+		while text_w(l, size) > width and l.length() > 1:
+			var n: int = l.length()
+			while n > 1 and text_w(l.left(n), size) > width:
+				n -= 1
+			out.append(l.left(n))
+			l = l.substr(n)
+		out.append(l)
+	return out
+
+
+## 사각형 가운데에 (버튼 윗면 기준으로 살짝 위)
+func text_c(r: Array, s: String, size := 22, c := INK) -> void:
+	text((r[0] + r[2]) / 2.0 - text_w(s, size) / 2.0, (r[1] + r[3]) / 2.0 + 2, s, size, c)
 
 
 func line(a: Vector2, b: Vector2, c: Color, w := 2.0) -> void:
@@ -144,8 +176,8 @@ func icon_of(id: String) -> String:
 
 # ---------- 주문 작업 화면 공통: 상단 바 + 탭 ----------
 func tab_rect(i: int) -> Array:
-	var x := 560 + i * 118
-	return [x, 656, x + 112, 690]
+	var x := 452 + i * 168
+	return [x, 648, x + 160, 714]
 
 
 func tab_at(x: float, y: float) -> String:
@@ -157,20 +189,18 @@ func tab_at(x: float, y: float) -> String:
 
 func top_bar(current: String) -> void:
 	var req := Game.request()
-	frame("ui_panel", [-12, H - 74, 1292, H + 12])
-	text(20, H - 24, "%d일차 손님 %d/%d  ·  %s" % [Game.day, Game.order_index + 1, Game.todays_requests().size(), req["customer"]], 20, CYAN)
-	text(20, H - 52, "\"%s\"" % Game.lines()[0], 16, Color.WHITE)
+	frame("ui_panel", [-12, BAR, 1292, H + 12])
+	text(16, H - 24, "%d일차 · %s" % [Game.day, req["customer"]], 22, CYAN)   # 손님이 한 말은 ll(일시정지)에서 다시 봄
 	var left := Game.money_left()
-	text(1036, H - 24, "손님 예산 %d만" % req["budget"], 16, QUIET)
-	text(1036, H - 52, "남은 예산 %d만" % left, 18, CYAN if left >= 0 else PINK)
+	text(16, H - 56, "남은 예산 %d만 / %d만" % [left, req["budget"]], 22, INK if left >= 0 else PINK)
 	var wire := Rules.wiring_score(Game.cables, Game.placed)
 	for i in TABS.size():
 		var r := tab_rect(i)
 		var on: bool = TABS[i][0] == current
 		frame("ui_button", r, PINK if on else Color8(80, 66, 140))
-		text(r[0] + 12, (r[1] + r[3]) / 2.0 + 1, TABS[i][1], 16, Color.WHITE if on else QUIET)
+		text_c(r, TABS[i][1], 22, Color.WHITE if on else QUIET)
 		if TABS[i][0] == "wire" and (wire[1] > 0 or wire[2] > 0):
-			box([r[2] - 16, r[3] - 16, r[2] - 6, r[3] - 6], PINK)  # 미연결 · 꼬임이 있으면 빨간 점
+			box([r[2] - 22, r[3] - 22, r[2] - 10, r[3] - 10], PINK)  # 미연결 · 꼬임이 있으면 빨간 점
 
 
 ## 탭을 눌렀으면 그 화면으로 가고 true

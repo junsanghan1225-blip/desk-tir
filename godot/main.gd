@@ -11,8 +11,8 @@ var font: Font = load("res://resource/font.ttf")
 var modes := {}
 var stack: Array = []
 var mouse := Vector2.ZERO   # 게임 좌표 (y 위쪽)
-const BTN_MUTE := [1232, 676, 1274, 714]   # 위쪽 바 오른쪽 끝 (폰엔 M · ESC 키가 없어서)
-const BTN_PAUSE := [1184, 676, 1226, 714]
+const BTN_MUTE := [1212, 648, 1274, 714]   # 위쪽 바 오른쪽 끝 (폰엔 M · ESC 키가 없어서)
+const BTN_PAUSE := [1144, 648, 1206, 714]
 const PHOTOS := "user://photos"
 var muted := false
 var players: Array[AudioStreamPlayer] = []
@@ -139,11 +139,11 @@ func _draw() -> void:
 	var t: Mode = stack[-1]
 	if stack[0] != modes["title"] and stack[0] != modes["album"] and not modes["desk"].capturing:
 		t.frame("ui_button", BTN_PAUSE, Color8(80, 66, 140))
-		t.text(BTN_PAUSE[0] + 13, 697, "ll", 18, Mode.INK)
+		t.text_c(BTN_PAUSE, "ll", 22, Mode.INK)
 	if modes["desk"].capturing:
 		return
 	t.frame("ui_button", BTN_MUTE, Color8(80, 66, 140))
-	t.text(BTN_MUTE[0] + 10, 697, "♪" if not muted else "×", 18, Mode.CYAN if not muted else Mode.PINK)
+	t.text_c(BTN_MUTE, "♪" if not muted else "×", 22, Mode.CYAN if not muted else Mode.PINK)
 
 
 func _input(ev: InputEvent) -> void:

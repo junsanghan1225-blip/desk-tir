@@ -1,14 +1,15 @@
 extends Mode
-## 쇼핑 탭 (데스크몰): 카테고리 → 상품 카드 → 누르면 상세 → 장바구니 → 결제 → 영수증. 더블탭 = 바로 담기.
+## 쇼핑 탭 (데스크몰): 카테고리 → 상품 카드 → 누르면 상세 → 장바구니 → 결제 → 영수증. 두 번 누르기 = 바로 담기.
+## 폰 기준: 글씨 22px 이상, 누르는 곳 높이 54px 이상.
 
-const CATS := [["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽 장식"], ["parts", "PC 부품"]]
-const PART_TYPES := [["CASE", "케이스"], ["MB", "메인보드"], ["CPU", "CPU"], ["COOLER", "쿨러"], ["SSD", "SSD"], ["GPU", "그래픽카드"], ["RAM", "RAM"], ["PSU", "파워"]]
-const PER := 8
-const CART := [958, 70, 1270, 640]
-const BTN_PAY := [978, 84, 1250, 130]
-const BTN_PREV := [330, 14, 380, 50]
-const BTN_NEXT := [560, 14, 610, 50]
-const CART_ROWS := 9
+const CATS := [["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽"], ["parts", "PC 부품"]]
+const PART_TYPES := [["CASE", "케이스"], ["MB", "보드"], ["CPU", "CPU"], ["COOLER", "쿨러"], ["SSD", "SSD"], ["GPU", "그래픽"], ["RAM", "RAM"], ["PSU", "파워"]]
+const PER := 6
+const CART := [956, 76, 1276, 632]
+const BTN_PAY := [968, 6, 1264, 70]
+const BTN_PREV := [12, 6, 96, 64]
+const BTN_NEXT := [232, 6, 316, 64]
+const CART_ROWS := 5
 
 var cat := "screen"
 var part_type := "CASE"
@@ -42,23 +43,28 @@ func visible() -> Array:
 	return products().slice(page * PER, (page + 1) * PER)
 
 
+func grid_top() -> float:
+	return 506.0 if cat == "parts" else 562.0
+
+
 func card_rect(i: int) -> Array:
-	var x := 20 + (i % 4) * 230
-	var y2 := 548 - (i / 4) * 244
-	return [x, y2 - 232, x + 218, y2]
+	var x := 12 + (i % 3) * 314
+	var h: float = (grid_top() - 76) / 2.0
+	var y2: float = grid_top() - (i / 3) * h
+	return [x, y2 - h + 8, x + 302, y2]
 
 
 func cat_rect(i: int) -> Array:
-	return [20 + i * 114, 600, 128 + i * 114, 638]
+	return [12 + i * 116, 572, 122 + i * 116, 632]
 
 
 func sub_rect(i: int) -> Array:
-	return [20 + i * 100, 560, 114 + i * 100, 590]
+	return [12 + i * 116, 516, 122 + i * 116, 566]
 
 
 func cart_row(i: int) -> Array:
-	var y2 := 586 - i * 38
-	return [CART[0] + 12, y2 - 34, CART[2] - 12, y2]
+	var y2 := 568 - i * 66
+	return [CART[0] + 10, y2 - 60, CART[2] - 10, y2]
 
 
 func down(x: float, y: float, right: bool) -> void:
@@ -95,7 +101,7 @@ func down(x: float, y: float, right: bool) -> void:
 	var ids := Game.cart.keys()
 	for i in min(ids.size(), CART_ROWS):
 		if inside(x, y, cart_row(i)):
-			Game.add_to_cart(ids[i], -1 if right or x < cart_row(i)[0] + 40 else 1)
+			Game.add_to_cart(ids[i], -1 if right or x < cart_row(i)[0] + 56 else 1)   # 왼쪽 − 칸 = 하나 빼기
 			return
 
 
@@ -112,16 +118,20 @@ func pay() -> void:
 		m.modes["receipt"].show(r)
 
 
-func short_spec(p: Dictionary) -> String:
+## 카드에 한 줄로: 소품은 분위기, 부품은 핵심 사양
+func short_spec(id: String) -> String:
+	var p := DB.spec(id)
+	if DB.ITEMS.has(id):
+		return " · ".join(p["tags"].map(func(t): return DB.THEME_NAMES[t]))
 	match p["type"]:
-		"CASE": return "보드 %s · GPU %dmm" % [p["mb_max"], p["gpu_max"]]
-		"MB": return "%s · %s · RAM %d · USB %d" % [p["socket"], p["size"], p["ram_slots"], p["usb"]]
-		"CPU": return "%s · 성능 %d · %dW" % [p["socket"], p["perf"], p["watt"]]
-		"COOLER": return "%dW까지 · 높이 %dmm" % [p["tdp"], p["height"]]
-		"GPU": return "성능 %d · %dmm · DP %d" % [p["perf"], p["length"], p["dp"]]
+		"CASE": return "보드 %s까지" % p["mb_max"]
+		"MB": return "%s · %s" % [p["socket"], p["size"]]
+		"CPU": return "%s · %dW" % [p["socket"], p["watt"]]
+		"COOLER": return "%dW까지" % p["tdp"]
+		"GPU": return "%dmm · %dW" % [p["length"], p["watt"]]
 		"RAM": return "성능 +%d" % p["perf"]
-		"SSD": return "%s · M.2" % p["capacity"]
-	return "%dW · GPU 전원선 %d" % [p["capacity"], p["pcie"]]
+		"SSD": return "M.2"
+	return "선 %d개" % p["pcie"]
 
 
 func draw_card(i: int, id: String) -> void:
@@ -129,17 +139,22 @@ func draw_card(i: int, id: String) -> void:
 	var p := DB.spec(id)
 	var locked := not Game.unlocked(p)
 	panel(r, Game.cart.has(id))
-	frame("ui_slot", [r[0] + 10, r[3] - 122, r[2] - 10, r[3] - 10])
-	fit(icon_of(id), (r[0] + r[2]) / 2.0, r[3] - 65, 178, 96)
-	text(r[0] + 12, r[3] - 140, p["name"], 15, DIM if locked else INK)
-	text(r[0] + 12, r[3] - 166, "%d만 원" % p["price"], 18, DIM if locked else GOLD)
-	text(r[0] + 12, r[3] - 190, " · ".join(p["tags"].map(func(t): return DB.THEME_NAMES[t])) if DB.ITEMS.has(id) else short_spec(p), 12, QUIET)
+	var img := [r[0] + 10, r[1] + 10, r[0] + 120, r[3] - 10]
+	frame("ui_slot", img)
+	fit(icon_of(id), (img[0] + img[2]) / 2.0, (img[1] + img[3]) / 2.0, 96, img[3] - img[1] - 16)
+	var tx: float = r[0] + 132
+	var name_lines: Array = wrap_text(p["name"], r[2] - tx - 10).slice(0, 2)
+	for k in name_lines.size():
+		text(tx, r[3] - 26 - k * 28, name_lines[k], 22, DIM if locked else INK)
+	var y: float = r[3] - 30 - name_lines.size() * 28
+	text(tx, y - 6, "%d만 원" % p["price"], 22, DIM if locked else GOLD)
+	text(tx, y - 38, wrap_text(short_spec(id), r[2] - tx - 10)[0], 22, QUIET)
 	if locked:
-		text(r[0] + 12, r[1] + 14, "업그레이드 필요", 12, PINK)
+		text(tx, r[1] + 22, "업그레이드 필요", 22, PINK)
+	elif Game.cart.has(id):
+		text(tx, r[1] + 22, "담음 %d" % Game.cart[id], 22, PINK)
 	elif Game.stock.get(id, 0) > 0:
-		text(r[0] + 12, r[1] + 14, "창고 %d" % Game.stock[id], 12, CYAN)
-	if Game.cart.has(id):
-		text(r[2] - 76, r[1] + 14, "담음 %d" % Game.cart[id], 12, PINK)
+		text(tx, r[1] + 22, "창고 %d" % Game.stock[id], 22, CYAN)
 
 
 func draw_cart() -> void:
@@ -148,26 +163,24 @@ func draw_cart() -> void:
 	var count := 0
 	for id in ids:
 		count += Game.cart[id]
-	text(CART[0] + 14, CART[3] - 22, "장바구니  %d개" % count, 18, PINK)
+	text(CART[0] + 14, CART[3] - 30, "장바구니 %d개" % count, 22, PINK)
 	if ids.is_empty():
-		text(CART[0] + 14, CART[3] - 60, "상품을 눌러서 담으세요", 14, QUIET)
-		text(CART[0] + 14, CART[3] - 84, "(두 번 누르면 바로 담기)", 13, DIM)
+		text(CART[0] + 14, CART[3] - 76, "상품을 누르면", 22, QUIET)
+		text(CART[0] + 14, CART[3] - 106, "자세히 보고 담아요", 22, QUIET)
+		text(CART[0] + 14, CART[3] - 136, "두 번: 바로 담기", 22, DIM)
 	for i in min(ids.size(), CART_ROWS):
 		var r := cart_row(i)
 		var p := DB.spec(ids[i])
-		var cy: float = (r[1] + r[3]) / 2.0
 		frame("ui_slot", r)
-		text(r[0] + 8, cy, "−", 18, PINK)
-		text(r[0] + 30, cy, p["name"], 16)
-		text(r[2] - 90, cy, "×%d" % Game.cart[ids[i]], 16, QUIET)
-		text(r[2] - 50, cy, "%d만" % (p["price"] * Game.cart[ids[i]]), 16, GOLD)
+		text_c([r[0], r[1], r[0] + 50, r[3]], "−", 22, PINK)
+		text(r[0] + 54, r[3] - 18, wrap_text(p["name"], r[2] - r[0] - 60)[0], 22)
+		text(r[0] + 54, r[1] + 18, "%d만 × %d" % [p["price"], Game.cart[ids[i]]], 22, GOLD)
 	if ids.size() > CART_ROWS:
-		text(CART[0] + 14, 226, "외 %d종 (결제하면 영수증에 전부 표시)" % (ids.size() - CART_ROWS), 12, QUIET)
+		text(CART[0] + 14, 216, "외 %d종" % (ids.size() - CART_ROWS), 22, QUIET)
 	var total := Game.cart_total()
-	text(CART[0] + 14, 196, "합계  %d만 원" % total, 18, GOLD)
-	text(CART[0] + 14, 166, "결제 후 가게 돈  %d만" % (Game.money - total), 14, INK if Game.money >= total else PINK)
-	text(CART[0] + 14, 144, "이 주문 사용  %d만 / 예산 %d만" % [Game.spent(), Game.request()["budget"]], 12, QUIET)
-	button(BTN_PAY, "결제하기", DIM if ids.is_empty() else PINK)
+	text(CART[0] + 14, 172, "합계 %d만" % total, 22, GOLD)
+	text(CART[0] + 14, 132, "가게 돈 %d만" % Game.money, 22, INK if Game.money >= total else PINK)
+	button(BTN_PAY, "결제하기 %d만" % total if total else "결제하기", DIM if ids.is_empty() else PINK)
 
 
 func draw() -> void:
@@ -175,20 +188,19 @@ func draw() -> void:
 	for i in CATS.size():
 		var on: bool = CATS[i][0] == cat
 		frame("ui_button", cat_rect(i), CYAN if on else Color8(80, 66, 140))
-		text(cat_rect(i)[0] + 12, 621, CATS[i][1], 16, Color.WHITE if on else QUIET)
+		text_c(cat_rect(i), CATS[i][1], 22, Color.WHITE if on else QUIET)
 	if cat == "parts":
 		for i in PART_TYPES.size():
 			var on: bool = PART_TYPES[i][0] == part_type
 			frame("ui_button", sub_rect(i), GOLD if on else Color8(60, 50, 110))
-			text(sub_rect(i)[0] + 10, 577, PART_TYPES[i][1], 16, Color.WHITE if on else QUIET)
+			text_c(sub_rect(i), PART_TYPES[i][1], 22, Color.WHITE if on else QUIET)
 	var shown := visible()
 	for i in shown.size():
 		draw_card(i, shown[i])
 	button(BTN_PREV, "◀", VIOLET)
 	button(BTN_NEXT, "▶", VIOLET)
-	text(392, 32, "%d/%d · %d개" % [page + 1, pages(), products().size()], 14, QUIET)
+	text_c([96, 6, 232, 64], "%d / %d" % [page + 1, pages()], 22, QUIET)
 	draw_cart()
 	top_bar("shop")
 	if toast != "":
-		text(640, 32, toast, 15, PINK)
-	text(640, 56, "가게 돈 %d만 원" % Game.money, 15, CYAN)
+		text(336, 36, toast, 22, PINK)
