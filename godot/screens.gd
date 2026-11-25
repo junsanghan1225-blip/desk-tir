@@ -151,7 +151,9 @@ class Result extends Mode:
 			wanted.append("꼭 필요: %s %d개" % ["/".join(r["any"].map(func(i): return DB.ITEMS[i]["name"])), r["count"]])
 		if not req["forbidden"].is_empty():
 			wanted.append("싫어함: " + ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])))
-		if req.has("use"):
+		if Rules.kind_of(req) == "desk":
+			pass   # 데스크테리어: 손님 PC 그대로라 성능 얘기 없음
+		elif req.has("use"):
 			wanted.append("성능: " + Bench.short(Bench.run(Bench.parts_of(Game.computer()), req["use"])) + "  (" + Bench.describe(req["use"]) + ")")
 		else:
 			wanted.append("PC 성능: " + "★".repeat(req["perf"]) + " 이상")
@@ -170,7 +172,7 @@ class Result extends Mode:
 			text(320, 490 - i * 40, "%d / %d" % [round(result["parts"][k]), result["max"][k]], 19, Color.WHITE)
 			i += 1
 		text(120, 220, "달성 시너지: " + (", ".join(result["synergies"]) if not result["synergies"].is_empty() else "없음"), 17, GREEN)
-		text(120, 180, "받은 돈  %d만 + 팁 %d만%s" % [pay, tip, "" if result["stars"] > 0 else "  (별 0개: 손님이 돈을 안 냄)"], 20, CYAN)
+		text(120, 180, "받은 돈  %d만 + 팁 %d만%s" % [pay, tip, "" if result["stars"] > 1 else "  (실망해서 %d%%만 냄)" % Game.PAY_RATE[result["stars"]]], 20, CYAN)
 		var margin := pay + tip - cost
 		text(120, 148, "물건 값 %d만  →  이번 주문 마진 %+d만" % [cost, margin], 18, GREEN if margin >= 0 else PINK)
 		var mood := "happy" if result["stars"] == 3 else "neutral" if result["stars"] > 0 else "sad"
@@ -760,7 +762,18 @@ class Trial extends Mode:
 	var boot := true
 	var beeped := false
 
+	var desk_only := false
+	var stars := 0
+	var photo: Texture2D = null
+
 	func enter() -> void:
+		t0 = Time.get_ticks_msec()
+		desk_only = Rules.kind_of(Game.request()) == "desk"
+		if desk_only:   # 데스크테리어: 부팅 대신 손님이 완성된 책상을 보는 장면 (납품 때 찍은 사진)
+			stars = Rules.score(Game.request(), Game.placed, Game.computer(), Game.cables)["stars"]
+			var img := Image.load_from_file("%s/day%d_%d.png" % [Main.PHOTOS, Game.day, Game.order_index + 1]) if FileAccess.file_exists("%s/day%d_%d.png" % [Main.PHOTOS, Game.day, Game.order_index + 1]) else null
+			photo = ImageTexture.create_from_image(img) if img else null
+			return
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
 		var cp := Game.computer()
 		boot = cp.picture() and "GPU" not in cp.loose()
@@ -818,7 +831,36 @@ class Trial extends Mode:
 		box([sc[0], sc[1], sc[2], sc[1] + 34], Color(0.05, 0.03, 0.12, 0.92))
 		text(sc[0] + 16, sc[1] + 17, "시작", 22, INK)
 
+	## 데스크테리어 공개: 어두운 방에 불이 켜지듯 책상이 드러나고 → 손님 반응
+	func draw_reveal() -> void:
+		var req := Game.request()
+		var tt := t()
+		var sc := [380, 110, 1240, 610]
+		box([0, 0, 1280, 720], BG)
+		text(40, 670, "%s 님이 책상을 보는 중" % req["customer"], 33, PINK)
+		frame("ui_panel", [sc[0] - 14, sc[1] - 14, sc[2] + 14, sc[3] + 14])
+		if photo:
+			m.draw_texture_rect(photo, _rect(sc), false)
+		else:
+			box(sc, Color8(30, 24, 50))
+			text_c(sc, "책상 사진", 22, QUIET)
+		box(sc, Color(0.02, 0.01, 0.05, clamp(1.0 - (tt - 0.3) / 1.2, 0.0, 1.0) * 0.92))   # 불 켜지기
+		var shown := tt > 2.0
+		var rx: Array = [["sad", "제가 말한 거랑 많이 달라요…"], ["neutral", "음… 뭔가 조금 아쉬워요."], ["happy", "분위기 좋네요! 여기서 일하고 싶어요."], ["happy", "와… 딱 제가 상상한 책상이에요!"]][stars]
+		panel([40, 270, 340, 570], true)
+		put("face_%s_%s" % [req["face"], rx[0] if shown else "neutral"], [60, 290, 320, 550])
+		if shown:
+			panel([40, 100, 340, 250], true)
+			var y := 212.0
+			for ln in wrap_text(rx[1], 270):
+				text(56, y, ln, 22, INK)
+				y -= 30
+			text_c([380, 50, 1240, 100], "누르면 결과 보기", 22, QUIET)
+
 	func draw() -> void:
+		if desk_only:
+			draw_reveal()
+			return
 		box([0, 0, 1280, 720], BG)
 		var req := Game.request()
 		var tt := t()

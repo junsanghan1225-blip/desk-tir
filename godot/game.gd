@@ -278,9 +278,12 @@ static func money_left() -> int:
 
 
 ## 납품 정산: 손님은 예산만큼 내고 별 1개당 팁. 별 0개면 0원. [대금, 팁]
+const PAY_RATE := [40, 80, 100, 100]   # 별 0~3개일 때 받는 비율(%). 별 0개 = 실망: 그래도 일부는 냄
+
+
 static func settle(result: Dictionary) -> Array:
 	var budget: int = request()["budget"]
-	var pay: int = budget if result["stars"] > 0 else 0
+	var pay: int = roundi(budget * PAY_RATE[result["stars"]] / 100.0)   # 실망해도 물건 값 정도는 받음
 	var tip: int = result["stars"] * budget * TIP_RATE[level() - 1] / 100
 	money += pay + tip
 	stars_total += result["stars"]

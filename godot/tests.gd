@@ -145,8 +145,8 @@ func _initialize() -> void:
 	Game.placed = [{"id": "lamp_warm", "layer": "desk", "x": 306, "y": 210}]
 	var before := Game.money
 	var paid_now := Game.settle({"stars": 2})
-	ok(paid_now == [120, 12] and Game.money == before + 132 + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
-	ok(Game.settle({"stars": 0}) == [0, 0], "별 0개는 0원")
+	ok(paid_now[0] == 35 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
+	ok(Game.settle({"stars": 0}) == [14, 0] and Game.settle({"stars": 1})[0] == 28, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
 	Game.history["자취 1년차 대학생"] = 3
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
 	ok("학점" in Game.lines(regular)[0], "단골 대사")

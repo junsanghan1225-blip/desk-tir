@@ -158,12 +158,15 @@ def money_left():
     return request()['budget'] - spent()
 
 
+PAY_RATE = (40, 80, 100, 100)   # 별 0~3개일 때 받는 비율(%)
+
+
 def settle(result):
     """납품 정산 (좋은 피자처럼 정가 + 팁): 손님은 자기 예산만큼 내고, 별 1개당 예산의 5%를 팁으로 준다.
-    별 0개면 한 푼도 안 낸다 (빈손 납품 방지). 물건 값은 살 때 이미 냈으니, 싸게 맞출수록 남는다."""
+    실망하면 깎아서 낸다 (별 0개 40%, 1개 80%). 물건 값은 살 때 이미 냈으니, 싸게 맞출수록 남는다."""
     global money, stars_total
     budget = request()['budget']
-    pay = budget if result['stars'] else 0
+    pay = round(budget * PAY_RATE[result['stars']] / 100)
     tip = result['stars'] * budget * TIP_RATE[level() - 1] // 100
     stars_total += result['stars']
     history[request()['customer']] = result['stars']
@@ -200,8 +203,8 @@ if __name__ == '__main__':
     room.place('lamp_warm', 'desk', 0)
     before = money
     pay, tip = settle({'stars': 2})
-    assert pay == 120 and tip == 12 and money == before + pay + tip and ledger[-1]['cost'] == 4
-    assert settle({'stars': 0}) == (0, 0) and stars_total == 2
+    assert pay == 35 and money == before + pay + tip and ledger[-1]['cost'] == 4
+    assert settle({'stars': 0}) == (14, 0) and stars_total == 2
     assert next_customer() and next_customer() and not next_customer()
     regular = next(r for r in REQUESTS if r.get('returns') and r['customer'] == '자취 1년차 대학생')
     history['자취 1년차 대학생'] = 3

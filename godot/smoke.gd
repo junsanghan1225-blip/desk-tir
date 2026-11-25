@@ -86,6 +86,7 @@ func run() -> void:
 
 	tap(shop.tab_rect(1))
 	on("desk")
+	Game.request()["budget"] = 120   # 배치 테스트용: 5개 다 놓을 수 있게 (실제 데스크 예산은 30~60만)
 	var desk = main.modes["desk"]
 	drag(desk.row_rect(desk.rows().find("monitor")), [500, 250, 500, 250])
 	drag(desk.row_rect(desk.rows().find("keyboard")), [800, 250, 800, 250])
@@ -99,7 +100,7 @@ func run() -> void:
 	check(kb["z"] > 0 and kb["x"] < mon_r[2], "탑뷰 이동: %s %s" % [kb, desk.toast])
 	for d in [["mouse_gaming", 940, 160], ["lamp_warm", 1060, 520], ["mug", 1150, 200]]:
 		drag(desk.row_rect(desk.rows().find(d[0])), [d[1], d[2], d[1], d[2]])
-	check(Game.placed.size() == 5, desk.toast)
+	check(Game.placed.size() == 5, "%s %s" % [desk.toast, Game.placed.map(func(p): return p["id"])])
 	await shot("7b_desk_top")
 	tap(desk.BTN_VIEW)
 
