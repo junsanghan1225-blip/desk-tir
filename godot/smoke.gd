@@ -160,6 +160,10 @@ func run() -> void:
 	tap(w.BTN_DONE)
 	for i in 10:                               # 납품 사진 찍고 넘어갈 때까지
 		await process_frame
+	on("trial")
+	main.modes["trial"].t0 -= 4000
+	await shot("10a_trial")
+	tap([0, 0, 100, 100])
 	on("result")
 	check(main.modes["result"].result["boot"] == "" or true)
 	await shot("10_result")

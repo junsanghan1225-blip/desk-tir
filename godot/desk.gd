@@ -418,15 +418,8 @@ func draw_screen(p: Dictionary) -> void:
 		text(s[2] - 54, s[1] + th / 2.0, Time.get_time_string_from_system().left(5), 16)
 	for i in 3:   # 바탕화면 아이콘
 		box([s[0] + 6, s[3] - 8 - (i + 1) * ic * 1.6, s[0] + 6 + ic, s[3] - 8 - (i + 1) * ic * 1.6 + ic], [CYAN, GOLD, PINK][i])
-	var win := [s[0] + sw * 0.24, s[1] + th + sh * 0.12, s[0] + sw * 0.84, s[3] - sh * 0.1]   # 열린 창
-	box(win, Color8(24, 18, 48))
-	box([win[0], win[3] - th * 0.8, win[2], win[3]], Color8(46, 34, 90))
-	for i in 3:
-		circle(win[2] - 6 - i * 8, win[3] - th * 0.4, 2.5, [PINK, GOLD, GREEN][i])
-	for i in 6:   # 창 내용 (코드 줄)
-		var ly: float = win[3] - th * 0.8 - 6 - i * (win[3] - win[1] - th) / 7.0
-		box([win[0] + 6 + (i % 3) * 6, ly - 2, win[0] + 6 + (i % 3) * 6 + (win[2] - win[0]) * [0.5, 0.3, 0.6, 0.4, 0.25, 0.45][i], ly + 1], [CYAN, PINK, INK, GOLD, VIOLET, CYAN][i])
-
+	var win := [s[0] + sw * 0.24, s[1] + th + sh * 0.12, s[0] + sw * 0.84, s[3] - sh * 0.1]   # 열린 창 = 손님 용도 앱 (게임은 실제 FPS로)
+	draw_app(win, Bench.run(Bench.parts_of(Game.pc), Game.request().get("use", {"kind": "office"})), t, false)
 
 func draw_top() -> void:
 	box(ROOM, Color8(14, 9, 30))

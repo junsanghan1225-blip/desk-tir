@@ -164,6 +164,112 @@ func circle(x: float, y: float, radius: float, c: Color) -> void:
 	m.draw_circle(Vector2(x, H - y), radius, c)
 
 
+# ---------- 성능 그래프 ----------
+const A0 := PI * 0.75   # 계기판: 왼쪽 아래(0) → 위 → 오른쪽 아래(1)
+const A1 := PI * 2.25
+
+
+func arc(cx: float, cy: float, rad: float, f0: float, f1: float, c: Color, w := 20.0) -> void:
+	if f1 > f0:
+		m.draw_arc(Vector2(cx, H - cy), rad, A0 + f0 * (A1 - A0), A0 + f1 * (A1 - A0), 48, c, w)
+
+
+func at_angle(cx: float, cy: float, rad: float, f: float) -> Vector2:
+	var a: float = A0 + f * (A1 - A0)
+	return Vector2(cx + cos(a) * rad, cy - sin(a) * rad)   # 화면 각도 → 게임 좌표(y 위)
+
+
+## 속도계: frac = 바늘 위치(0~1), tf = 목표 위치, good_high = 클수록 좋은지
+func gauge(cx: float, cy: float, rad: float, frac: float, tf: float, good_high: bool, big: String, unit: String, target_label: String) -> void:
+	arc(cx, cy, rad, 0, 1, Color8(30, 22, 60), 30)
+	var bad := Color(PINK, 0.75)
+	var good := Color(GREEN, 0.75)
+	arc(cx, cy, rad, 0, tf, bad if good_high else good, 22)
+	arc(cx, cy, rad, tf, 1, good if good_high else bad, 22)
+	for i in 11:
+		line(at_angle(cx, cy, rad - 22, i / 10.0), at_angle(cx, cy, rad - 12, i / 10.0), DIM, 2)
+	line(at_angle(cx, cy, rad - 26, tf), at_angle(cx, cy, rad + 24, tf), GOLD, 5)
+	var tp := at_angle(cx, cy, rad + 40, tf)
+	text(tp.x - text_w(target_label, 22) / 2.0, tp.y, target_label, 22, GOLD)
+	line(Vector2(cx, cy), at_angle(cx, cy, rad - 18, clampf(frac, 0, 1)), Color.WHITE, 6)
+	circle(cx, cy, 12, Color.WHITE)
+	text(cx - text_w(big, 44) / 2.0, cy - 50, big, 44, Color.WHITE)
+	text(cx - text_w(unit, 22) / 2.0, cy - 88, unit, 22, QUIET)
+
+
+## 온도계: 0~110°C, 위험(빨강) 85 이상
+func thermo(x: float, y0: float, h: float, temp: float, label: String) -> void:
+	var hot := temp >= 85
+	box([x - 10, y0, x + 10, y0 + h], Color8(30, 22, 60))
+	box([x - 6, y0 + 4, x + 6, y0 + 4 + (h - 8) * clampf(temp / 110.0, 0, 1)], PINK if hot else (GOLD if temp >= 70 else CYAN))
+	circle(x, y0, 16, PINK if hot else (GOLD if temp >= 70 else CYAN))
+	text(x - text_w(label, 22) / 2.0, y0 - 34, label, 22, INK)
+	text(x + 20, y0 + h - 12, "%d°" % temp, 22, PINK if hot else INK)
+
+
+# ---------- 모니터 속 앱: 손님 용도대로 돌아감 (게임은 계산된 FPS만큼 부드럽거나 끊김) ----------
+func draw_app(s: Array, r: Dictionary, t: float, show_fps := true) -> void:
+	var sw: float = s[2] - s[0]
+	var sh: float = s[3] - s[1]
+	box(s, Color8(10, 8, 24))
+	match r.get("kind", "office"):
+		"game":
+			var ratio: float = r["value"] / maxf(r["target"], 1.0)
+			var shown_fps: float = 60.0 if ratio >= 1.0 else clampf(60.0 * ratio * ratio, 6.0, 60.0)   # 목표 미달 → 눈에 띄게 끊김
+			var tt: float = floor(t * shown_fps) / shown_fps
+			if r.get("ram_low", false) and fmod(t, 2.2) < 0.35:   # RAM 부족: 주기적으로 멈칫
+				tt = floor((t - fmod(t, 2.2)) * shown_fps) / shown_fps
+			box([s[0], s[1] + sh * 0.25, s[2], s[3]], Color8(26, 16, 56))
+			for i in 9:   # 먼 빌딩
+				var bx: float = s[0] + fposmod(i * sw / 7.0 - tt * sw * 0.08, sw + sw / 7.0) - sw / 14.0
+				var bh: float = sh * (0.25 + 0.2 * fposmod(i * 0.37, 1.0))
+				box([maxf(s[0], bx), s[1] + sh * 0.2, minf(s[2], bx + sw / 9.0), s[1] + sh * 0.2 + bh], Color8(44, 30, 90))
+			for i in 7:   # 가까운 빌딩 + 창문
+				var bx: float = s[0] + fposmod(i * sw / 5.0 - tt * sw * 0.22, sw + sw / 5.0) - sw / 10.0
+				var bh: float = sh * (0.18 + 0.25 * fposmod(i * 0.61, 1.0))
+				var rr := [maxf(s[0], bx), s[1] + sh * 0.2, minf(s[2], bx + sw / 7.0), s[1] + sh * 0.2 + bh]
+				if rr[2] > rr[0]:
+					box(rr, Color8(60, 40, 120))
+					if rr[2] - rr[0] > 8:
+						box([rr[0] + 3, rr[3] - sh * 0.06, rr[0] + 6, rr[3] - sh * 0.04], GOLD)
+			box([s[0], s[1], s[2], s[1] + sh * 0.2], Color8(20, 14, 40))   # 바닥
+			box([s[0], s[1] + sh * 0.2 - 2, s[2], s[1] + sh * 0.2], PINK)
+			var py: float = s[1] + sh * 0.2 + absf(sin(tt * 4.0)) * sh * 0.22   # 달리며 점프하는 캐릭터
+			box([s[0] + sw * 0.2, py, s[0] + sw * 0.2 + sw * 0.04, py + sh * 0.1], CYAN)
+			for i in 3:   # 다가오는 장애물
+				var ox: float = s[0] + fposmod(sw * (0.5 + i * 0.45) - tt * sw * 0.45, sw * 1.3)
+				if ox < s[2] - sw * 0.03:
+					box([ox, s[1] + sh * 0.2, ox + sw * 0.03, s[1] + sh * 0.28], PINK)
+			if show_fps:
+				var lbl := "%d FPS" % roundi(r["value"])
+				box([s[2] - text_w(lbl, 22) - 16, s[3] - 34, s[2] - 4, s[3] - 4], Color(0, 0, 0, 0.6))
+				text(s[2] - text_w(lbl, 22) - 10, s[3] - 19, lbl, 22, GREEN if ratio >= 1.0 else PINK)
+		"render", "code":
+			var dur: float = r["value"] * (0.45 if r["kind"] == "render" else 0.06)   # 1분 = 0.45초, 1초 = 0.06초로 압축
+			var p: float = clampf(t / maxf(dur, 0.1), 0.0, 1.0)
+			if r["kind"] == "render":
+				for i in 4:   # 렌더 중인 영상 미리보기 칸
+					var fx: float = s[0] + 10 + i * (sw - 20) / 4.0
+					box([fx, s[3] - sh * 0.55, fx + (sw - 20) / 4.0 - 8, s[3] - 10], [Color8(60, 40, 120), Color8(46, 120, 130), Color8(120, 40, 90), Color8(90, 70, 30)][i] if p * 4 > i else Color8(30, 22, 60))
+			else:
+				for i in int(p * 8):   # 빌드 터미널 줄
+					box([s[0] + 10, s[3] - 14 - i * sh * 0.07, s[0] + 10 + sw * (0.3 + 0.08 * (i % 4)), s[3] - 9 - i * sh * 0.07], GREEN if i % 3 else CYAN)
+			box([s[0] + 10, s[1] + 10, s[2] - 10, s[1] + 26], Color8(30, 22, 60))   # 진행 막대
+			box([s[0] + 12, s[1] + 12, s[0] + 12 + (sw - 24) * p, s[1] + 24], GREEN if r["ok"] else GOLD)
+			if show_fps and sh > 120:
+				var lbl := ("완료! " if p >= 1.0 else "%d%%  " % roundi(p * 100)) + Bench.value_text(r)
+				text(s[0] + 12, s[1] + 46, lbl, 22, GREEN if p >= 1.0 and r["ok"] else INK)
+		_:
+			for i in 4:   # 화상회의 4명
+				var tx: float = s[0] + 6 + (i % 2) * (sw - 12) / 2.0
+				var ty: float = s[1] + 6 + (i / 2) * (sh - 12) / 2.0
+				var tw: float = (sw - 12) / 2.0 - 4
+				var tht: float = (sh - 12) / 2.0 - 4
+				box([tx, ty, tx + tw, ty + tht], [Color8(46, 60, 120), Color8(60, 40, 100), Color8(40, 90, 100), Color8(90, 50, 90)][i])
+				circle(tx + tw / 2.0, ty + tht * 0.55 + sin(t * 2.0 + i) * 2.0, minf(tw, tht) * 0.18, Color8(255, 214, 180))
+				box([tx + tw * 0.3, ty, tx + tw * 0.7, ty + tht * 0.3], [CYAN, PINK, GOLD, VIOLET][i])
+
+
 func dim() -> void:
 	box([0, 0, 1280, H], Color(0.04, 0.02, 0.09, 0.65))
 

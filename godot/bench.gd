@@ -63,6 +63,9 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 		r["shutdown"] = true
 		r["points"] = 0.0
 		return r
+	r["throttle"] = cpu_thr < 1
+	r["ram_low"] = gb < 16
+	r["gb"] = gb
 	var mt: float = _s(d["CPU"], "mt") * cpu_thr
 	match r["kind"]:
 		"game":
@@ -110,6 +113,19 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 		r["notes"].append("목표보다 훨씬 좋아요. 더 싼 부품으로도 충분해요 (마진↑)")
 	r["points"] = max(0.0, pts)
 	return r
+
+
+## 테스트 중 FPS(또는 속도) 변화 n개: 출렁임 + 과열이면 처음엔 높다가 떨어짐 + RAM 부족이면 주기적으로 뚝 끊김
+static func series(r: Dictionary, n: int) -> Array:
+	var out := []
+	for k in n:
+		var v: float = r["value"] * (1.0 + 0.05 * sin(k * 1.3) + 0.03 * sin(k * 3.7 + 1.0))
+		if r.get("throttle", false):
+			v *= lerpf(1.0 / 0.75, 1.0, minf(1.0, k / (n * 0.3)))
+		if r.get("ram_low", false) and r["kind"] == "game" and k % 9 == 4:
+			v *= 0.35
+		out.append(v)
+	return out
 
 
 ## 결과 숫자를 쉬운 말로: "132fps / 목표 144"

@@ -509,15 +509,15 @@ class Album extends Mode:
 
 
 class BenchView extends Mode:
-	## 성능 테스트 결과 (조립 화면 위): 막대 두 개로 'CPU 한계 vs 그래픽카드 한계', 짧은 쪽이 발목.
-	## 숫자를 몰라도 되게 쉬운 말 + 가장 싸게 고치는 방법을 같이 보여 준다.
-	const BOX := [120, 40, 1160, 676]
-	const BTN_CLOSE := [960, 56, 1144, 116]
-	const BAR_X := 470.0
-	const BAR_W := 600.0
+	## 성능 테스트 (조립 화면 위): 숫자를 몰라도 한눈에 — 속도계 바늘, 시간에 따른 FPS 그래프, 발목(병목) 막대, 온도계, 소음계.
+	const BOX := [40, 24, 1240, 680]
+	const BTN_CLOSE := [1060, 596, 1224, 664]
+	const GRAPH := [420, 336, 1210, 560]
+	const N := 40
 	var t0 := 0
 	var r := {}
 	var fixit := {}
+	var pts := []
 
 	func _init() -> void:
 		overlay = true
@@ -526,6 +526,7 @@ class BenchView extends Mode:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
 		r = Bench.run(Bench.parts_of(Game.pc), use)
 		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not r.get("shutdown", false) else {}
+		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
 		t0 = Time.get_ticks_msec()
 		m.push("bench")
 		sfx("boot_ok" if r["ok"] else "click")
@@ -534,68 +535,159 @@ class BenchView extends Mode:
 		if inside(x, y, BTN_CLOSE) or not inside(x, y, BOX):
 			m.pop()
 
-	func bar(y: float, label: String, v: float, scale: float, hot: bool, tag: String) -> void:
-		var k: float = clampf((Time.get_ticks_msec() - t0) / 1200.0, 0.0, 1.0)   # 막대가 차오르는 연출
-		text(150, y, label, 22, INK)
-		frame("ui_slot", [BAR_X, y - 22, BAR_X + BAR_W, y + 22])
-		box([BAR_X + 6, y - 14, BAR_X + 6 + (BAR_W - 12) * min(1.0, v / scale) * k, y + 14], PINK if hot else CYAN)
-		text(BAR_X + 12, y, tag, 22, Color.WHITE)
+	func k() -> float:   # 0 → 1: 테스트 진행 (2초)
+		return clampf((Time.get_ticks_msec() - t0) / 2000.0, 0.0, 1.0)
+
+	func hbar(y: float, label: String, v: float, scale: float, hot: bool, tag: String) -> void:
+		text(GRAPH[0], y, label, 22, INK)
+		var x0 := 700.0
+		var w: float = GRAPH[2] - x0
+		box([x0, y - 18, GRAPH[2], y + 18], Color8(30, 22, 60))
+		box([x0, y - 18, x0 + w * minf(1.0, v / scale) * k(), y + 18], PINK if hot else CYAN)
+		text(x0 + 10, y, tag, 22, Color.WHITE)
+
+	func draw_graph() -> void:
+		var g := GRAPH
+		box(g, Color8(14, 10, 32))
+		outline(g, DIM)
+		var top: float = maxf(r["target"] * 1.3, pts.max() * 1.1)
+		var yy := func(v: float) -> float: return g[1] + (g[3] - g[1]) * v / top
+		var ty: float = yy.call(r["target"])
+		for x in range(int(g[0]), int(g[2]), 24):   # 점선 목표선
+			box([x, ty - 1.5, x + 12, ty + 1.5], GOLD)
+		text(g[2] - text_w("목표 %d" % r["target"], 22) - 6, ty + 18, "목표 %d" % r["target"], 22, GOLD)
+		var n: int = maxi(2, int(N * k()))
+		var line_pts := []
+		for i in n:
+			line_pts.append(Vector2(g[0] + (g[2] - g[0]) * i / float(N - 1), yy.call(pts[i])))
+		polyline(line_pts, GREEN if r["ok"] else PINK, 4)
+		circle(line_pts[-1].x, line_pts[-1].y, 7, Color.WHITE)
+		text(g[0], g[3] + 24, "FPS 변화 (게임 30초)", 22, QUIET)
+		var why := "  ↓ 뚝 끊김 = RAM 부족" if r.get("ram_low", false) else "  ↘ 점점 느려짐 = 과열" if r.get("throttle", false) else ""
+		text(g[0] + 260, g[3] + 24, why, 22, PINK)
 
 	func draw() -> void:
 		dim()
 		panel(BOX, true)
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
-		text(150, 630, "성능 테스트", 33, PINK)
-		text(150, 588, "손님 요구: " + Bench.describe(use), 22, CYAN)
+		text(70, 646, "성능 테스트", 33, PINK)
+		text(70, 606, "손님 요구: " + Bench.describe(use), 22, CYAN)
 		button(BTN_CLOSE, "닫기", VIOLET)
-		var done: bool = Time.get_ticks_msec() - t0 > 1300
-		var y := 520.0
 		if r.get("shutdown", false) or r["value"] == 0.0 and r["kind"] != "office":
-			for line in wrap_text(r["notes"][0] if not r["notes"].is_empty() else "", 980):
-				text(150, y, line, 22, PINK)
-				y -= 34
+			var y := 520.0
+			for ln in wrap_text(r["notes"][0] if not r["notes"].is_empty() else "", 1100):
+				text(70, y, ln, 33, PINK)
+				y -= 44
 			return
+		var kk := k()
+		# 1) 속도계: 게임은 클수록, 시간은 작을수록 좋음. 사무용은 소음계.
+		match r["kind"]:
+			"game": gauge(230, 400, 120, r["value"] / (r["target"] * 1.6) * kk, 1 / 1.6, true, "%d" % roundi(r["value"] * kk), "FPS", "목표 %d" % r["target"])
+			"render": gauge(230, 400, 120, r["value"] / (r["target"] * 2.0) * kk, 0.5, false, "%.1f" % (r["value"] * kk), "분 걸림", "목표 %d분" % r["target"])
+			"code": gauge(230, 400, 120, r["value"] / (r["target"] * 2.0) * kk, 0.5, false, "%d" % roundi(r["value"] * kk), "초 걸림", "목표 %d초" % r["target"])
+			_:
+				var q: float = use.get("quiet", 40)
+				gauge(230, 400, 120, r["noise"] / (q * 1.6) * kk, 1 / 1.6, false, "%d" % roundi(r["noise"] * kk), "dB 소음", "기준 %d" % q)
+		# 2) 오른쪽: 게임은 FPS 그래프 + 발목 막대, 시간 작업은 목표 대비 막대
 		match r["kind"]:
 			"game":
-				var scale: float = max(r["target"] * 1.4, max(r["cpu_fps"], r["gpu_fps"]))
-				bar(520, "CPU가 낼 수 있는", r["cpu_fps"], scale, r["limit"] == "CPU", "%dfps" % r["cpu_fps"] + ("  ← 발목" if r["limit"] == "CPU" else ""))
-				bar(456, "그래픽카드가 낼 수 있는", r["gpu_fps"], scale, r["limit"] != "CPU", "%dfps" % r["gpu_fps"] + ("  ← 발목" if r["limit"] != "CPU" else ""))
-				var tx: float = BAR_X + 6 + (BAR_W - 12) * r["target"] / scale
-				box([tx - 2, 420, tx + 2, 552], GOLD)   # 목표선
-				text(tx - 40, 404, "목표 %d" % r["target"], 22, GOLD)
+				draw_graph()
+				var scale: float = maxf(r["target"] * 1.4, maxf(r["cpu_fps"], r["gpu_fps"]))
+				hbar(284, "CPU 한계", r["cpu_fps"], scale, r["limit"] == "CPU", "%dfps" % r["cpu_fps"] + ("  ← 발목" if r["limit"] == "CPU" else ""))
+				hbar(238, "그래픽카드 한계", r["gpu_fps"], scale, r["limit"] != "CPU", "%dfps" % r["gpu_fps"] + ("  ← 발목" if r["limit"] != "CPU" else ""))
 			"render", "code":
-				var scale: float = max(r["value"], r["target"]) * 1.3
-				bar(520, "걸리는 시간 (짧을수록 좋음)", r["value"], scale, not r["ok"], Bench.value_text(r))
-				var tx: float = BAR_X + 6 + (BAR_W - 12) * r["target"] / scale
-				box([tx - 2, 484, tx + 2, 552], GOLD)
-				text(tx - 40, 468, "목표 " + {"render": "%d분", "code": "%d초"}[r["kind"]] % r["target"], 22, GOLD)
+				var scale: float = maxf(r["value"], r["target"]) * 1.3
+				hbar(500, "걸리는 시간", r["value"], scale, r["value"] > r["target"], Bench.value_text(r))
+				hbar(440, "손님 목표", r["target"], scale, false, {"render": "%d분", "code": "%d초"}[r["kind"]] % r["target"])
+				text(GRAPH[0], 380, "CPU 코어가 많을수록 짧아져요 (지금 %d코어)" % DB.PARTS[Game.pc.parts["CPU"]].get("cores", 0), 22, QUIET)
 			_:
-				text(150, 520, "켜지기만 하면 되는 손님이에요. 조용한지만 확인해요.", 22, INK)
-		if not done:
-			text(150, 360, "테스트 중" + ".".repeat(int((Time.get_ticks_msec() - t0) / 250) % 4), 33, QUIET)
+				text(GRAPH[0], 500, "켜지기만 하면 되는 손님이에요.", 22, INK)
+				text(GRAPH[0], 460, "소음만 기준보다 조용하면 OK", 22, QUIET)
+		# 3) 왼쪽 아래: 온도계 2개 + 소음 막대
+		thermo(90, 70, 120, r["cpu_temp"] * kk, "CPU")
+		thermo(200, 70, 120, r["gpu_temp"] * kk, "그래픽")
+		var q2: float = use.get("quiet", 40)
+		var loud: bool = r["noise"] > q2
+		text(286, 36, "소음", 22, INK)
+		for i in 6:   # 소리 막대 (높을수록 시끄러움)
+			var on: bool = i < int(6 * minf(1.0, r["noise"] / 50.0) * kk + 0.5)
+			box([290 + i * 18, 70, 302 + i * 18, 82 + i * 18], (PINK if loud else CYAN) if on else Color8(30, 22, 60))
+		text(286, 200, "%ddB" % r["noise"], 22, PINK if loud else INK)
+		if kk < 1.0:
+			text(GRAPH[0], 180, "테스트 중" + ".".repeat(int((Time.get_ticks_msec() - t0) / 250) % 4), 33, QUIET)
 			return
-		var verdict := ("✓ 목표 달성!" if r["ok"] else "✗ 목표에 못 미쳐요")
-		text(150, 360, ("결과 " + Bench.value_text(r) + "   " if r["kind"] != "office" else "") + verdict, 33, GREEN if r["ok"] else PINK)
-		var hot_c: bool = r["cpu_temp"] >= 90
-		var hot_g: bool = r["gpu_temp"] >= 85
-		var loud: bool = use.has("quiet") and r["noise"] > use["quiet"]
-		text(150, 310, "CPU %d°C" % r["cpu_temp"], 22, PINK if hot_c else INK)
-		text(340, 310, "그래픽카드 %d°C" % r["gpu_temp"], 22, PINK if hot_g else INK)
-		text(620, 310, "소음 %ddB" % r["noise"] + (" (기준 %d)" % use["quiet"] if use.has("quiet") else ""), 22, PINK if loud else INK)
-		var ny := 264.0
+		# 4) 판정 + 쉬운 말 + 가장 싼 해결책
+		text(70, 240, "✓ 목표 달성!" if r["ok"] else "✗ 못 미쳐요", 33, GREEN if r["ok"] else PINK)
+		var ny := 186.0
 		for n in r["notes"].slice(0, 3):
-			for line in wrap_text("· " + n, 980):
-				text(150, ny, line, 22, QUIET)
+			for ln in wrap_text("· " + n, 800):
+				text(GRAPH[0], ny, ln, 22, QUIET)
 				ny -= 30
-		if fixit.is_empty() and not r["ok"]:
-			for line in wrap_text("한 부품만 바꿔서는 어려워요. 막대가 짧은 쪽(발목)부터 더 좋은 부품으로 바꿔 보세요. 가게를 업그레이드하면 고급 부품도 팔아요.", 980):
-				text(150, ny - 10, line, 22, GOLD)
-				ny -= 30
+		var tip := ""
 		if not fixit.is_empty():
 			var p: Dictionary = DB.PARTS[fixit["id"]]
-			var after := Bench.value_text({"kind": r["kind"], "value": fixit["value"]})
 			var what: String = {"CPU": "CPU", "GPU": "그래픽카드", "RAM": "RAM", "COOLER": "쿨러", "CASE": "케이스"}[fixit["type"]]
 			var with_mb: String = " + %s" % DB.PARTS[fixit["mb"]]["name"] if fixit.get("mb", "") != "" else ""
-			for line in wrap_text("추천: %s을(를) %s%s(%d만)으로 바꾸면 %s → 목표 달성" % [what, p["name"], with_mb, fixit["cost"], after], 980):
-				text(150, ny - 10, line, 22, GOLD)
-				ny -= 30
+			tip = "추천: %s → %s%s(%d만)면 %s, 목표 달성" % [what, p["name"], with_mb, fixit["cost"], Bench.value_text({"kind": r["kind"], "value": fixit["value"]})]
+		elif not r["ok"]:
+			tip = "한 부품만 바꿔선 어려워요. 빨간 막대(발목)부터 바꿔 보세요."
+		for ln in wrap_text(tip, 800):
+			text(GRAPH[0], ny - 6, ln, 22, GOLD)
+			ny -= 30
+
+
+class Trial extends Mode:
+	## 납품 직후: 손님이 직접 PC를 써 본다. 게임은 계산된 FPS만큼 부드럽거나 끊기고, 렌더 · 빌드는 진행 막대, 사무는 화상회의.
+	const SCREEN := [380, 170, 1240, 610]
+	var t0 := 0
+	var r := {}
+	var boot := true
+
+	func enter() -> void:
+		var use: Dictionary = Game.request().get("use", {"kind": "office"})
+		boot = Game.pc.post()[0] == 4
+		r = Bench.run(Bench.parts_of(Game.pc), use)
+		t0 = Time.get_ticks_msec()
+
+	func t() -> float:
+		return (Time.get_ticks_msec() - t0) / 1000.0
+
+	func down(_x: float, _y: float, _right: bool) -> void:
+		if t() > 1.0:
+			m.go("result")
+
+	func reaction() -> Array:   # [기분, 한마디]
+		if not boot or r.get("shutdown", false):
+			return ["sad", "어… 화면이 안 나와요?"]
+		var bad: bool = r.get("ram_low", false) and r["kind"] == "game"
+		match r["kind"]:
+			"game":
+				if r["ok"] and not bad: return ["happy", "와, 엄청 부드러워요!"] if r["ratio"] >= 1.3 else ["happy", "딱 원하던 느낌이에요."]
+				return ["sad", "자꾸 멈칫해요…"] if bad else ["neutral" if r["ratio"] >= 0.75 else "sad", "음… 좀 버벅이네요."]
+			"render", "code":
+				return ["happy", "벌써 끝났어요?"] if r["ok"] else ["neutral", "기다리는 게 좀 길어요…"]
+		if not r["ok"]:
+			return ["neutral", "좀 시끄럽네요…"]
+		return ["happy", "조용하고 좋네요."]
+
+	func draw() -> void:
+		box([0, 0, 1280, 720], BG)
+		var req := Game.request()
+		text(40, 670, "%s 님이 써 보는 중" % req["customer"], 33, PINK)
+		text(40, 628, Bench.describe(req.get("use", {"kind": "office"})), 22, CYAN)
+		frame("ui_panel", [SCREEN[0] - 14, SCREEN[1] - 14, SCREEN[2] + 14, SCREEN[3] + 14])
+		if not boot or r.get("shutdown", false):
+			box(SCREEN, Color8(6, 5, 12))
+		else:
+			draw_app(SCREEN, r, t())
+		var rx := reaction()
+		var shown: bool = t() > 2.5
+		panel([40, 300, 340, 600], true)
+		put("face_%s_%s" % [req["face"], rx[0] if shown else "neutral"], [60, 320, 320, 580])
+		if shown:
+			panel([40, 150, 340, 280], true)
+			var y := 240.0
+			for ln in wrap_text(rx[1], 270):
+				text(56, y, ln, 22, INK)
+				y -= 30
+			text_c([0, 40, 1280, 110], "누르면 결과 보기", 22, QUIET)
