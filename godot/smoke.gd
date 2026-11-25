@@ -107,6 +107,7 @@ func run() -> void:
 	on("build")
 	var b = main.modes["build"]
 	var part := func(id: String, to: Array): drag(b.inv_row(b.inv_ids().find(id)), to)
+	Game.pc = PCBuild.new()   # 첫 손님은 데스크테리어(손님 PC 있음) → 조립 테스트는 빈 케이스부터
 	part.call("case1", b.CASE_AREA)
 	part.call("mb1", b.mb_rect())
 	tap(b.lever_rect())

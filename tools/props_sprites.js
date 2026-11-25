@@ -89,4 +89,50 @@ const top = {
   stream_deck: (W, H) => `${sh(2, 2, W - 4, H - 4)}<rect x="2" y="2" width="${W - 4}" height="${H - 4}" rx="4" fill="${INK}"/>
     ${[0, 1].map(r => [0, 1, 2].map(c => `<rect x="${6 + c * (W - 12) / 3}" y="${6 + r * (H - 12) / 2}" width="${(W - 12) / 3 - 3}" height="${(H - 12) / 2 - 3}" rx="1" fill="${[PINK, CYAN, GOLD, VIO, '#56b08a', PINK][r * 3 + c]}"/>`).join('')).join('')}`,
 };
-module.exports = { front, top };
+
+// ---- 모니터: 인치마다 크기 · 스탠드 · 화면이 다름. [가로, 화면 높이, 테두리, 스탠드 모양, 화면, 빛]
+const scrn = {
+  doc: (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#e8e6f2"/><rect x="${x}" y="${y}" width="${w}" height="${h * .1}" fill="#cfcbe0"/>${[0, 1, 2, 3, 4, 5].map(i => `<rect x="${x + w * .08}" y="${y + h * (.2 + i * .12)}" width="${w * (.4 + ((i * 37) % 40) / 100)}" height="${h * .05}" fill="#9a94b8"/>`).join('')}`,
+  game: (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#2a124a"/><rect x="${x}" y="${y + h * .58}" width="${w}" height="${h * .42}" fill="#1b0f3d"/><circle cx="${x + w / 2}" cy="${y + h * .58}" r="${h * .24}" fill="#ffd65c"/>${[0, 1, 2, 3].map(i => `<rect x="${x}" y="${y + h * (.64 + i * .08)}" width="${w}" height="2" fill="#ff4d8d"/>`).join('')}`,
+  code: (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#160f30"/>${[...Array(Math.floor(h / 10))].map((_, i) => `<rect x="${x + 8 + (i % 3) * 8}" y="${y + 6 + i * 10}" width="${w * (.2 + ((i * 29) % 50) / 100)}" height="4" fill="${['#2ee6d6', '#c9b8ff', '#ff4d8d', '#ffd65c'][i % 4]}"/>`).join('')}`,
+  photo: (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#1e3a6e"/><path d="M${x} ${y + h} L${x + w * .35} ${y + h * .45} L${x + w * .55} ${y + h * .7} L${x + w * .75} ${y + h * .35} L${x + w} ${y + h} Z" fill="#56b08a"/><circle cx="${x + w * .8}" cy="${y + h * .22}" r="${h * .1}" fill="#ffd65c"/>`,
+};
+const MON = {};   // id -> [가로, 세로, SVG, 화면 사각형]
+const mon = (id, w, sh, frame, stand, screen, glowc, opt = {}) => {
+  const h = sh + 12 + (opt.standH || 56);
+  const bx = 6, by = 6, bw = w - 12;
+  let st;
+  if (opt.tripod) st = `<rect x="${w / 2 - 5}" y="${sh + 12}" width="10" height="${opt.standH - 14}" fill="${stand}"/><path d="M${w / 2} ${h - 16} L${w / 2 - 70} ${h} M${w / 2} ${h - 16} L${w / 2 + 70} ${h} M${w / 2} ${h - 16} L${w / 2} ${h}" stroke="${stand}" stroke-width="6"/>`;
+  else if (opt.vstand) st = `<rect x="${w / 2 - 6}" y="${sh + 12}" width="12" height="${opt.standH - 10}" fill="${stand}"/><path d="M${w / 2} ${h - 10} L${w / 2 - 60} ${h} L${w / 2 - 48} ${h} L${w / 2} ${h - 4} L${w / 2 + 48} ${h} L${w / 2 + 60} ${h} Z" fill="${stand}"/>`;
+  else if (opt.kick) st = `<path d="M${w * .3} ${sh + 12} L${w * .2} ${h} L${w * .26} ${h} L${w * .36} ${sh + 12} Z" fill="${stand}"/>`;
+  else st = `<rect x="${w / 2 - 8}" y="${sh + 12}" width="16" height="${(opt.standH || 56) - 12}" fill="${stand}"/><path d="M${w / 2 - 44} ${h} L${w / 2 + 44} ${h} L${w / 2 + 36} ${h - 12} L${w / 2 - 36} ${h - 12} Z" fill="${stand}"/>`;
+  MON[id] = [w, h, `<defs>${glow('g_' + id, 10)}</defs>
+    <ellipse cx="${w / 2}" cy="${sh / 2}" rx="${w / 2 - 4}" ry="${sh / 2}" fill="${glowc}" opacity=".28" filter="url(#g_${id})"/>${st}
+    <rect x="0" y="0" width="${w}" height="${sh + 12}" rx="4" fill="${frame}"/>${screen(bx, by, bw, sh)}
+    <path d="M${w - 50} ${by} L${w - 6} ${by} L${w - 6} ${by + 30} Z" fill="#fff" opacity=".05"/>${opt.accent ? `<rect x="0" y="${sh + 8}" width="${w}" height="4" fill="${opt.accent}"/>` : ''}`, [bx, by, bx + bw, by + sh]];
+};
+mon('monitor_22', 190, 104, '#2a2440', '#3b3466', scrn.doc, '#2ee6d6');
+mon('monitor_144', 208, 114, '#0f0a22', '#2a2350', scrn.game, '#ff4d8d', { accent: '#ff4d8d' });
+mon('monitor_240', 216, 118, '#0f0a22', '#1c1830', scrn.game, '#ff4d8d', { vstand: true, standH: 60, accent: '#2ee6d6' });
+mon('monitor_qhd165', 234, 128, '#14102a', '#2a2350', scrn.game, '#7b5cff', { accent: '#7b5cff' });
+mon('monitor_4k', 276, 150, '#1a1830', '#3b3466', scrn.photo, '#2ee6d6', { standH: 60 });
+mon('monitor_oled', 234, 128, '#0b0816', '#2a2350', scrn.game, '#ff4d8d', { tripod: true, standH: 72, accent: '#ff4d8d' });
+mon('monitor_pivot', 110, 190, '#2a2440', '#3b3466', scrn.code, '#2ee6d6');
+mon('monitor_portable', 140, 78, '#c9ccd6', '#9aa0b4', scrn.doc, '#2ee6d6', { kick: true, standH: 24 });
+// 게이밍 노트북
+const laptopG = [208, 130, `<path d="M20 4 L188 4 L188 110 L20 110 Z" fill="#14102a"/><rect x="28" y="12" width="152" height="90" fill="#2a124a"/>
+    <rect x="28" y="58" width="152" height="44" fill="#1b0f3d"/><circle cx="104" cy="58" r="20" fill="#ffd65c"/>${[0, 1, 2].map(i => `<rect x="28" y="${64 + i * 9}" width="152" height="2" fill="#ff4d8d"/>`).join('')}
+    <path d="M0 112 L208 112 L196 128 L12 128 Z" fill="#1c1830"/><rect x="24" y="114" width="160" height="3" fill="#ff4d8d"/><rect x="40" y="119" width="128" height="3" fill="#2ee6d6"/>`];
+for (const [id, v] of Object.entries(MON)) front[id] = v.slice(0, 3);
+front.laptop_gaming = laptopG;
+const monTop = (body, top, glow) => (W, H) => `<path d="M6 ${H * .3} L${W - 6} ${H * .3} L${W - 24} ${H} L24 ${H} Z" fill="${glow}" opacity=".18"/>
+  ${sh(2, 4, W - 4, H * .22, 3)}<rect x="2" y="4" width="${W - 4}" height="${H * .22}" rx="3" fill="${body}"/><rect x="2" y="4" width="${W - 4}" height="5" rx="2" fill="${top}"/><rect x="2" y="${4 + H * .22 - 3}" width="${W - 4}" height="3" fill="${glow}"/>
+  <rect x="${W / 2 - 7}" y="${H * .26}" width="14" height="${H * .2}" fill="${top}"/>${sh(W * .32, H * .44, W * .36, H * .48, 8)}<rect x="${W * .32}" y="${H * .44}" width="${W * .36}" height="${H * .48}" rx="8" fill="${body}"/>`;
+Object.assign(top, {
+  monitor_22: monTop('#2a2440', '#3b3466', CYAN), monitor_144: monTop('#0f0a22', '#2a2350', PINK), monitor_240: monTop('#0f0a22', '#2a2350', CYAN),
+  monitor_qhd165: monTop('#14102a', '#2a2350', VIO), monitor_4k: monTop('#1a1830', '#3b3466', CYAN), monitor_oled: monTop('#0b0816', '#2a2350', PINK),
+  monitor_pivot: monTop('#2a2440', '#3b3466', CYAN), monitor_portable: (W, H) => `${sh(2, 2, W - 4, H - 6, 2)}<rect x="2" y="2" width="${W - 4}" height="${H - 6}" rx="2" fill="#c9ccd6"/><rect x="2" y="${H - 7}" width="${W - 4}" height="3" fill="${CYAN}"/>`,
+  laptop_gaming: (W, H) => `${sh(2, 2, W - 4, H - 4, 5)}<rect x="2" y="2" width="${W - 4}" height="${H * .14}" rx="3" fill="#14102a"/><rect x="2" y="${2 + H * .14 - 3}" width="${W - 4}" height="3" fill="${PINK}"/>
+    <rect x="2" y="${H * .18}" width="${W - 4}" height="${H * .8}" rx="4" fill="#1c1830"/>${[0, 1, 2, 3].map(r => `<rect x="${W * .1}" y="${H * (.26 + r * .11)}" width="${W * .8}" height="${H * .07}" fill="${[PINK, VIO, CYAN, VIO][r]}" opacity=".7"/>`).join('')}<rect x="${W * .35}" y="${H * .74}" width="${W * .3}" height="${H * .16}" rx="3" fill="#2a2350"/>`,
+});
+module.exports = { front, top, MON };

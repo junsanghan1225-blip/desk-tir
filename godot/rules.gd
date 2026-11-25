@@ -244,22 +244,24 @@ static func magnet(placed: Array, id: String, x: int, z: int, ignore = null) -> 
 
 
 # ---------- 배선 ----------
-const MAX_PORTS := {"DP": 3, "USB": 6, "AUDIO": 2}
-const PORT_COLOR := {"DP": Color8(255, 77, 141), "USB": Color8(46, 230, 214), "AUDIO": Color8(255, 214, 92)}
-const PORT_NAMES := {"DP": "DP", "USB": "USB", "AUDIO": "오디오"}
-const PORT_ORDER := ["DP", "USB", "AUDIO"]   # 포트는 한 줄: 기기 순서와 포트 순서가 엇갈리면 선이 꼬인다
+const MAX_PORTS := {"HDMI": 2, "DP": 3, "USB": 6, "AUDIO": 2}
+const PORT_COLOR := {"HDMI": Color8(255, 150, 60), "DP": Color8(255, 77, 141), "USB": Color8(46, 230, 214), "AUDIO": Color8(255, 214, 92)}
+const PORT_NAMES := {"HDMI": "HDMI", "DP": "DP", "USB": "USB", "AUDIO": "오디오"}
+const PORT_ORDER := ["HDMI", "DP", "USB", "AUDIO"]   # 포트는 한 줄: 기기 순서와 포트 순서가 엇갈리면 선이 꼬인다
 const PORT_Y := 170
-const PORT_X0 := 200
-const PORT_GAP := 88
-const SLOT_OFFSET := {"DP": 0, "USB": 3, "AUDIO": 9}
+const PORT_X0 := 196
+const PORT_GAP := 74
+const SLOT_OFFSET := {"HDMI": 0, "DP": 2, "USB": 5, "AUDIO": 11}
 const PORT_PANEL := [150, 114, 1130, 214]
 const PLUG_Y := 405
 
 
-## DP는 그래픽카드, USB는 메인보드가 개수를 정한다.
+## 영상(HDMI · DP)은 그래픽카드(없으면 내장 그래픽의 보드 단자), USB는 메인보드가 개수를 정한다.
 static func port_count(t: String, pc: PCBuild) -> int:
 	if t == "DP":
-		return pc.spec("GPU")["dp"] if pc.has("GPU") else (2 if pc.igpu() else 0)   # 그래픽카드가 없으면 보드 영상 단자
+		return pc.spec("GPU")["dp"] if pc.has("GPU") else (1 if pc.igpu() else 0)
+	if t == "HDMI":
+		return pc.spec("GPU").get("hdmi", 1) if pc.has("GPU") else (1 if pc.igpu() else 0)
 	if t == "USB":
 		return pc.spec("MB")["usb"] if pc.has("MB") else 0
 	return 2
@@ -341,6 +343,8 @@ const LINES := {
 	"배선": "선이 너무 엉켜 있어요… 정리 좀 해 주세요.",
 	"증상 해결": "어… 아직 그대로인데요?",
 	"성능": "고쳐지긴 했는데 좀 아쉬워요.",
+	"조립 마감": "나사가 덜 조여졌는지 덜컹거려요…",
+	"모니터": "모니터가 PC 성능을 못 따라가요. 화면이 아쉬워요.",
 }
 
 
@@ -415,25 +419,73 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 	if req.has("repair"):   # 수리: 증상이 사라졌는지(성능 테스트 통과) + 성능만 본다
 		var b := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
 		var rp := {"증상 해결": 50.0 if b["ok"] and pc.faults.is_empty() and pc.picture() else 0.0, "성능": pc_s * 2.5}
-		var rt := int(round(rp["증상 해결"] + rp["성능"]))
-		return {"parts": rp, "total": rt, "stars": 3 if rt >= 90 else 2 if rt >= 75 else 1 if rt >= 60 else 0,
-			"synergies": [], "boot": boot, "line": _reaction(rp, boot, 0)}
-	var parts := {"테마 일치": theme_s, "필수 · 금지": req_s, "PC 성능": pc_s, "조합 시너지": min(15.0, 8.0 * syn.size()), "배선": wire[0] * 1.5}
+		return _total(rp, {"증상 해결": 50, "성능": 50}, [], boot, 0)
+	if kind_of(req) == "pc":   # PC 조립 의뢰: 성능 · 조립 마감 · 모니터가 중요, 분위기는 안 봄
+		var fin := (0.7 if pc.loose().is_empty() and pc.has("CASE") else 0.0) + (0.3 if pc.tidy() else 0.0)
+		var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0}
+		var w := {"PC 성능": 50, "조립 마감": 15, "모니터": 15, "배선": 10, "필수 · 금지": 10}
+		var pp := {}
+		for k in w:
+			pp[k] = fr[k] * w[k]
+		return _total(pp, w, syn, boot, wire[1])
+	# 데스크테리어 의뢰: 손님 PC는 그대로, 책상 분위기 · 필수 소품 · 조합 · 배선
+	var w2 := {"테마 일치": 30, "필수 · 금지": 30, "조합 시너지": 20, "배선": 20}
+	var dp := {"테마 일치": theme_s / 25.0 * 30, "필수 · 금지": req_s / 25.0 * 30, "조합 시너지": minf(20.0, 10.0 * syn.size()), "배선": wire[0] * 2.0}
+	return _total(dp, w2, syn, "ok", wire[1])
+
+
+static func _total(parts: Dictionary, mx: Dictionary, syn: Array, boot: String, unplugged: int) -> Dictionary:
 	var total := 0.0
 	for k in parts:
 		total += parts[k]
 	var t := int(round(total))
-	return {"parts": parts, "total": t, "stars": 3 if t >= 90 else 2 if t >= 75 else 1 if t >= 60 else 0,
-		"synergies": syn, "boot": boot, "line": _reaction(parts, boot, wire[1])}
+	return {"parts": parts, "max": mx, "total": t, "stars": 3 if t >= 90 else 2 if t >= 75 else 1 if t >= 60 else 0,
+		"synergies": syn, "boot": boot, "line": _reaction(parts, mx, boot, unplugged)}
 
 
-static func _reaction(parts: Dictionary, boot: String, unplugged: int) -> String:
+## 의뢰 종류: repair(수리) · pc(PC 조립) · desk(데스크테리어)
+static func kind_of(req: Dictionary) -> String:
+	return "repair" if req.has("repair") else req.get("type", "desk")
+
+
+const RES_RANK := {"1080p": 0, "1440p": 1, "UW1440": 1, "4K": 2}
+
+
+## 책상 위 화면(모니터 · 노트북) 중 가장 좋은 [Hz, 해상도 등급]. 없으면 [0, -1]
+static func best_screen(placed: Array) -> Array:
+	var hz := 0
+	var rk := -1
+	for p in placed:
+		var it: Dictionary = DB.ITEMS[p["id"]]
+		if it.has("hz"):
+			hz = maxi(hz, it["hz"])
+			rk = maxi(rk, RES_RANK.get(it.get("res", "1080p"), 0))
+	return [hz, rk]
+
+
+## 모니터가 손님 용도에 맞는지 0~1: 게임은 목표 fps만큼 Hz가 나와야 보이고, 해상도도 맞아야 함
+static func screen_fit(placed: Array, use: Dictionary) -> float:
+	var b := best_screen(placed)
+	if b[0] == 0:
+		return 0.0
+	var f := 1.0
+	if use.get("kind", "") == "game":
+		if b[0] < use["fps"]:
+			f *= 0.4
+		if b[1] < RES_RANK.get(use["res"], 0):
+			f *= 0.6
+	elif use.get("kind", "") == "render" and b[1] < 1:
+		f *= 0.8
+	return f
+
+
+static func _reaction(parts: Dictionary, mx: Dictionary, boot: String, unplugged: int) -> String:
 	if boot != "ok":
 		return "PC가 안 켜져요… (%s)" % boot
 	if unplugged > 0:
 		return "기기 %d개가 안 켜져요. 케이블이 안 꽂혀 있어요!" % unplugged
 	var worst: String = parts.keys()[0]
 	for k in parts:
-		if parts[k] / MAX[k] < parts[worst] / MAX[worst]:
+		if parts[k] / mx[k] < parts[worst] / mx[worst]:
 			worst = k
-	return "상상한 그대로예요! 단골 할게요." if parts[worst] / MAX[worst] >= 0.8 else LINES[worst]
+	return "상상한 그대로예요! 단골 할게요." if parts[worst] / mx[worst] >= 0.8 else LINES[worst]

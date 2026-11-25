@@ -80,7 +80,9 @@ class Request extends Mode:
 		sfx("door")
 
 	func down(_x: float, _y: float, _right: bool) -> void:
-		m.go("build" if Game.request().has("repair") else "shop")   # 수리는 맡긴 PC부터 열어 봄
+		var kind := Rules.kind_of(Game.request())
+		m.modes["shop"].cat = "parts" if kind == "pc" else "screen"
+		m.go("build" if kind == "repair" else "shop")   # 수리는 맡긴 PC부터 열어 봄
 
 	func mood() -> String:
 		var req := Game.request()
@@ -107,13 +109,19 @@ class Request extends Mode:
 			text(420, 290, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
+		var kind := Rules.kind_of(req)
+		var badge: Array = {"repair": ["수리 의뢰", PINK], "pc": ["PC 조립 의뢰", CYAN], "desk": ["데스크테리어 의뢰", GOLD]}[kind]
+		frame("ui_button", [76, 112, 76 + text_w(badge[0], 22) + 24, 150], badge[1])
+		text(88, 131, badge[0], 22, Color8(20, 14, 40))
+		if kind == "pc":
+			text(420, 200, "PC를 새로 맞춰요: 성능 · 조립 마감 · 모니터가 점수예요.", 18, QUIET)
+			text(420, 170, "분위기 소품은 점수에 안 들어가요.", 18, QUIET)
+		elif kind == "desk":
+			text(420, 200, "책상을 꾸며요: 분위기 · 꼭 필요한 소품 · 조합 · 배선이 점수예요.", 18, QUIET)
+			text(420, 170, "PC는 손님이 쓰던 걸 그대로 써요 (조립 안 해도 돼요).", 18, QUIET)
 		if req.has("repair"):
-			frame("ui_button", [212, 202, 360, 240], PINK)
-			text(228, 221, "수리 의뢰", 15, Color.WHITE)
 			text(420, 200, "맡긴 PC를 진단 화면에서 살펴보고 원인을 찾아요.", 18, QUIET)
 			text(420, 170, "손님 부품은 공짜, 새로 산 부품만 비용이에요.", 18, QUIET)
-		else:
-			text(420, 200, "무엇을 원하는지 말 속에서 찾아보세요.", 18, QUIET)
 		text(420, 120, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") else "쇼핑으로"), 18, DIM)
 
 
@@ -125,10 +133,10 @@ class Result extends Mode:
 	var wanted: Array = []
 
 	func enter() -> void:
-		Game.cables = Rules.prune(Game.cables, Game.placed, Game.pc)
+		Game.cables = Rules.prune(Game.cables, Game.placed, Game.computer())
 		var req := Game.request()
 		cost = Game.spent()
-		result = Rules.score(req, Game.placed, Game.pc, Game.cables)
+		result = Rules.score(req, Game.placed, Game.computer(), Game.cables)
 		var paid := Game.settle(result)
 		pay = paid[0]
 		tip = paid[1]
@@ -139,7 +147,7 @@ class Result extends Mode:
 		if not req["forbidden"].is_empty():
 			wanted.append("싫어함: " + ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])))
 		if req.has("use"):
-			wanted.append("성능: " + Bench.short(Bench.run(Bench.parts_of(Game.pc), req["use"])) + "  (" + Bench.describe(req["use"]) + ")")
+			wanted.append("성능: " + Bench.short(Bench.run(Bench.parts_of(Game.computer()), req["use"])) + "  (" + Bench.describe(req["use"]) + ")")
 		else:
 			wanted.append("PC 성능: " + "★".repeat(req["perf"]) + " 이상")
 
@@ -154,7 +162,7 @@ class Result extends Mode:
 		var i := 0
 		for k in result["parts"]:
 			text(120, 490 - i * 40, k, 19, Color8(200, 192, 240))
-			text(320, 490 - i * 40, "%d / %d" % [round(result["parts"][k]), Rules.MAX[k]], 19, Color.WHITE)
+			text(320, 490 - i * 40, "%d / %d" % [round(result["parts"][k]), result["max"][k]], 19, Color.WHITE)
 			i += 1
 		text(120, 220, "달성 시너지: " + (", ".join(result["synergies"]) if not result["synergies"].is_empty() else "없음"), 17, GREEN)
 		text(120, 180, "받은 돈  %d만 + 팁 %d만%s" % [pay, tip, "" if result["stars"] > 0 else "  (별 0개: 손님이 돈을 안 냄)"], 20, CYAN)
@@ -274,7 +282,7 @@ class Product extends Mode:
 	const BTN_CLOSE := [1030, 560, 1090, 600]
 	const BTN_SELL := [640, 210, 820, 246]
 	const TYPE_NAMES := {"CASE": "케이스", "MB": "메인보드", "CPU": "CPU", "COOLER": "쿨러", "SSD": "SSD", "GPU": "그래픽카드", "RAM": "RAM", "PSU": "파워"}
-	const PORT_NAMES := {"DP": "DP 케이블", "USB": "USB 케이블", "AUDIO": "오디오 케이블"}
+	const PORT_NAMES := {"HDMI": "HDMI 케이블", "DP": "DP 케이블", "USB": "USB 케이블", "AUDIO": "오디오 케이블"}
 	var id := ""
 	var qty := 1
 	var toast := ""
@@ -709,17 +717,28 @@ class BenchView extends Mode:
 
 
 class Trial extends Mode:
-	## 납품 직후: 손님이 직접 PC를 써 본다. 게임은 계산된 FPS만큼 부드럽거나 끊기고, 렌더 · 빌드는 진행 막대, 사무는 화상회의.
+	## 납품: 손님 앞에서 전원을 켜고(부팅) → 손님 용도대로 써 보면서 성능 · 온도 · 소음 · 모니터 Hz까지 같이 확인 → 손님 반응.
+	## 게임은 계산된 FPS(모니터 Hz까지만 보임)만큼 부드럽거나 끊기고, 렌더 · 빌드는 진행 막대, 사무는 화상회의.
 	const SCREEN := [380, 170, 1240, 610]
+	const BOOT := 2.6   # 부팅 연출 시간(초)
 	var t0 := 0
 	var r := {}
+	var shown_r := {}   # 모니터 Hz로 잘린 '눈에 보이는' 결과
+	var hz := 0
 	var boot := true
+	var beeped := false
 
 	func enter() -> void:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
-		boot = Game.pc.picture() and "GPU" not in Game.pc.loose()
-		r = Bench.run(Bench.parts_of(Game.pc), use)
+		var cp := Game.computer()
+		boot = cp.picture() and "GPU" not in cp.loose()
+		r = Bench.run(Bench.parts_of(cp), use)
+		hz = Rules.best_screen(Game.placed)[0]
+		shown_r = r.duplicate()
+		if r["kind"] == "game" and hz > 0 and r["value"] > hz:   # 60Hz 모니터면 200fps도 60으로 보임
+			shown_r["value"] = float(hz)
 		t0 = Time.get_ticks_msec()
+		beeped = false
 
 	func t() -> float:
 		return (Time.get_ticks_msec() - t0) / 1000.0
@@ -732,6 +751,8 @@ class Trial extends Mode:
 		if not boot or r.get("shutdown", false):
 			return ["sad", "어… 화면이 안 나와요?"]
 		var bad: bool = r.get("ram_low", false) and r["kind"] == "game"
+		if r["kind"] == "game" and hz > 0 and hz < r["target"] and r["ratio"] >= 1.0:
+			return ["neutral", "PC는 빠르다는데… 모니터가 %dHz라 부드럽진 않네요." % hz]
 		if r["ratio"] >= 1.0 and not r["ok"] and not bad:   # 성능은 되는데 소음 기준을 넘음
 			return ["neutral", "빠른데… 좀 시끄럽네요."]
 		match r["kind"]:
@@ -744,37 +765,70 @@ class Trial extends Mode:
 			return ["neutral", "좀 시끄럽네요…"]
 		return ["happy", "조용하고 좋네요."]
 
+	## 부팅 화면: 삐 → 로고 → 바탕화면
+	func draw_boot(sc: Array, tt: float) -> void:
+		box(sc, Color8(4, 3, 10))
+		if not boot:
+			if tt > 0.8:
+				text_c(sc, "신호 없음", 33, QUIET)
+			return
+		var c := center(sc)
+		if tt < 0.6:
+			return
+		if tt < 1.7:
+			for q in 4:
+				box([c.x - 30 + (q % 2) * 32, c.y + 2 - (q / 2) * 32, c.x - 2 + (q % 2) * 32, c.y + 30 - (q / 2) * 32], CYAN)
+			for d in 6:
+				var a := tt * 6.0 + d * TAU / 6.0
+				circle(c.x + cos(a) * 18, c.y - 70 + sin(a) * 18, 3.0 + d * 0.6, Color(1, 1, 1, 0.3 + d * 0.12))
+			return
+		m.draw_texture_rect(DB.tex("title_bg"), _rect(sc), false)
+		box([sc[0], sc[1], sc[2], sc[1] + 34], Color(0.05, 0.03, 0.12, 0.92))
+		text(sc[0] + 16, sc[1] + 17, "시작", 22, INK)
+
 	func draw() -> void:
 		box([0, 0, 1280, 720], BG)
 		var req := Game.request()
-		text(40, 670, "%s 님이 써 보는 중" % req["customer"], 33, PINK)
+		var tt := t()
+		if tt > 0.6 and not beeped and boot:
+			beeped = true
+			sfx("boot_ok")
+		var run_t := tt - BOOT
+		text(40, 670, "%s 님 앞에서 %s" % [req["customer"], "전원을 켜는 중" if run_t < 0 else "써 보는 중"], 33, PINK)
 		text(40, 628, Bench.describe(req.get("use", {"kind": "office"})), 22, CYAN)
-		if not boot or r.get("shutdown", false):
+		if run_t < 0 or not boot or r.get("shutdown", false):
 			frame("ui_panel", [SCREEN[0] - 14, SCREEN[1] - 14, SCREEN[2] + 14, SCREEN[3] + 14])
-			box(SCREEN, Color8(6, 5, 12))
+			draw_boot(SCREEN, tt)
+			if boot and r.get("shutdown", false) and run_t > 1.0:   # 부하 걸리자 꺼짐
+				box(SCREEN, Color8(4, 3, 10))
+				text_c(SCREEN, "…갑자기 꺼졌어요", 33, PINK)
 		elif r["kind"] == "office":
 			frame("ui_panel", [SCREEN[0] - 14, SCREEN[1] - 14, SCREEN[2] + 14, SCREEN[3] + 14])
-			draw_app(SCREEN, r, t())
+			draw_app(SCREEN, r, run_t)
 		else:   # 나란히: 손님이 원한 성능 vs 지금 PC → 부드러움 · 속도 차이가 바로 보임
 			var want := r.duplicate()
 			want.merge({"value": r["target"], "ratio": 1.0, "ok": true, "ram_low": false, "throttle": false}, true)
-			var sides := [[[380, 240, 800, 560], want, "손님이 원한 " + Bench.value_text(want), QUIET], [[820, 240, 1240, 560], r, "지금 " + Bench.value_text(r), GREEN if r["ratio"] >= 1.0 else PINK]]
+			var now_lbl := "지금 " + Bench.value_text(r) + (" → 화면 %dHz" % hz if shown_r["value"] < r["value"] else "")
+			var sides := [[[380, 240, 800, 560], want, "손님이 원한 " + Bench.value_text(want), QUIET], [[820, 240, 1240, 560], shown_r, now_lbl, GREEN if r["ratio"] >= 1.0 and shown_r["value"] >= r["target"] else PINK]]
 			for sd in sides:
 				var sc: Array = sd[0]
-				frame("ui_panel", [sc[0] - 10, sc[1] - 10, sc[2] + 10, sc[3] + 10], Color.WHITE if sd[1] == r else Color8(110, 100, 160))
-				draw_app(sc, sd[1], t(), false)
-				text_c([sc[0], sc[1] - 64, sc[2], sc[1] - 16], sd[2], 33, sd[3])
+				frame("ui_panel", [sc[0] - 10, sc[1] - 10, sc[2] + 10, sc[3] + 10], Color.WHITE if sd[1] == shown_r else Color8(110, 100, 160))
+				draw_app(sc, sd[1], run_t, false)
+				text_c([sc[0], sc[1] - 64, sc[2], sc[1] - 16], sd[2], 33 if text_w(sd[2], 33) < sc[2] - sc[0] else 22, sd[3])
+		if run_t >= 0 and boot and r.has("noise"):   # 실시간 측정값
+			var live := "CPU %d°C  ·  그래픽 %d°C  ·  소음 %ddB  ·  모니터 %s" % [r["cpu_temp"], r["gpu_temp"], r["noise"], "%dHz" % hz if hz else "없음"]
+			text_c([380, 116, 1240, 156], live, 22, INK)
 		var rx := reaction()
-		var shown: bool = t() > 2.5
+		var shown: bool = run_t > 2.5 or (not boot and tt > 2.0)
 		panel([40, 270, 340, 570], true)
 		put("face_%s_%s" % [req["face"], rx[0] if shown else "neutral"], [60, 290, 320, 550])
 		if shown:
-			panel([40, 130, 340, 250], true)
+			panel([40, 100, 340, 250], true)
 			var y := 212.0
 			for ln in wrap_text(rx[1], 270):
 				text(56, y, ln, 22, INK)
 				y -= 30
-			text_c([380, 60, 1240, 110], "누르면 결과 보기", 22, QUIET)
+			text_c([380, 50, 1240, 100], "누르면 결과 보기", 22, QUIET)
 
 
 class Dex extends Mode:

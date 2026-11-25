@@ -2,7 +2,7 @@ extends Mode
 ## 쇼핑 탭 (데스크몰): 카테고리 → 상품 카드 → 누르면 상세 → 장바구니 → 결제 → 영수증. 두 번 누르기 = 바로 담기.
 ## 폰 기준: 글씨 22px 이상, 누르는 곳 높이 54px 이상.
 
-const CATS := [["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽"], ["parts", "PC 부품"]]
+const CATS := [["parts", "PC 부품"], ["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽"]]
 const PART_TYPES := [["CASE", "케이스"], ["MB", "보드"], ["CPU", "CPU"], ["COOLER", "쿨러"], ["SSD", "SSD"], ["GPU", "그래픽"], ["RAM", "RAM"], ["PSU", "파워"]]
 const PER := 6
 const CART := [956, 76, 1276, 632]
@@ -11,7 +11,7 @@ const BTN_PREV := [12, 6, 96, 64]
 const BTN_NEXT := [232, 6, 316, 64]
 const CART_ROWS := 5
 
-var cat := "screen"
+var cat := "parts"
 var part_type := "CASE"
 var page := 0
 var toast := ""
@@ -189,7 +189,9 @@ func draw_card(i: int, id: String) -> void:
 		text(tx, r[3] - 26 - k * 28, name_lines[k], 22, DIM if locked else INK)
 	var y: float = r[3] - 30 - name_lines.size() * 28
 	text(tx, y - 6, "%d만 원" % p["price"], 22, DIM if locked else GOLD)
-	text(tx, y - 38, wrap_text(short_spec(id), r[2] - tx - 10)[0], 22, QUIET)
+	var spec_lines: Array = wrap_text(short_spec(id), r[2] - tx - 10)
+	for k in mini(2, spec_lines.size()):   # 사양은 두 줄까지 (잘리지 않게)
+		text(tx, y - 38 - k * 28, spec_lines[k], 22, QUIET)
 	if locked:
 		text(tx, r[1] + 22, "업그레이드 필요", 22, PINK)
 	elif Game.cart.has(id):

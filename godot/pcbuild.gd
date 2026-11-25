@@ -383,7 +383,8 @@ static func full(o := {}) -> PCBuild:
 	for i in d["ram"].size():
 		b.place(d["ram"][i], slots[i])
 	for k in ["ssd", "gpu", "psu"]:
-		b.place(d[k])
+		if d[k] != "":   # gpu ""면 내장 그래픽만
+			b.place(d[k])
 	for c in b.cable_targets():
 		b.plug(c)
 	for t in b.screws:

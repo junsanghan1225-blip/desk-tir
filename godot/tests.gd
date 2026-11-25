@@ -121,11 +121,11 @@ func _initialize() -> void:
 	var syn := Rules.synergies(placed, good)
 	ok("독서 콤보" in syn and "균형 조명" in syn and syn.size() == 2, "시너지 %s" % [syn])
 	var r := Rules.score(dev, placed, good, wired)
-	ok(r["parts"]["필수 · 금지"] == 25 and r["parts"]["PC 성능"] == 19 and r["parts"]["배선"] == 15 and r["total"] == 95 and r["stars"] == 3, "채점 (기본 쿨러라 빌드가 목표보다 1.5초 느림) %s" % [r])
+	ok(Rules.kind_of(dev) == "pc" and r["parts"]["PC 성능"] == 47.5 and r["parts"]["모니터"] == 15 and r["parts"]["배선"] == 10 and r["stars"] == 3, "PC 조립 의뢰 채점 (기본 쿨러라 빌드가 목표보다 조금 느림) %s" % [r])
 	ok("케이블" in Rules.score(dev, placed, good, [])["line"], "선 안 꽂음")
 	Rules.place_slot(placed, "lamp_cool", "desk", 6)
 	var bad := Rules.score(dev, placed, PCBuild.full({"psu": "psu1"}), wired)
-	ok(bad["parts"]["PC 성능"] == 0 and bad["parts"]["필수 · 금지"] == 12.5 and "VGA" in bad["line"], "금지 소품 · 부팅 실패")
+	ok(bad["parts"]["PC 성능"] == 0 and bad["parts"]["필수 · 금지"] == 5 and "VGA" in bad["line"], "금지 소품 · 부팅 실패")
 
 	# --- 가게 (state.py) ---
 	Game.new_game()
@@ -144,7 +144,8 @@ func _initialize() -> void:
 	Game.cart.clear()
 	Game.placed = [{"id": "lamp_warm", "layer": "desk", "x": 306, "y": 210}]
 	var before := Game.money
-	ok(Game.settle({"stars": 2}) == [120, 12] and Game.money == before + 132 + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
+	var paid_now := Game.settle({"stars": 2})
+	ok(paid_now == [120, 12] and Game.money == before + 132 + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
 	ok(Game.settle({"stars": 0}) == [0, 0], "별 0개는 0원")
 	Game.history["자취 1년차 대학생"] = 3
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
@@ -228,7 +229,7 @@ func _initialize() -> void:
 	# --- 내장 그래픽: 사무용은 그래픽카드 없이 ---
 	var office := PCBuild.full({"cpu": "cpu6", "mb": "mb2", "cooler": "cool1", "ram": ["ram2", "ram2"]})
 	office.remove("GPU")
-	ok(office.boots() and Rules.port_count("DP", office) == 2, "내장 그래픽이면 그래픽카드 없이 부팅")
+	ok(office.boots() and Rules.port_count("DP", office) == 1 and Rules.port_count("HDMI", office) == 1, "내장 그래픽이면 그래픽카드 없이 부팅")
 	ok(Bench.run(Bench.parts_of(office), {"kind": "office"})["ok"], "사무용 테스트 OK")
 	ok(Bench.run(Bench.parts_of(office), {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144})["value"] < 60, "내장 그래픽으로 게임은 힘듦")
 	var amd := PCBuild.full({"cpu": "cpu4", "mb": "mb1"})

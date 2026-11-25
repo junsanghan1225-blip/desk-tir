@@ -104,6 +104,8 @@ static func reset_order() -> void:
 ## 수리 의뢰면 손님이 맡긴 고장 난 PC, 아니면 빈 케이스
 static func repair_pc() -> PCBuild:
 	var rep: Dictionary = request().get("repair", {})
+	if rep.is_empty() and request().has("own_pc"):   # 데스크테리어 의뢰: 손님이 쓰던 PC가 이미 있음
+		rep = {"pc": request()["own_pc"], "break": []}
 	if rep.is_empty():
 		return PCBuild.new()
 	var b := PCBuild.full(rep["pc"])
@@ -116,6 +118,20 @@ static func repair_pc() -> PCBuild:
 	for f in rep["break"]:
 		b.faults[f] = true
 	return b
+
+
+## 손님에게 갈 컴퓨터: 조립한 PC, 없으면 책상 위 노트북(그 자체가 컴퓨터)
+static var _laptops := {}
+static func computer() -> PCBuild:
+	if pc.has("CASE"):
+		return pc
+	for p in placed:
+		var spec = DB.ITEMS[p["id"]].get("pc")
+		if spec:
+			if not _laptops.has(p["id"]):
+				_laptops[p["id"]] = PCBuild.full(spec)
+			return _laptops[p["id"]]
+	return pc
 
 
 ## 의뢰 난이도 ★1~3: 수리는 고장 개수 · 숨은 정도, 조립은 요구 성능
@@ -264,20 +280,21 @@ static func settle(result: Dictionary) -> Array:
 	history[request()["customer"]] = result["stars"]
 	visits[request()["customer"]] = visits.get(request()["customer"], []) + [result["stars"]]
 	ledger.append({"customer": request()["customer"], "stars": result["stars"], "pay": pay, "tip": tip, "cost": spent()})
-	var b := Bench.run(Bench.parts_of(pc), request().get("use", {"kind": "office"}))
-	var n_used := pc.used.values().filter(func(e): return e["paid"] > 0 or not request().has("repair")).size()
+	var b := Bench.run(Bench.parts_of(computer()), request().get("use", {"kind": "office"}))
+	var n_used := pc.used.values().filter(func(e): return e["paid"] > 0).size()   # 직접 사 온 중고만
 	ledger[-1].merge({"used": n_used, "noise": b.get("noise", 99), "repair": request().has("repair")})
 	if result["stars"] > 0:   # 도감 · 업적 기록
-		for id in pc.ids():
+		var built := Rules.kind_of(request()) != "desk"   # 데스크테리어는 손님 PC 그대로라 기록 안 함
+		for id in (computer().ids() if built else []):
 			dex["p:" + id] = true
 		for f in request().get("repair", {}).get("break", []):
 			dex["f:" + f] = true
 		_add("deliver", 1)
 		_add("three", 1 if result["stars"] == 3 else 0)
 		_add("used", n_used)
-		if b.get("noise", 99) <= 28:
+		if built and b.get("noise", 99) <= 28:
 			stats["silent"] = 1
-		if b["kind"] == "game" and b["value"] >= 240:
+		if built and b["kind"] == "game" and b["value"] >= 240:
 			stats["speed"] = 1
 	check_achv()
 	return [pay, tip]   # 교체하고 남은 헌 부품은 중고 창고에 남음 (손님이 처분해 달래요)

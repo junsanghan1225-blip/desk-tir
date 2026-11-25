@@ -10,7 +10,7 @@ const PC_RECT := [1076, 210, 1272, 420]   # 책상 오른쪽 PC (유리 옆판�
 const BTN_POWER := [1238, 384, 1264, 410]
 const CASE_BODY := {"case1": Color8(42, 35, 80), "case2": Color8(232, 230, 242), "case3": Color8(20, 16, 42), "case4": Color8(232, 230, 242), "case5": Color8(42, 35, 80)}
 ## 모니터 그림 속 화면 위치 [x1, y1, x2, y2, 그림 너비, 그림 높이] (위에서부터, 원래 그림 기준)
-const SCREEN := {"monitor": [6, 6, 202, 116, 208, 176], "monitor_27": [6, 6, 202, 116, 208, 176], "monitor_white": [6, 6, 202, 116, 208, 176], "monitor_curve": [10, 16, 308, 112, 318, 176]}
+const SCREEN := {"monitor_22": [6, 6, 184, 110, 190, 172], "monitor_144": [6, 6, 202, 120, 208, 182], "monitor_240": [6, 6, 210, 124, 216, 190], "monitor_qhd165": [6, 6, 228, 134, 234, 196], "monitor_4k": [6, 6, 270, 156, 276, 222], "monitor_oled": [6, 6, 228, 134, 234, 212], "monitor_pivot": [6, 6, 104, 196, 110, 258], "monitor_portable": [6, 6, 134, 84, 140, 114], "monitor": [6, 6, 202, 116, 208, 176], "monitor_27": [6, 6, 202, 116, 208, 176], "monitor_white": [6, 6, 202, 116, 208, 176], "monitor_curve": [10, 16, 308, 112, 318, 176]}
 const BTN_DONE := [1100, 10, 1270, 50]
 const BTN_VIEW := [920, 10, 1090, 50]
 const BTN_PHOTO := [800, 10, 910, 50]
@@ -264,11 +264,11 @@ func press_power() -> void:
 	Game.power_t = Time.get_ticks_msec()
 	sfx("boot_ok")
 	var shown := Game.placed.filter(func(q): return SCREEN.has(q["id"]) and dp_linked(q))
-	toast = "" if not shown.is_empty() else "PC는 켜졌는데 모니터가 DP로 연결 안 됐어요 (배선 탭)"
+	toast = "" if not shown.is_empty() else "PC는 켜졌는데 모니터 선(HDMI · DP)이 안 꽂혔어요 (배선 탭)"
 
 
 func dp_linked(p: Dictionary) -> bool:
-	return Game.cables.any(func(c): return is_same(c["dev"], p) and c["type"] == "DP")
+	return Game.cables.any(func(c): return is_same(c["dev"], p) and c["type"] in ["DP", "HDMI", "USB"])   # 영상 선 (휴대용 모니터는 USB-C)
 
 
 func take_photo() -> void:
@@ -342,7 +342,7 @@ func draw_pc() -> void:
 	var r := PC_RECT
 	if not pc.has("CASE"):
 		put("case_empty", r)
-		text(r[0] + 30, r[3] + 18, "PC 조립 필요", 16, CYAN)
+		text(r[0] + 30, r[3] + 18, "노트북 사용 중" if Game.computer() != pc else "PC 조립 필요", 16, CYAN)
 		return
 	var body: Color = CASE_BODY.get(DB.look(pc.parts["CASE"]), Color8(42, 35, 80))
 	box([r[0] + 10, r[1] - 6, r[0] + 36, r[1]], Color8(10, 6, 24))   # 받침발
@@ -388,7 +388,7 @@ func draw_screen(p: Dictionary) -> void:
 	var sw: float = s[2] - s[0]
 	var sh: float = s[3] - s[1]
 	box(s, Color8(6, 5, 12))
-	if not Game.power:
+	if not Game.power and Game.computer() == Game.pc:   # 노트북에 연결된 모니터는 늘 켜짐
 		line(Vector2(s[0] + sw * 0.55, s[3] - 2), Vector2(s[0] + sw * 0.75, s[1] + 2), Color(1, 1, 1, 0.05), sw * 0.08)   # 꺼진 화면 반사
 		box([s[2] - 8, s[1] - 7, s[2] - 4, s[1] - 4], Color8(255, 150, 60))   # 대기 LED
 		return
@@ -493,7 +493,7 @@ func draw_stock() -> void:
 
 func draw() -> void:
 	Rules.sync_mounts(Game.placed)   # 옮긴 모니터를 따라 위에 끼운 것도 이동
-	Game.cables = Rules.prune(Game.cables, Game.placed, Game.pc)   # 치운 기기 · 사라진 포트의 선은 자동으로 뽑힘
+	Game.cables = Rules.prune(Game.cables, Game.placed, Game.computer())   # 치운 기기 · 사라진 포트의 선은 자동으로 뽑힘
 	draw_room()
 	if capturing:
 		return
