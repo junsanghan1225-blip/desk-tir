@@ -82,7 +82,6 @@ class Request extends Mode:
 	func down(_x: float, _y: float, _right: bool) -> void:
 		var kind := Rules.kind_of(Game.request())
 		m.modes["shop"].cat = "parts" if kind in ["pc", "full"] else "screen"
-		Game.order_t0 = Time.get_ticks_msec()   # 주문 받은 순간부터 작업 시간
 		m.go("build" if kind == "repair" else "shop")   # 수리는 맡긴 PC부터 열어 봄
 
 	func mood() -> String:

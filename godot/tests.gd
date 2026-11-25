@@ -143,16 +143,11 @@ func _initialize() -> void:
 	Game.stars_total = 0
 	Game.cart.clear()
 	Game.placed = [{"id": "lamp_warm", "layer": "desk", "x": 306, "y": 210}]
-	Game.order_t0 = Time.get_ticks_msec() - int(Game.TIME_LIMIT["desk"] * 700)   # 시간 보정 0 구간
 	var before := Game.money
 	var paid_now := Game.settle({"stars": 2})
 	ok(paid_now[0] == 35 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
 	ok(Game.settle({"stars": 0}) == [14, 0] and Game.settle({"stars": 1})[0] == 28, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
 	ok(Game.bill.any(func(b): return b[0] == "물건 값"), "정산 내역")
-	Game.order_t0 = Time.get_ticks_msec() - (Game.TIME_LIMIT["desk"] + 130) * 1000   # 2분 넘게 늦음
-	ok(Game.time_pct() == -30, "늦으면 깎임: %d" % Game.time_pct())
-	Game.order_t0 = Time.get_ticks_msec()
-	ok(Game.time_pct() == 5, "빨리 끝내면 +5%")
 	Game.history["자취 1년차 대학생"] = 3
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
 	ok("학점" in Game.lines(regular)[0], "단골 대사")

@@ -312,14 +312,7 @@ func top_bar(current: String) -> void:
 	frame("ui_panel", [-12, BAR, 1292, H + 12])
 	text(16, H - 24, "%d일차 · %s ▾" % [Game.day, req["customer"]], 22, CYAN)   # 누르면 의뢰 메모   # 손님이 한 말은 ll(일시정지)에서 다시 봄
 	var left := Game.money_left()
-	var ra := Game.rush_at()
-	if ra >= 0 and Game.elapsed() >= ra and Game.elapsed() < ra + 5:   # 방해 요소: 재촉 전화 (5초 동안)
-		text(16, H - 56, "재촉 전화! -1분", 22, PINK)
-	else:
-		text(16, H - 56, "예산 %d만 / %d만" % [left, req["budget"]], 22, INK if left >= 0 else PINK)
-	var el := Game.elapsed()   # 작업 시간 / 제한 시간 (넘기면 빨강)
-	var lim := Game.limit()
-	text(232, H - 56, "%s / %s" % [Game.clock(el), Game.clock(lim)], 22, PINK if el > lim else GOLD if el > lim * 0.8 else QUIET)
+	text(16, H - 56, "남은 예산 %d만 / %d만" % [left, req["budget"]], 22, INK if left >= 0 else PINK)
 	var wire := Rules.wiring_score(Game.cables, Game.placed)
 	for i in TABS.size():
 		var r := tab_rect(i)
