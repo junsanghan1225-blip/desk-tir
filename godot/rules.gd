@@ -369,6 +369,10 @@ static func synergies(placed: Array, pc: PCBuild) -> Array:
 		found.append("미니멀리즘")
 	if "wall_light" in ids and not lamps.is_empty():
 		found.append("균형 조명")
+	if "headphone_stand" in ids and ("headphones" in ids or "headset" in ids):
+		found.append("헤드폰 정리")
+	if "stream_deck" in ids and ("mic" in ids or "mic_desk" in ids) and ("webcam" in ids or "acoustic" in ids):
+		found.append("방송 세트")
 	return found
 
 

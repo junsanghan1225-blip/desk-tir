@@ -218,12 +218,13 @@ S.title_bg = [1280, 720, `<defs>${sky('tsky')}</defs><rect width="1280" height="
 require('./more_sprites')(S, { glow, RGB, kb, lamp, tower });
 require('./inbuild_sprites')(S, { glow, RGB });
 require('./extra_sprites')(S, { city, stars });
+Object.assign(S, require('./props_sprites').front);   // 소품 확장
 // 붙는 소품(라이트바 · 웹캠 · 헤드셋 걸이)의 Godot용 그림은 node tools/mount_sprites.js
 
 // 색을 바꿀 수 있는 소품: 색상(hue)을 돌린 그림을 함께 만든다 (이름__c1 ~ __c3)
 const real = require('./real_scale');
 const MOUNTED = ['monitor_bar', 'webcam', 'headset'];   // 붙는 모양은 mount_sprites.js가 실제 비율로 그림
-const TINT = ['mood_lamp', 'neon_sign', 'neon_heart', 'wall_light', 'kb_mini', 'mug', 'headphones', 'speaker_bt', 'gamepad', 'desk_clock', 'poster_game', 'mouse_gaming'];
+const TINT = ['mood_lamp', 'neon_sign', 'neon_heart', 'wall_light', 'kb_mini', 'mug', 'headphones', 'speaker_bt', 'gamepad', 'desk_clock', 'poster_game', 'mouse_gaming', 'tumbler', 'rgb_cube', 'neon_gg'];
 
 (async () => {
   for (const [name, [w, h, body]] of Object.entries(S)) {

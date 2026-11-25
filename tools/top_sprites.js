@@ -200,7 +200,8 @@ const DRAW = {
     <rect x="${W * .2}" y="${H * .38}" width="${W * .14}" height="4" fill="#2a2440"/><rect x="${W * .25}" y="${H * .3}" width="4" height="${H * .22}" fill="#2a2440"/>
     <circle cx="${W * .72}" cy="${H * .32}" r="3" fill="${PINK}"/><circle cx="${W * .8}" cy="${H * .42}" r="3" fill="${CYAN}"/><circle cx="${W * .64}" cy="${H * .42}" r="3" fill="#ffd65c"/><circle cx="${W * .72}" cy="${H * .52}" r="3" fill="#7b5cff"/>`,
 };
-const TINT = ['mug', 'mouse_gaming', 'kb_mini', 'mood_lamp', 'speaker_bt', 'headphones', 'desk_clock', 'gamepad'];
+Object.assign(DRAW, require('./props_sprites').top);   // 소품 확장
+const TINT = ['mug', 'mouse_gaming', 'kb_mini', 'mood_lamp', 'speaker_bt', 'headphones', 'desk_clock', 'gamepad', 'tumbler', 'rgb_cube'];
 
 (async () => {
   for (const [id, draw] of Object.entries(DRAW)) {
