@@ -5,10 +5,10 @@ extends Mode
 const VIEWS := ["정면", "뒷면", "속 확대", "BIOS", "윈도우"]
 const BTN_BACK := [12, 648, 172, 714]
 const TILES := [[20, 330, 630, 626], [650, 330, 1260, 626], [20, 20, 630, 316], [650, 20, 1260, 316]]
-const POWER_BTN := Vector2(330, 520)
-const PSU_SWITCH := [770, 92, 840, 160]
-const MB_HDMI := [360, 470, 440, 510]
-const GPU_DP := [560, 290, 640, 326]
+const POWER_BTN := Vector2(565, 560)
+const PSU_SWITCH := [552, 92, 608, 148]
+const MB_HDMI := [240, 442, 300, 462]
+const GPU_DP := [420, 290, 456, 304]
 const KILL_BTN := [960, 60, 1240, 120]
 
 var view := 0
@@ -172,78 +172,147 @@ func draw_monitor(r: Array, label := "") -> void:
 		draw_app(r, Bench.run(Bench.parts_of(pc), Game.request().get("use", {"kind": "office"})), tt, false)
 
 
+## 진짜 본체처럼: 옆 유리 너머로 실제 조립한 부품이 보이고, 전원을 넣으면 팬이 돌고 LED · 소리 · 화면이 반응
+const CASE_R := [60, 40, 600, 616]
+
+
+func fan_blades(c: Vector2, r: float, spin: float, a: float) -> void:   # 도는 팬 날개 (조립 그림 위에 겹침)
+	for k in 7:
+		var e := Vector2(c.x + cos(spin + k * TAU / 7) * r, c.y + sin(spin + k * TAU / 7) * r)
+		line(c, e, Color(0.75, 0.72, 0.9, a), r * 0.22)
+	circle(c.x, c.y, r * 0.22, Color(0.15, 0.13, 0.25, a + 0.2))
+
+
+func dust_on(c: Vector2, r: float) -> void:
+	for k in 11:
+		circle(c.x + cos(k * 2.3) * r * 0.7, c.y + sin(k * 1.9) * r * 0.7, r * (0.1 + 0.05 * (k % 3)), Color(0.62, 0.6, 0.56, 0.85))
+
+
 func draw_front() -> void:
 	var pc := Game.pc
 	var tt := t()
 	var p: Array = pc.post()
 	var running: bool = tt >= 0 and p[0] >= 0 and not (faults().has("cpu_fan") and tt > 9)
-	box([140, 60, 560, 610], Color8(28, 22, 46))   # 케이스 앞면
-	for i in 14:
-		line(Vector2(170, 100 + i * 32), Vector2(530, 100 + i * 32), Color8(44, 36, 70), 3)
-	circle(POWER_BTN.x, POWER_BTN.y, 34, Color8(50, 44, 80))
-	circle(POWER_BTN.x, POWER_BTN.y, 26, CYAN if running else Color8(80, 70, 110))
-	text_c([150, 440, 510, 470], "전원 버튼" if tt < 0 else "다시 눌러 끄기", 22, QUIET)
-	box([590, 60, 1000, 610], Color8(16, 12, 30))   # 옆 유리 너머 속
-	outline([590, 60, 1000, 610], Color8(120, 110, 180), 2)
-	var spin := tt * (14.0 if faults().has("dust") or faults().has("bloat") else 8.0) if running else 0.0
-	fan(Vector2(720, 430), 70, 0.0 if faults().has("cpu_fan") else spin, faults().has("dust"))
-	text(650, 520, "CPU 쿨러", 22, QUIET)
-	fan(Vector2(920, 460), 50, spin, faults().has("dust"))
-	if pc.has("GPU"):
-		box([620, 220, 980, 300], Color8(40, 36, 60))
-		fan(Vector2(720, 260), 32, spin if not faults().has("gpu_power") else 0.0, faults().has("dust"))
-		fan(Vector2(880, 260), 32, spin if not faults().has("gpu_power") else 0.0, faults().has("dust"))
-	for i in 4:   # 디버그 LED
-		var lit: bool = running and p[0] < 4 and i == maxi(p[0], 0)
-		box([620 + i * 90, 110, 690 + i * 90, 150], PINK if lit else Color8(40, 32, 70))
-		text_c([620 + i * 90, 110, 690 + i * 90, 150], PCBuild.POST_STAGES[i], 22, Color.WHITE if lit else DIM)
-	var sound := ""
-	if running:
-		if p[0] == 1:
-			sound = "삐— 삐 삐" if fmod(tt, 2.0) < 1.2 else ""
-		elif p[0] >= 3 and tt < 0.4:
-			sound = "삐"
-		elif faults().has("dust") or faults().has("bloat"):
-			sound = "위이이잉…"
-	if sound != "":
-		text(1010, 560, "♪ " + sound, 33, GOLD)
-	draw_monitor([1020, 300, 1260, 460])
-	text(1020, 270, "모니터", 22, QUIET)
-	if tt < 0:
-		text(600, 30, "전원을 눌러 팬 · LED · 소리 · 화면을 관찰해요", 22, INK)
+	var r := CASE_R
+	var body: Color = m.modes["desk"].CASE_BODY.get(DB.look(pc.parts.get("CASE", "")), Color8(42, 35, 80))
+	box([r[0] + 20, r[1] - 10, r[0] + 70, r[1]], Color8(10, 6, 24))   # 받침발
+	box([r[2] - 70, r[1] - 10, r[2] - 20, r[1]], Color8(10, 6, 24))
+	box(r, body.darkened(0.15))
+	box([r[0], r[3] - 8, r[2], r[3]], body.lightened(0.15))
+	var g := [r[0] + 16, r[1] + 16, r[2] - 70, r[3] - 16]   # 옆 유리
+	box(g, Color8(8, 5, 18))
+	var b = m.modes["build"]
+	var ca: Array = b.CASE_AREA
+	var k: float = minf(float(g[2] - g[0]) / (ca[2] - ca[0]), float(g[3] - g[1]) / (ca[3] - ca[1]))
+	var ox: float = g[0] + ((g[2] - g[0]) - (ca[2] - ca[0]) * k) / 2.0
+	var oy: float = (H - g[3]) + ((g[3] - g[1]) - (ca[3] - ca[1]) * k) / 2.0
+	m.draw_set_transform(Vector2(ox - ca[0] * k, oy - (H - ca[3]) * k), 0.0, Vector2(k, k))   # 조립 화면 그대로 → 유리 안
+	var spin := tt * (16.0 if faults().has("dust") or faults().has("bloat") else 9.0) if running else 0.0
+	var dusty: bool = faults().has("dust")
+	for fy in [420, 540]:   # 뒷면 케이스 팬
+		put("inb_casefan", [810, fy - 40, 890, fy + 40])
+		if running:
+			fan_blades(Vector2(850, fy), 34, spin, 0.55)
+		if dusty:
+			dust_on(Vector2(850, fy), 34)
+	if pc.has("MB"):
+		b.draw_board()
+		b.draw_parts()
+		b.draw_cables()
+		if pc.has("COOLER"):
+			var cc: Vector2 = b.center(b.cooler_rect())
+			if running and not faults().has("cpu_fan"):
+				fan_blades(cc, 52, spin * 1.2, 0.5)
+			if dusty:
+				dust_on(cc, 52)
+		if pc.has("GPU"):
+			var gr: Array = b.gpu_rect()
+			for q in [0.3, 0.7]:
+				var gc := Vector2(gr[0] + (gr[2] - gr[0]) * q, (gr[1] + gr[3]) / 2.0)
+				if running and not faults().has("gpu_power"):
+					fan_blades(gc, 24, spin, 0.5)
+				if dusty:
+					dust_on(gc, 24)
+		var mb: Array = b.mb_rect()   # 보드 위 디버그 LED 4개
+		for i in 4:
+			var lit: bool = running and p[0] < 4 and i == maxi(p[0], 0)
+			var lr := [mb[2] - 120 + i * 28, mb[1] + 150, mb[2] - 100 + i * 28, mb[1] + 164]
+			box(lr, Color8(255, 60, 90) if lit else Color8(60, 20, 30))
+			if lit:
+				circle(center(lr).x, center(lr).y, 18, Color(1, 0.2, 0.35, 0.35 + 0.25 * sin(tt * 8)))
+	m.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if running:   # 켜지면 RGB가 은은하게 돎
+		box(g, Color.from_hsv(fmod(tt * 0.08, 1.0), 0.7, 1.0, 0.1))
+	line(Vector2(g[0] + 10, g[3] - 60), Vector2(g[0] + 70, g[3] - 6), Color(1, 1, 1, 0.1), 5)   # 유리 반사
+	outline(g, Color8(90, 80, 140), 2)
+	var fp := [r[2] - 54, r[1] + 16, r[2] - 16, r[3] - 16]   # 앞면 패널 + 전원 버튼
+	box(fp, body.darkened(0.35))
+	for i in 18:
+		box([fp[0] + 8, fp[1] + 20 + i * 26, fp[2] - 8, fp[1] + 26 + i * 26], body.darkened(0.5))
+	circle(POWER_BTN.x, POWER_BTN.y, 17, Color8(10, 6, 24))
+	circle(POWER_BTN.x, POWER_BTN.y, 13, CYAN if running else (GOLD if fmod(Time.get_ticks_msec() / 500.0, 2.0) < 1 else Color8(90, 78, 130)))
+	circle(POWER_BTN.x, POWER_BTN.y, 6, Color8(10, 6, 24))
+	box([POWER_BTN.x - 2, POWER_BTN.y + 1, POWER_BTN.x + 2, POWER_BTN.y + 9], Color8(10, 6, 24))
+	box([POWER_BTN.x - 4, POWER_BTN.y - 34, POWER_BTN.x + 4, POWER_BTN.y - 28], CYAN if running and fmod(tt * 7, 2.0) < 1 else Color8(40, 30, 60))   # HDD LED
+	if tt < 0:   # 눌러 보라는 말풍선
+		var bx := [POWER_BTN.x - 300, POWER_BTN.y - 26, POWER_BTN.x - 40, POWER_BTN.y + 26]
+		frame("ui_button", bx, GOLD)
+		text_c(bx, "전원 버튼 → 눌러요", 22, Color8(30, 20, 10))
+	# 오른쪽: 모니터 + 관찰 기록
+	var scr := [660, 330, 1240, 600]
+	box([650, 320, 1250, 610], Color8(14, 10, 26))
+	outline([650, 320, 1250, 610], Color8(70, 60, 110), 2)
+	box([930, 300, 960, 320], Color8(30, 24, 50))
+	box([870, 290, 1020, 300], Color8(30, 24, 50))
+	draw_monitor(scr)
+	frame("ui_panel", [650, 20, 1250, 276])
+	text(674, 248, "관찰 기록", 22, PINK)
+	var fan_s: String = "-" if tt < 0 else ("안 돎" if not running else ("CPU 쿨러만 멈춰 있어요" if faults().has("cpu_fan") else ("엄청 빨리 돎" if faults().has("dust") or faults().has("bloat") else "잘 돎")))
+	var led_s: String = "-" if tt < 0 else ("꺼짐" if not running else (PCBuild.POST_STAGES[maxi(p[0], 0)] + " 불이 켜져 있어요" if p[0] < 4 else "다 꺼짐 (정상)"))
+	var snd := "-"
+	if tt >= 0:
+		snd = "조용함" if not running else ("삐— 삐 삐 (반복)" if p[0] == 1 else ("위이이잉… 시끄러움" if faults().has("dust") or faults().has("bloat") else ("삐 한 번 (정상)" if p[0] >= 3 else "없음")))
+	var scr_s: String = "-" if tt < 0 else ("꺼짐" if not running else ("신호 없음" if p[0] < 3 or faults().has("monitor_mb") else ("부팅 장치 없음" if p[0] == 3 else ("CPU Fan Error → 잠시 뒤 꺼짐" if faults().has("cpu_fan") else "정상"))))
+	var rows := [["팬", fan_s], ["LED", led_s], ["소리", snd], ["화면", scr_s]]
+	for i in 4:
+		text(674, 198 - i * 44, rows[i][0], 22, QUIET)
+		text(760, 198 - i * 44, rows[i][1], 22, INK if rows[i][1] in ["-", "잘 돎", "다 꺼짐 (정상)", "삐 한 번 (정상)", "정상"] else GOLD)
 
 
+## 진짜 본체 뒷면: 메인보드 단자 · 뒷면 팬 · 확장 슬롯(그래픽카드 단자) · 파워(전원선 · 스위치)
+const BACK := [180, 50, 740, 610]   # diag_back.png(560x560)을 놓는 자리
 func draw_back() -> void:
 	var pc := Game.pc
-	box([300, 60, 900, 620], Color8(28, 22, 46))
-	box([340, 430, 520, 600], Color8(50, 46, 66))   # 메인보드 뒷단자
-	text(350, 580, "메인보드 단자", 22, QUIET)
-	for i in 4:
-		box([360 + (i % 2) * 70, 520 - (i / 2) * 20, 410 + (i % 2) * 70, 532 - (i / 2) * 20], Color8(30, 60, 140))
-	box(MB_HDMI, Color8(20, 18, 28))
-	text(448, 490, "HDMI", 22, DIM)
-	fan(Vector2(720, 510), 70, 0.0, false)
-	for i in 4:   # 확장 슬롯 덮개
-		box([540, 220 + i * 40, 880, 248 + i * 40], Color8(60, 56, 80))
+	put("diag_back", BACK)
 	if pc.has("GPU"):
-		box([540, 280, 880, 336], Color8(80, 76, 100))
-		text(560, 356, "그래픽카드 단자", 22, QUIET)
-		box(GPU_DP, Color8(20, 18, 28))
-	var plug: Array = MB_HDMI if faults().has("monitor_mb") else GPU_DP
-	var pc_end := center(plug)
-	polyline([pc_end, Vector2(1000, pc_end.y), Vector2(1000, 400), Vector2(1180, 400)], Color8(200, 200, 210), 6)
-	box(grow(plug, -6), Color8(200, 200, 210))
-	text(1060, 430, "모니터로", 22, QUIET)
-	box([340, 80, 860, 190], Color8(40, 36, 52))   # 파워
-	text(360, 170, "파워 %dW" % pc.capacity() if pc.has("PSU") else "파워 없음", 22, INK)
-	box([660, 100, 740, 150], Color8(20, 18, 28))   # 전원선
-	text(560, 126, "전원선", 22, DIM)
+		put("diag_gpu_bracket", [390, 274, 700, 320])
+	# 전원선: 오른쪽에서 들어와 파워 소켓에
+	polyline([Vector2(503, 100), Vector2(503, 28), Vector2(1270, 28)], Color8(20, 18, 28), 14)   # 아래로 빠져 콘센트로
+	box([476, 98, 530, 142], Color8(30, 28, 40))
+	# 스위치 (I = 켜짐 위 / O = 꺼짐 아래)
 	var off: bool = faults().has("psu_switch")
 	box(PSU_SWITCH, Color8(20, 18, 28))
-	box([PSU_SWITCH[0] + 8, (PSU_SWITCH[1] if off else (PSU_SWITCH[1] + PSU_SWITCH[3]) / 2.0) + 4, PSU_SWITCH[2] - 8, (PSU_SWITCH[3] if not off else (PSU_SWITCH[1] + PSU_SWITCH[3]) / 2.0) - 4], Color8(200, 60, 60))
-	text(PSU_SWITCH[2] + 12, PSU_SWITCH[3] - 14, "I", 22, INK)
-	text(PSU_SWITCH[2] + 12, PSU_SWITCH[1] + 14, "O", 22, INK)
-	text(40, 30, "단자 · 스위치를 눌러 고쳐요", 22, QUIET)
+	var mid: float = (PSU_SWITCH[1] + PSU_SWITCH[3]) / 2.0
+	box([PSU_SWITCH[0] + 8, (PSU_SWITCH[1] + 6) if off else mid, PSU_SWITCH[2] - 8, mid if off else (PSU_SWITCH[3] - 6)], Color8(220, 60, 70))
+	box([PSU_SWITCH[0] + 8, mid if off else (PSU_SWITCH[1] + 6), PSU_SWITCH[2] - 8, (PSU_SWITCH[3] - 6) if off else mid], Color8(120, 30, 40))
+	text(PSU_SWITCH[2] + 10, PSU_SWITCH[3] - 14, "I", 22, INK)
+	text(PSU_SWITCH[2] + 10, PSU_SWITCH[1] + 14, "O", 22, INK)
+	# 모니터 선: 그래픽카드가 있으면 그래픽카드 단자가 정답, 없으면(내장 그래픽) 보드 단자
+	var on_mb: bool = faults().has("monitor_mb") or not pc.has("GPU")
+	var plug: Array = MB_HDMI if on_mb else GPU_DP
+	var e := center(plug)
+	polyline([Vector2(plug[2] + 20, e.y), Vector2(760, e.y), Vector2(800, 400), Vector2(1270, 400)], Color8(30, 30, 40), 10)
+	box([plug[0] - 2, plug[1] - 4, plug[2] + 24, plug[3] + 4], Color8(60, 60, 72))   # 커넥터 머리
+	box([plug[2] + 4, plug[1], plug[2] + 24, plug[3]], Color8(90, 90, 104))
+	# 설명은 옆에 짧게
+	frame("ui_panel", [790, 440, 1260, 610])
+	text(810, 584, "뒷면", 22, PINK)
+	text(810, 548, "모니터 선 · 파워 스위치", 22, INK)
+	text(810, 514, "눌러서 고쳐요", 22, QUIET)
+	text(810, 470, "파워 %dW" % pc.capacity() if pc.has("PSU") else "파워 없음", 22, GOLD)
+	if not pc.has("GPU"):
+		text(810, 410, "그래픽카드 없음:", 22, QUIET)
+		text(810, 376, "보드 단자가 정답", 22, QUIET)
 
 
 func draw_close() -> void:

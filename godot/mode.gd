@@ -71,6 +71,12 @@ func outline(r: Array, c := VIOLET, w := 1.0) -> void:
 ## (x, y) = 글자 왼쪽 · 세로 가운데. 폰에서 읽히도록 MIN_TEXT보다 작게는 안 그린다.
 func text(x: float, y: float, s, size := 18, c := INK) -> void:
 	size = max(size, MIN_TEXT)
+	if x + text_w(str(s), size) > 1272 and x < 1180:   # 화면 오른쪽 끝을 넘으면 잘리지 않게 아래로 줄바꿈
+		var lines := wrap_text(str(s), 1272 - x, size)
+		if lines.size() > 1:
+			for i in lines.size():
+				text(x, y - i * size * 1.3, lines[i], size, c)
+			return
 	var pos := Vector2(x, H - y + (m.font.get_ascent(size) - m.font.get_descent(size)) / 2.0)   # 글자 세로 가운데
 	m.draw_string_outline(m.font, pos, str(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5, OUTLINE)   # 픽셀 게임식 검은 외곽선
 	m.draw_string(m.font, pos, str(s), HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
