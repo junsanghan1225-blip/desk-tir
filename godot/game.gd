@@ -459,3 +459,7 @@ static func delete_save() -> void:
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(SAVE_PATH)
 
+
+## 꼭 필요한 소품을 한 줄로: "스피커 1개 · 책 1개" (여러 개 중 아무거나면 "/"로)
+static func need_text(req: Dictionary) -> String:
+	return " · ".join(req.get("required", []).map(func(r): return "%s %d개" % ["/".join(r["any"].map(func(i): return "모니터" if i == "monitor" else DB.ITEMS[i]["name"])), r["count"]]))

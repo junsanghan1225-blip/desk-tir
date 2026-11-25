@@ -105,29 +105,37 @@ class Request extends Mode:
 		for i in lines.size():
 			text(460, 550 - i * 56, "\"%s\"" % lines[i] if i == 0 else lines[i], 24)
 		text(460, 380, ("수리비는 %d만 원 드릴게요." if req.has("repair") else "예산은 %d만 원 정도 생각하고 있어요.") % req["budget"], 20, GOLD)
-		if req.has("use"):
-			text(420, 290, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
+		var kind := Rules.kind_of(req)
+		var y := 290.0   # 조건은 숨기지 않고 다 보여 줌 (분위기만 손님 말로 짐작)
+		if req.has("use") and kind != "desk":   # 데스크테리어는 손님 PC 그대로라 용도 메모 없음
+			text(420, y, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
+			y -= 40
+		var need := Game.need_text(req)
+		if need != "":
+			text(420, y, "꼭 필요: " + need, 22, GOLD)
+			y -= 40
+		if not req["forbidden"].is_empty():
+			text(420, y, "싫어함: " + ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])), 22, PINK)
+			y -= 40
 		if req.has("used"):   # 중고 정책
 			var ok_used: bool = req["used"] == "ok"
-			chip(420, 246, "중고도 괜찮아요" if ok_used else "새 제품만", GREEN if ok_used else PINK)
+			chip(420, y, "중고도 괜찮아요" if ok_used else "새 제품만", GREEN if ok_used else PINK)
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
-		var kind := Rules.kind_of(req)
 		var badge: Array = {"repair": ["수리 의뢰", PINK], "pc": ["PC 조립 의뢰", CYAN], "desk": ["데스크테리어 의뢰", GOLD], "full": ["PC + 데스크 의뢰", GREEN]}[kind]
 		chip(76, 131, badge[0], badge[1])
-		if kind == "pc":
-			text(420, 200, "PC를 새로 맞춰요: 성능 · 조립 마감 · 모니터가 점수예요.", 18, QUIET)
-			text(420, 170, "분위기 소품은 점수에 안 들어가요.", 18, QUIET)
-		elif kind == "full":
-			text(420, 200, "PC도 맞추고 책상도 꾸며요: 성능 · 분위기 · 소품 · 모니터 모두 점수예요.", 18, QUIET)
-			text(420, 170, "예산 안에서 PC와 소품에 돈을 잘 나눠야 해요.", 18, QUIET)
-		elif kind == "desk":
-			text(420, 200, "책상을 꾸며요: 분위기 · 꼭 필요한 소품 · 조합 · 배선이 점수예요.", 18, QUIET)
-			text(420, 170, "PC는 손님이 쓰던 걸 그대로 써요 (조립 안 해도 돼요).", 18, QUIET)
+		var info := []
 		if req.has("repair"):
-			text(420, 200, "맡긴 PC를 진단 화면에서 살펴보고 원인을 찾아요.", 18, QUIET)
-			text(420, 170, "손님 부품은 공짜, 새로 산 부품만 비용이에요.", 18, QUIET)
-		text(420, 120, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") else "쇼핑으로"), 18, DIM)
+			info = ["맡긴 PC를 진단 화면에서 살펴보고 원인을 찾아요.", "손님 부품은 공짜, 새로 산 부품만 비용이에요."]
+		elif kind == "pc":
+			info = ["PC를 새로 맞춰요: 성능 · 조립 마감 · 모니터가 점수예요.", "분위기 소품은 점수에 안 들어가요."]
+		elif kind == "full":
+			info = ["PC도 맞추고 책상도 꾸며요: 성능 · 분위기 · 소품 · 모니터 모두 점수예요.", "예산 안에서 PC와 소품에 돈을 잘 나눠야 해요."]
+		elif kind == "desk":
+			info = ["책상을 꾸며요: 분위기 · 꼭 필요한 소품 · 조합 · 배선이 점수예요.", "PC는 손님이 쓰던 걸 그대로 써요 (조립 안 해도 돼요)."]
+		for i in info.size():
+			text(420, 150 - i * 30, info[i], 18, QUIET)
+		text(420, 70, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") else "쇼핑으로"), 18, DIM)
 
 
 class Result extends Mode:
@@ -514,6 +522,10 @@ class Pause extends Mode:
 			y = row(y, "종류", kinds[kind], CYAN)
 			if req.has("use") and kind != "desk":
 				y = row(y, "용도", Bench.describe(req["use"]), GOLD)
+			if Game.need_text(req) != "":
+				y = row(y, "꼭 필요", Game.need_text(req), GOLD)
+			if not req["forbidden"].is_empty():
+				y = row(y, "싫어함", ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])), PINK)
 			if req.has("used"):
 				y = row(y, "부품", "중고도 괜찮아요" if req["used"] == "ok" else "새 제품만!", GREEN if req["used"] == "ok" else PINK)
 			y = row(y, "예산", "%d만 원  (남은 %d만)" % [req["budget"], Game.money_left()], INK if Game.money_left() >= 0 else PINK)
