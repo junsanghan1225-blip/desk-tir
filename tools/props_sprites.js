@@ -135,4 +135,11 @@ Object.assign(top, {
   laptop_gaming: (W, H) => `${sh(2, 2, W - 4, H - 4, 5)}<rect x="2" y="2" width="${W - 4}" height="${H * .14}" rx="3" fill="#14102a"/><rect x="2" y="${2 + H * .14 - 3}" width="${W - 4}" height="3" fill="${PINK}"/>
     <rect x="2" y="${H * .18}" width="${W - 4}" height="${H * .8}" rx="4" fill="#1c1830"/>${[0, 1, 2, 3].map(r => `<rect x="${W * .1}" y="${H * (.26 + r * .11)}" width="${W * .8}" height="${H * .07}" fill="${[PINK, VIO, CYAN, VIO][r]}" opacity=".7"/>`).join('')}<rect x="${W * .35}" y="${H * .74}" width="${W * .3}" height="${H * .16}" rx="3" fill="#2a2350"/>`,
 });
+// 모니터 암 (쇼핑 아이콘 · pico2d용. Godot 정면 뷰에서는 코드로 관절을 그려 모니터를 따라 움직임)
+const arm = (c, hi) => [98, 180, `<rect x="30" y="160" width="36" height="16" rx="2" fill="${c}"/><rect x="40" y="172" width="16" height="8" fill="${c}"/>
+  <rect x="44" y="60" width="9" height="102" fill="${c}"/><rect x="44" y="60" width="3" height="102" fill="${hi}"/>
+  <path d="M48 62 L80 40 L58 14" stroke="${c}" stroke-width="9" fill="none" stroke-linejoin="round"/><circle cx="48" cy="62" r="6" fill="${hi}"/><circle cx="80" cy="40" r="6" fill="${hi}"/>
+  <rect x="50" y="4" width="20" height="20" rx="2" fill="${hi}"/>`];
+front.monitor_arm = arm('#2a2440', '#5a4fa0');
+front.monitor_arm_gas = arm('#9aa0b4', '#e8e6f2');
 module.exports = { front, top, MON };

@@ -22,6 +22,8 @@ static func inside(x: float, y: float, r: Array) -> bool:
 
 
 static func rect_of(p: Dictionary) -> Array:
+	if DB.ITEMS.has(p["id"]) and DB.ITEMS[p["id"]].get("mount", "") == "arm":   # 모니터 암: x = 집게 가운데, 누르는 곳은 집게 + 기둥
+		return [p["x"] - 16, p["y"] - 24, p["x"] + 16, p["y"] + 64]
 	var s := DB.size_of(p["id"])
 	return [p["x"], p["y"], p["x"] + s.x, p["y"] + s.y]
 
@@ -122,12 +124,18 @@ static func drop_target(id: String, x: float, y: float):
 
 # ---------- 현실적인 배치: 붙는 소품 · 자석 ----------
 ## mount: "monitor" = 모니터 윗면에 끼움 (host · slot) / "edge" = 책상 앞 가장자리 걸이 / "clamp" = 책상 뒤 가장자리 집게
-const MONITORS := ["monitor", "monitor_27", "monitor_white", "monitor_curve"]
+static func is_monitor(id: String) -> bool:   # 화면 있는 기기 중 노트북 · 휴대용 빼고
+	return DB.ITEMS[id].has("hz") and not DB.ITEMS[id].has("pc") and id != "monitor_portable"
+
+
+static func monitor_ids() -> Array:
+	return DB.ITEMS.keys().filter(is_monitor)
 const KEYBOARDS := ["keyboard", "gaming_kb", "kb_white", "kb_mini"]
 const MICE := ["mouse_gaming", "mouse_vertical"]
 const SPEAKERS := ["speaker", "speaker_bt"]
 const MOUNT_TOP := {"monitor_bar": 14.0 / 34, "webcam": 26.0 / 40}   # 그림 윗변이 모니터 윗변보다 (그림 높이의) 얼마나 위인지
-const MAGNET := 230    # 이 거리 안이면 짝 소품 옆 제자리로 끌려감
+const MAGNET := 230
+const ARM_REACH := 160.0   # 모니터 암이 집게에서 뻗을 수 있는 가로 거리(px)    # 이 거리 안이면 짝 소품 옆 제자리로 끌려감
 
 
 static func mount_of(id: String) -> String:
@@ -159,22 +167,31 @@ static func mount_pos(p: Dictionary) -> void:
 		"clamp":
 			p["y"] = DESK_Y
 			p["z"] = 0
+		"arm":   # 집게는 책상 뒤에 고정, 팔이 모니터까지 뻗음 (모니터가 팔 길이보다 멀어지면 집게가 따라 미끄러짐)
+			var h: Dictionary = p["host"]
+			var hc: float = center_x(h)
+			if not p.has("x"):
+				p["x"] = int(hc)   # 처음엔 모니터 바로 뒤
+			elif absf(p["x"] - hc) > ARM_REACH:
+				p["x"] = int(clampf(hc + (ARM_REACH if p["x"] > hc else -ARM_REACH) * 0.6, AREA_X1 + 10, AREA_X2 - 10))
+			p["y"] = DESK_Y
+			p["z"] = h.get("z", 0) - 1
 
 
 static func sync_mounts(placed: Array) -> void:
 	for p in placed:
-		if is_mounted(p) and (mount_of(p["id"]) != "monitor" or placed.has(p["host"])):
+		if is_mounted(p) and (not mount_of(p["id"]) in ["monitor", "arm"] or placed.has(p["host"])):
 			mount_pos(p)
 
 
 ## 모니터에 붙은 소품들 (모니터를 치우면 같이 창고로)
 static func mounts_on(placed: Array, host: Dictionary) -> Array:
-	return placed.filter(func(p): return mount_of(p["id"]) == "monitor" and is_same(p.get("host"), host))
+	return placed.filter(func(p): return mount_of(p["id"]) in ["monitor", "arm"] and is_same(p.get("host"), host))
 
 
 ## 모니터 위 빈 자리: 0 = 가운데, 1 = 오른쪽. 없으면 -1
 static func free_slot(placed: Array, host: Dictionary, ignore = null) -> int:
-	var used := mounts_on(placed, host).filter(func(p): return not is_same(p, ignore)).map(func(p): return p.get("slot", 0))
+	var used := mounts_on(placed, host).filter(func(p): return not is_same(p, ignore) and mount_of(p["id"]) == "monitor").map(func(p): return p.get("slot", 0))
 	for k in [0, 1]:
 		if not k in used:
 			return k
@@ -209,7 +226,7 @@ static func magnet(placed: Array, id: String, x: int, z: int, ignore = null) -> 
 	var out := []
 	var at := func(ncx: float, nz: float): out.append([int(ncx - s.x / 2.0), int(nz)])
 	if id in KEYBOARDS:   # 모니터 바로 앞 가운데
-		var m = _nearest(placed, MONITORS, cx, ignore)
+		var m = _nearest(placed, monitor_ids(), cx, ignore)
 		if m != null:
 			at.call(center_x(m), m.get("z", 0) + depth_of(m["id"]) + 10)
 	elif id in MICE:      # 키보드 오른쪽
@@ -220,7 +237,7 @@ static func magnet(placed: Array, id: String, x: int, z: int, ignore = null) -> 
 			for mz in [kz + depth_of(k["id"]) / 2.0 - f.y / 2.0, kz, kz + depth_of(k["id"]) - f.y]:   # 키보드와 가운데 · 뒷선 · 앞선 맞춤
 				at.call(mx, mz)
 	elif id in SPEAKERS:  # 모니터 양옆 (가까운 쪽 먼저)
-		var m = _nearest(placed, MONITORS, cx, ignore)
+		var m = _nearest(placed, monitor_ids(), cx, ignore)
 		if m != null:
 			var mr := foot_x(m["id"], m["x"])
 			var sides := [mr.x - 8 - f.x / 2.0, mr.y + 8 + f.x / 2.0]
@@ -228,7 +245,7 @@ static func magnet(placed: Array, id: String, x: int, z: int, ignore = null) -> 
 			for side in sides:
 				at.call(side, m.get("z", 0))
 	elif id == "soundbar":  # 모니터 받침 바로 앞
-		var m = _nearest(placed, MONITORS, cx, ignore)
+		var m = _nearest(placed, monitor_ids(), cx, ignore)
 		if m != null:
 			at.call(center_x(m), m.get("z", 0) + depth_of(m["id"]))
 	match DB.ITEMS[id].get("zone", ""):
@@ -373,6 +390,9 @@ static func synergies(placed: Array, pc: PCBuild) -> Array:
 		found.append("미니멀리즘")
 	if "wall_light" in ids and not lamps.is_empty():
 		found.append("균형 조명")
+	var mons := placed.filter(func(p): return is_monitor(p["id"]))
+	if not mons.is_empty() and mons.all(func(h): return placed.any(func(a): return mount_of(a["id"]) == "arm" and is_same(a.get("host"), h))):
+		found.append("모니터 암 정리")
 	if "headphone_stand" in ids and ("headphones" in ids or "headset" in ids):
 		found.append("헤드폰 정리")
 	if "stream_deck" in ids and ("mic" in ids or "mic_desk" in ids) and ("webcam" in ids or "acoustic" in ids):

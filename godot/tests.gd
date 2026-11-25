@@ -258,6 +258,20 @@ func _initialize() -> void:
 	var bl := PCBuild.full()
 	ok(bl.blockers("MB").size() >= 4 and bl.blockers("CASE") == ["MB", "PSU"] and bl.blockers("GPU").is_empty(), "위에 꽂힌 것부터 빼기 %s" % [bl.blockers("CASE")])
 
+	# --- 모니터 암: 집게는 제자리, 모니터가 팔 길이보다 멀어지면 집게가 따라감 ---
+	var mp := []
+	var mon_a := Rules.place_slot(mp, "monitor_144", "desk", 2)
+	var arm_p := {"id": "monitor_arm", "layer": "desk", "host": mon_a}
+	Rules.mount_pos(arm_p)
+	mp.append(arm_p)
+	var x0: int = arm_p["x"]
+	mon_a["x"] += 60
+	Rules.sync_mounts(mp)
+	ok(arm_p["x"] == x0, "조금 옮기면 집게는 그대로")
+	mon_a["x"] += 400
+	Rules.sync_mounts(mp)
+	ok(absf(arm_p["x"] - Rules.center_x(mon_a)) <= Rules.ARM_REACH and "모니터 암 정리" in Rules.synergies(mp, PCBuild.new()), "멀리 옮기면 집게가 미끄러져 따라옴")
+
 	# --- 저장 ---
 	Game.pc = PCBuild.full()
 	Game.placed = []

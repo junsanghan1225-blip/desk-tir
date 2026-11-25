@@ -143,17 +143,29 @@ func target(id: String, x: float, y: float) -> Dictionary:
 func mount_target(id: String, x: float, y: float) -> Dictionary:
 	var s := DB.size_of(id)
 	var t := {"id": id, "layer": "desk", "x": int(x - s.x / 2.0), "y": Rules.DESK_Y, "z": 0, "ok": false}
-	if Rules.mount_of(id) == "monitor":
+	if Rules.mount_of(id) in ["monitor", "arm"]:
 		var best = null
 		var bd := 260.0
 		for h in Game.placed:
-			if h["id"] in Rules.MONITORS and not shown_rect(h).is_empty():
+			if Rules.is_monitor(h["id"]) and not shown_rect(h).is_empty():
 				var dist := Vector2(x, y).distance_to(center(shown_rect(h)))
 				if dist < bd:
 					best = h
 					bd = dist
 		if best == null:
 			t["why"] = "%s은(는) 모니터 위에 끼워요. 모니터 근처에 놓아 주세요" % DB.ITEMS[id]["name"]
+			return t
+		if Rules.mount_of(id) == "arm":   # 모니터 암: 한 모니터에 하나, 무게(인치) 한계
+			if Rules.mounts_on(Game.placed, best).any(func(q): return Rules.mount_of(q["id"]) == "arm" and not is_same(q, moving)):
+				t["why"] = "이 모니터엔 이미 모니터 암이 있어요"
+				return t
+			if DB.ITEMS[best["id"]].get("inch", 24) > DB.ITEMS[id]["max_inch"]:
+				t["why"] = "%d인치는 이 암이 못 버텨요 (%d인치까지)" % [DB.ITEMS[best["id"]]["inch"], DB.ITEMS[id]["max_inch"]]
+				return t
+			t["host"] = best
+			t.erase("x")
+			Rules.mount_pos(t)
+			t["ok"] = true
 			return t
 		var slot := Rules.free_slot(Game.placed, best, moving)
 		if slot < 0:
@@ -330,10 +342,71 @@ func draw_front() -> void:
 	spr("room_bg_" + Game.today()["weather"], 775, 325)
 	for p in Game.placed.filter(func(p): return p["layer"] == "wall") + by_depth():
 		if not lifted(p):
-			put(art(p), Rules.rect_of(p))
+			if Rules.mount_of(p["id"]) == "arm":
+				draw_arm(p, arm_target(p["host"]))
+				continue
+			if armed(p):   # 암에 달린 모니터는 받침대를 떼어 냄
+				draw_without_stand(p)
+			else:
+				put(art(p), Rules.rect_of(p))
 			if SCREEN.has(p["id"]):
 				draw_screen(p)   # 앞에 놓인 소품이 화면을 가리도록 모니터 바로 다음에
 	draw_pc()
+
+
+## 모니터 암 ----------
+func arm_of(h: Dictionary):
+	for q in Game.placed:
+		if Rules.mount_of(q["id"]) == "arm" and is_same(q.get("host"), h):
+			return q
+	return null
+
+
+func armed(h: Dictionary) -> bool:
+	return SCREEN.has(h["id"]) and arm_of(h) != null
+
+
+## 받침대를 뺀 모니터 (그림 윗부분 = 화면 + 테두리만)
+func draw_without_stand(p: Dictionary, r = null) -> void:
+	if r == null:
+		r = Rules.rect_of(p)
+	var f: Array = SCREEN[p["id"]]
+	var k: float = (f[3] + 8.0) / f[5]
+	var t := DB.tex(art(p))
+	m.draw_texture_rect_region(t, _rect([r[0], r[3] - (r[3] - r[1]) * k, r[2], r[3]]), Rect2(0, 0, t.get_width(), t.get_height() * k))
+
+
+## 팔이 모니터 뒤 가운데를 잡는 점
+func arm_target(h: Dictionary) -> Vector2:
+	var r := Rules.rect_of(h)
+	var f: Array = SCREEN.get(h["id"], [0, 0, 1, 1, 1, 1])
+	return Vector2((r[0] + r[2]) / 2.0, r[3] - (r[3] - r[1]) * (f[3] * 0.5 / f[5]))
+
+
+## 집게 → 기둥 → 관절 두 개 → 모니터. 모니터를 끌면 관절이 접혔다 펴지며 따라감
+func draw_arm(a: Dictionary, target: Vector2) -> void:
+	var gas: bool = a["id"] == "monitor_arm_gas"
+	var c := Color8(154, 160, 180) if gas else Color8(42, 36, 64)
+	var hi := Color8(232, 230, 242) if gas else Color8(90, 79, 160)
+	var cx: float = a["x"]
+	var base := Vector2(cx, Rules.DESK_Y)
+	var top := Vector2(cx, Rules.DESK_Y + 64)
+	box([cx - 16, Rules.DESK_Y - 16, cx + 16, Rules.DESK_Y + 6], c)   # 상판 뒤를 무는 집게
+	box([cx - 10, Rules.DESK_Y - 24, cx - 4, Rules.DESK_Y - 16], c)
+	line(base, top, c, 9)
+	line(base + Vector2(-3, 0), top + Vector2(-3, 0), hi, 2)
+	var reach := top.distance_to(target)
+	var seg: float = maxf(reach / 2.0 + 4, 70.0)   # 팔 두 마디 길이 (모자라면 쭉 펴짐)
+	var mid := (top + target) / 2.0
+	var lift := sqrt(maxf(0.0, seg * seg - reach * reach / 4.0))
+	var elbow := mid + Vector2(0, lift)
+	line(top, elbow, c, 8)
+	line(elbow, target, c, 7)
+	if gas:
+		line(top + Vector2(0, 10), elbow + Vector2(0, -6), hi, 2)   # 가스 스프링
+	circle(top.x, top.y, 7, hi)
+	circle(elbow.x, elbow.y, 6, hi)
+	box([target.x - 12, target.y - 12, target.x + 12, target.y + 12], c)   # 모니터 뒤 VESA 판
 
 
 ## 조립한 PC: 유리 옆판 안에 조립 화면의 부품 배치를 그대로 줄여서 + 앞쪽 전원 버튼
@@ -514,5 +587,11 @@ func draw() -> void:
 				put(top_art(a), [m.mouse.x - w / 2, m.mouse.y - dd / 2, m.mouse.x + w / 2, m.mouse.y + dd / 2])
 			else:
 				fit(a, m.mouse.x, m.mouse.y, w, dd)
+		elif moving != null and armed(moving):   # 암에 달린 모니터를 끌면 팔이 따라 늘어남
+			var sz := DB.size_of(a)
+			var rr := [m.mouse.x - sz.x / 2.0, m.mouse.y - sz.y / 2.0, m.mouse.x + sz.x / 2.0, m.mouse.y + sz.y / 2.0]
+			var f: Array = SCREEN[moving["id"]]
+			draw_arm(arm_of(moving), Vector2(m.mouse.x, rr[3] - sz.y * (f[3] * 0.5 / f[5])))
+			draw_without_stand(moving, rr)
 		else:
 			spr(a, m.mouse.x, m.mouse.y)

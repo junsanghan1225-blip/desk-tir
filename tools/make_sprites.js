@@ -223,7 +223,7 @@ Object.assign(S, require('./props_sprites').front);   // 소품 확장
 
 // 색을 바꿀 수 있는 소품: 색상(hue)을 돌린 그림을 함께 만든다 (이름__c1 ~ __c3)
 const real = require('./real_scale');
-const MOUNTED = ['monitor_bar', 'webcam', 'headset'];   // 붙는 모양은 mount_sprites.js가 실제 비율로 그림
+const MOUNTED = ['monitor_bar', 'webcam', 'headset', 'keyboard', 'gaming_kb', 'kb_white', 'kb_mini', 'monitor_arm', 'monitor_arm_gas'];   // 키보드 정면 = profile_sprites.js, 모니터 암 = 코드로 그림   // 붙는 모양은 mount_sprites.js가 실제 비율로 그림
 const TINT = ['mood_lamp', 'neon_sign', 'neon_heart', 'wall_light', 'kb_mini', 'mug', 'headphones', 'speaker_bt', 'gamepad', 'desk_clock', 'poster_game', 'mouse_gaming', 'tumbler', 'rgb_cube', 'neon_gg'];
 
 (async () => {
