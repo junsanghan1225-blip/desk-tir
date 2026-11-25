@@ -74,6 +74,42 @@ func dongle(x: float, y: float, owner: String) -> void:
 	text(x - 30, y + 30, owner.left(6), 11, CYAN)
 
 
+const SHELL := Color8(201, 204, 214)
+const HOLE := Color8(14, 12, 22)
+
+
+## 실제 단자 모양: HDMI(아래가 좁은 사다리꼴) · DP(한쪽 모서리만 깎임) · USB-A(파란 혀) · 오디오(동그란 잭)
+func jack(t: String, c: Vector2, live: bool) -> void:
+	var a := 1.0 if live else 0.35
+	var sh := Color(SHELL, a)
+	match t:
+		"HDMI":
+			poly([Vector2(c.x - 20, c.y + 8), Vector2(c.x + 20, c.y + 8), Vector2(c.x + 20, c.y - 2), Vector2(c.x + 14, c.y - 8), Vector2(c.x - 14, c.y - 8), Vector2(c.x - 20, c.y - 2)], sh)
+			poly([Vector2(c.x - 17, c.y + 5), Vector2(c.x + 17, c.y + 5), Vector2(c.x + 17, c.y - 1), Vector2(c.x + 12, c.y - 5), Vector2(c.x - 12, c.y - 5), Vector2(c.x - 17, c.y - 1)], HOLE)
+			box([c.x - 12, c.y, c.x + 12, c.y + 3], Color(GOLD, a))
+		"DP":
+			poly([Vector2(c.x - 19, c.y + 8), Vector2(c.x + 19, c.y + 8), Vector2(c.x + 19, c.y - 3), Vector2(c.x + 13, c.y - 8), Vector2(c.x - 19, c.y - 8)], sh)
+			poly([Vector2(c.x - 16, c.y + 5), Vector2(c.x + 16, c.y + 5), Vector2(c.x + 16, c.y - 2), Vector2(c.x + 11, c.y - 5), Vector2(c.x - 16, c.y - 5)], HOLE)
+			box([c.x - 12, c.y - 1, c.x + 10, c.y + 2], Color(GOLD, a))
+		"USB":
+			box([c.x - 16, c.y - 8, c.x + 16, c.y + 8], sh)
+			box([c.x - 13, c.y - 5, c.x + 13, c.y + 5], HOLE)
+			box([c.x - 13, c.y + 1, c.x + 13, c.y + 5], Color(Color8(31, 91, 209), a))   # USB 3.0 파란 혀
+		_:
+			circle(c.x, c.y, 11, Color(Color8(86, 176, 138) if c.x < Rules.port_pos("AUDIO", 1).x - 1 else Color8(255, 143, 180), a))   # 초록 = 스피커 · 분홍 = 마이크
+			circle(c.x, c.y, 6, HOLE)
+
+
+## 꽂힌 플러그 머리 (단자 위로 튀어나온 커넥터 + 선)
+func plug_head(t: String, c: Vector2, col: Color) -> void:
+	var w: float = {"HDMI": 22.0, "DP": 21.0, "USB": 17.0}.get(t, 7.0)
+	box([c.x - w, c.y + 6, c.x + w, c.y + 34], Color8(36, 34, 44))
+	box([c.x - w, c.y + 6, c.x + w, c.y + 10], SHELL)
+	if t == "DP":   # DP 걸쇠 버튼
+		box([c.x - 6, c.y + 22, c.x + 6, c.y + 28], Color8(90, 88, 100))
+	box([c.x - 4, c.y + 34, c.x + 4, c.y + 44], col)
+
+
 func draw_ports() -> void:
 	var pn: Array = Rules.PORT_PANEL
 	panel(grow(pn, 8))
@@ -83,11 +119,10 @@ func draw_ports() -> void:
 		var col: Color = Rules.PORT_COLOR[t]
 		for i in Rules.MAX_PORTS[t]:
 			var pp := Rules.port_pos(t, i)
-			var r := [pp.x - 28, pp.y - 18, pp.x + 28, pp.y + 18]
-			var used: bool = Game.cables.any(func(c): return c["type"] == t and c["port"] == i)
-			box(r, col if used else DARK)
-			outline(r, col if i < n else Color8(60, 50, 90))
-			box([pp.x - 12, pp.y - 5, pp.x + 12, pp.y + 5], Color8(14, 9, 30))
+			var r := [pp.x - 30, pp.y - 18, pp.x + 30, pp.y + 18]
+			box(r, Color8(40, 38, 52) if i < n else Color8(22, 18, 34))   # 뒷판
+			outline(r, col if i < n else Color8(50, 42, 80))
+			jack(t, pp, i < n)
 		var label: String = Rules.PORT_NAMES[t]
 		if t == "DP" or t == "HDMI":
 			label += " %d" % n if n else " 없음"
@@ -110,12 +145,12 @@ func draw() -> void:
 		var pos := Rules.plug_pos(p, Game.placed)
 		var it: Dictionary = DB.ITEMS[p["id"]]
 		var col: Color = Rules.PORT_COLOR[it["port"]]
-		var r := [pos.x - 62, DEV_Y - 58, pos.x + 62, DEV_Y + 58]
+		var r := [pos.x - 62, DEV_Y - 66, pos.x + 62, DEV_Y + 58]
 		panel(r, Game.cables.any(func(c): return is_same(c["dev"], p)))
-		fit(p["id"], pos.x, DEV_Y + 6, 100, 90)
+		fit(p["id"], pos.x, DEV_Y + 22, 100, 62)
 		var nm: Array = wrap_text(it["name"], 104)   # 이웃 기기 이름과 겹치지 않게 두 줄까지
 		for k in mini(2, nm.size()):
-			text(pos.x - 52, DEV_Y - 46 - k * 26, nm[k], 13)
+			text(pos.x - 52, DEV_Y - 24 - k * 24, nm[k], 13)
 		if it.get("dongle", false):
 			text(pos.x - 18, pos.y + 4, "무선", 13, col)
 		else:
@@ -128,7 +163,8 @@ func draw() -> void:
 		if Rules.is_dongle(c):
 			dongle(pp.x, pp.y + 28, DB.ITEMS[c["dev"]["id"]]["name"])
 		else:
-			cable(Rules.plug_pos(c["dev"], Game.placed), pp, Rules.PORT_COLOR[c["type"]])
+			cable(Rules.plug_pos(c["dev"], Game.placed), pp + Vector2(0, 44), Rules.PORT_COLOR[c["type"]])
+			plug_head(c["type"], pp, Rules.PORT_COLOR[c["type"]])
 	if wiring != null:
 		var it: Dictionary = DB.ITEMS[wiring["id"]]
 		if it.get("dongle", false):

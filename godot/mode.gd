@@ -166,6 +166,10 @@ func polyline(pts: Array, c: Color, w := 4.0) -> void:
 	m.draw_polyline(PackedVector2Array(pts.map(func(p): return Vector2(p.x, H - p.y))), c, w)
 
 
+func poly(pts: Array, c: Color) -> void:   # 채운 다각형 (게임 좌표)
+	m.draw_colored_polygon(PackedVector2Array(pts.map(func(p): return Vector2(p.x, H - p.y))), c)
+
+
 func circle(x: float, y: float, radius: float, c: Color) -> void:
 	m.draw_circle(Vector2(x, H - y), radius, c)
 
