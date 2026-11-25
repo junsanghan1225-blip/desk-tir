@@ -67,7 +67,7 @@ func card_rect(i: int) -> Array:
 
 
 func cat_rect(i: int) -> Array:
-	return [12 + i * 104, 572, 110 + i * 104, 632]
+	return [12 + i * 101 + (14 if i >= 2 else 0), 572, 108 + i * 101 + (14 if i >= 2 else 0), 632]   # PC(부품 · 중고) | 꾸미기
 
 
 func sub_rect(i: int) -> Array:
@@ -157,22 +157,31 @@ func short_spec(id: String) -> String:
 	return "%dW · %s" % [p["capacity"], p.get("grade", "인증 없음")]
 
 
+## 카드 공통: 위쪽 밝은 진열대에 큰 그림, 아래에 이름 · 한 줄 설명 · 큰 가격. 왼쪽 위 딱지(중고 · 담음 · 잠김)
+func card_frame(r: Array, hot: bool, tint: Color) -> Array:
+	frame("ui_panel", r, tint if hot else Color.WHITE)
+	var img := [r[0] + 10, r[1] + 78, r[2] - 10, r[3] - 10]   # 아래 두 줄(이름+가격 / 설명) 자리 고정
+	box(img, Color8(48, 38, 96))
+	box([img[0], img[1], img[2], img[1] + 6], Color8(36, 28, 74))   # 진열대 그림자
+	return img
+
+
+func tag(x: float, y: float, s: String, c: Color) -> void:
+	var w := text_w(s, 22) + 16
+	box([x, y - 16, x + w, y + 16], c)
+	text(x + 8, y, s, 22, Color8(20, 14, 40))
+
+
 func draw_offer(i: int, key: String) -> void:
 	var r := card_rect(i)
 	var o := offer(key)
 	var p: Dictionary = DB.PARTS[o["id"]]
-	panel(r, pending == o["key"])
-	var img := [r[0] + 10, r[1] + 10, r[0] + 120, r[3] - 10]
-	frame("ui_slot", img, GOLD)
-	fit(icon_of(o["id"]), (img[0] + img[2]) / 2.0, (img[1] + img[3]) / 2.0, 96, img[3] - img[1] - 16)
-	box([img[0], img[3] - 34, img[0] + 64, img[3]], PINK)
-	text(img[0] + 8, img[3] - 17, "중고", 22, Color.WHITE)
-	var tx: float = r[0] + 132
-	text(tx, r[3] - 26, wrap_text(p["name"], r[2] - tx - 10)[0], 22, INK)
-	text(tx, r[3] - 58, "%d만 · 새 %d만" % [o["price"], p["price"]], 22, GOLD)
-	text(tx, r[1] + 22, "환불 · 보증 없음", 22, PINK)   # 중고의 단점: 안 되면 끝
-	for k in mini(2, wrap_text("\"%s\"" % o["claim"], r[2] - tx - 10).size()):
-		text(tx, r[3] - 92 - k * 28, wrap_text("\"%s\"" % o["claim"], r[2] - tx - 10)[k], 22, QUIET)
+	var img := card_frame(r, pending == o["key"], GOLD)
+	fit(icon_of(o["id"]), (img[0] + img[2]) / 2.0, (img[1] + img[3]) / 2.0, (img[2] - img[0]) * 0.55, (img[3] - img[1]) * 0.8)
+	tag(img[0] + 6, img[3] - 20, "중고", PINK)
+	tag(img[2] - text_w("환불 X", 22) - 22, img[3] - 20, "환불 X", Color8(150, 140, 190))
+	var off := roundi(100 - 100.0 * o["price"] / p["price"])
+	info(r, p["name"], "%d만" % o["price"], o["claim"], "-%d%%" % off, INK)
 
 
 func draw_card(i: int, id: String) -> void:
@@ -182,25 +191,35 @@ func draw_card(i: int, id: String) -> void:
 	var r := card_rect(i)
 	var p := DB.spec(id)
 	var locked := not Game.unlocked(p)
-	panel(r, Game.cart.has(id))
-	var img := [r[0] + 10, r[1] + 10, r[0] + 120, r[3] - 10]
-	frame("ui_slot", img)
-	fit(icon_of(id), (img[0] + img[2]) / 2.0, (img[1] + img[3]) / 2.0, 96, img[3] - img[1] - 16)
-	var tx: float = r[0] + 132
-	var name_lines: Array = wrap_text(p["name"], r[2] - tx - 10).slice(0, 2)
-	for k in name_lines.size():
-		text(tx, r[3] - 26 - k * 28, name_lines[k], 22, DIM if locked else INK)
-	var y: float = r[3] - 30 - name_lines.size() * 28
-	text(tx, y - 6, "%d만 원" % p["price"], 22, DIM if locked else GOLD)
-	var spec_lines: Array = wrap_text(short_spec(id), r[2] - tx - 10)
-	for k in mini(2, spec_lines.size()):   # 사양은 두 줄까지 (잘리지 않게)
-		text(tx, y - 38 - k * 28, spec_lines[k], 22, QUIET)
+	var img := card_frame(r, Game.cart.has(id), CYAN)
 	if locked:
-		text(tx, r[1] + 22, "업그레이드 필요", 22, PINK)
+		box(img, Color8(24, 18, 44))
+	fit(icon_of(id), (img[0] + img[2]) / 2.0, (img[1] + img[3]) / 2.0, (img[2] - img[0]) * 0.55, (img[3] - img[1]) * 0.8)
+	if locked:
+		box(img, Color(0.05, 0.03, 0.1, 0.6))
+		tag(img[0] + 6, img[3] - 20, "잠김", Color8(120, 110, 160))
 	elif Game.cart.has(id):
-		text(tx, r[1] + 22, "담음 %d" % Game.cart[id], 22, PINK)
+		tag(img[0] + 6, img[3] - 20, "담음 %d" % Game.cart[id], CYAN)
 	elif Game.stock.get(id, 0) > 0:
-		text(tx, r[1] + 22, "창고 %d" % Game.stock[id], 22, CYAN)
+		tag(img[0] + 6, img[3] - 20, "창고 %d" % Game.stock[id], Color8(150, 140, 190))
+	info(r, p["name"], "%d만" % p["price"] if not locked else "", short_spec(id) if not locked else "업그레이드 필요", "", DIM if locked else INK)
+
+
+## 카드 아래 두 줄: [이름 ······ 가격] / [설명 ······ 할인]. 글자 크기 22~26으로 통일, 서로 안 겹치게 폭을 나눔
+func info(r: Array, name: String, price: String, sub: String, badge: String, ink: Color) -> void:
+	var w: float = r[2] - r[0] - 28
+	var pw := text_w(price, 26) + 10 if price != "" else 0.0
+	var low := text_w(name, 22) > w - pw   # 이름이 길면 가격을 아랫줄로 (글자 줄이기 대신)
+	if low:
+		badge = price
+	elif price != "":
+		text(r[2] - 14 - text_w(price, 26), r[1] + 54, price, 26, GOLD)
+	text(r[0] + 14, r[1] + 54, wrap_text(name, w if low else w - pw)[0], 22, ink)
+	var bs := 26 if low else 22
+	var bw := text_w(badge, bs) + 10 if badge != "" else 0.0
+	text(r[0] + 14, r[1] + 22, wrap_text(sub, w - bw)[0], 22, QUIET)
+	if badge != "":
+		text(r[2] - 14 - text_w(badge, bs), r[1] + 22, badge, bs, GOLD if low else PINK)
 
 
 func draw_cart() -> void:
@@ -218,9 +237,11 @@ func draw_cart() -> void:
 		var r := cart_row(i)
 		var p := DB.spec(ids[i])
 		frame("ui_slot", r)
-		text_c([r[0], r[1], r[0] + 50, r[3]], "−", 22, PINK)
-		text(r[0] + 54, r[3] - 18, wrap_text(p["name"], r[2] - r[0] - 60)[0], 22)
-		text(r[0] + 54, r[1] + 18, "%d만 × %d" % [p["price"], Game.cart[ids[i]]], 22, GOLD)
+		box([r[0] + 6, r[1] + 8, r[0] + 40, r[3] - 8], Color8(90, 30, 60))
+		text_c([r[0] + 6, r[1], r[0] + 40, r[3]], "−", 22, PINK)
+		fit(icon_of(ids[i]), r[0] + 66, (r[1] + r[3]) / 2.0, 40, 40)
+		text(r[0] + 92, r[3] - 18, wrap_text(p["name"], r[2] - r[0] - 100)[0], 22)
+		text(r[0] + 92, r[1] + 18, "%d만 × %d" % [p["price"], Game.cart[ids[i]]], 22, GOLD)
 	if ids.size() > CART_ROWS:
 		text(CART[0] + 14, 216, "외 %d종" % (ids.size() - CART_ROWS), 22, QUIET)
 	var total := Game.cart_total()
@@ -231,15 +252,24 @@ func draw_cart() -> void:
 
 func draw() -> void:
 	grid()
-	for i in CATS.size():
+	for i in CATS.size():   # 고른 탭은 밝게 채우고, 나머지는 어둡게 (PC 쪽은 시안, 꾸미기는 분홍 계열)
 		var on: bool = CATS[i][0] == cat
-		frame("ui_button", cat_rect(i), CYAN if on else Color8(80, 66, 140))
-		text_c(cat_rect(i), CATS[i][1], 22, Color.WHITE if on else QUIET)
+		var col: Color = CYAN if i < 2 else PINK
+		var r := cat_rect(i)
+		if on:
+			frame("ui_button", r, col)
+			box([r[0] + 6, r[1] - 6, r[2] - 6, r[1] - 2], col)   # 밑줄
+		else:
+			frame("ui_slot", r, Color8(110, 96, 170))
+		text_c(r, CATS[i][1], 22, Color8(20, 14, 40) if on else col.lerp(QUIET, 0.4))
 	if cat == "parts":
 		for i in PART_TYPES.size():
 			var on: bool = PART_TYPES[i][0] == part_type
-			frame("ui_button", sub_rect(i), GOLD if on else Color8(60, 50, 110))
-			text_c(sub_rect(i), PART_TYPES[i][1], 22, Color.WHITE if on else QUIET)
+			if on:
+				frame("ui_button", sub_rect(i), GOLD)
+			else:
+				frame("ui_slot", sub_rect(i), Color8(90, 80, 140))
+			text_c(sub_rect(i), PART_TYPES[i][1], 22, Color8(20, 14, 40) if on else QUIET)
 	var shown := visible()
 	for i in shown.size():
 		draw_card(i, shown[i])
