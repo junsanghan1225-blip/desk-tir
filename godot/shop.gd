@@ -16,6 +16,9 @@ var part_type := "CASE"
 var page := 0
 var toast := ""
 var pending := ""   # 중고 매물: 한 번 더 누르면 구매
+var cart_top := 0   # 장바구니 스크롤: 맨 위에 보이는 줄
+const BTN_CUP := [1180, 196, 1222, 236]
+const BTN_CDOWN := [1226, 196, 1268, 236]
 
 
 func enter() -> void:
@@ -120,9 +123,14 @@ func down(x: float, y: float, right: bool) -> void:
 				m.modes["product"].open(shown[i])
 			return
 	var ids := Game.cart.keys()
-	for i in min(ids.size(), CART_ROWS):
+	if ids.size() > CART_ROWS and (inside(x, y, BTN_CUP) or inside(x, y, BTN_CDOWN)):
+		scroll_cart(-1 if inside(x, y, BTN_CUP) else 1)
+		sfx("click")
+		return
+	clamp_cart()
+	for i in min(ids.size() - cart_top, CART_ROWS):
 		if inside(x, y, cart_row(i)):
-			Game.add_to_cart(ids[i], -1 if right or x < cart_row(i)[0] + 56 else 1)   # 왼쪽 − 칸 = 하나 빼기
+			Game.add_to_cart(ids[cart_top + i], -1 if right or x < cart_row(i)[0] + 56 else 1)   # 왼쪽 − 칸 = 하나 빼기
 			return
 
 
@@ -231,17 +239,27 @@ func draw_cart() -> void:
 		text(CART[0] + 14, CART[3] - 76, "상품을 누르면", 22, QUIET)
 		text(CART[0] + 14, CART[3] - 106, "자세히 보고 담아요", 22, QUIET)
 		text(CART[0] + 14, CART[3] - 136, "두 번: 바로 담기", 22, DIM)
-	for i in min(ids.size(), CART_ROWS):
+	clamp_cart()
+	for i in min(ids.size() - cart_top, CART_ROWS):
 		var r := cart_row(i)
-		var p := DB.spec(ids[i])
+		var id: String = ids[cart_top + i]
+		var p := DB.spec(id)
 		frame("ui_slot", r)
 		box([r[0] + 6, r[1] + 8, r[0] + 40, r[3] - 8], Color8(90, 30, 60))
 		text_c([r[0] + 6, r[1], r[0] + 40, r[3]], "−", 22, PINK)
-		fit(icon_of(ids[i]), r[0] + 66, (r[1] + r[3]) / 2.0, 40, 40)
+		fit(icon_of(id), r[0] + 66, (r[1] + r[3]) / 2.0, 40, 40)
 		text(r[0] + 92, r[3] - 18, wrap_text(p["name"], r[2] - r[0] - 100)[0], 22)
-		text(r[0] + 92, r[1] + 18, "%d만 × %d" % [p["price"], Game.cart[ids[i]]], 22, GOLD)
-	if ids.size() > CART_ROWS:
-		text(CART[0] + 14, 216, "외 %d종" % (ids.size() - CART_ROWS), 22, QUIET)
+		text(r[0] + 92, r[1] + 18, "%d만 × %d" % [p["price"], Game.cart[id]], 22, GOLD)
+	if ids.size() > CART_ROWS:   # 스크롤: ▲▼ 버튼 · 마우스 휠, 오른쪽에 위치 막대
+		text(CART[0] + 14, 216, "%d~%d / %d종" % [cart_top + 1, cart_top + CART_ROWS, ids.size()], 22, QUIET)
+		button(BTN_CUP, "▲", VIOLET if cart_top > 0 else DIM)
+		button(BTN_CDOWN, "▼", VIOLET if cart_top < ids.size() - CART_ROWS else DIM)
+		var top_y: float = cart_row(0)[3]
+		var bot_y: float = cart_row(CART_ROWS - 1)[1]
+		var h: float = (top_y - bot_y) * CART_ROWS / ids.size()
+		var y0: float = top_y - (top_y - bot_y - h) * cart_top / (ids.size() - CART_ROWS) - h
+		box([CART[2] - 8, bot_y, CART[2] - 4, top_y], Color8(40, 32, 70))
+		box([CART[2] - 8, y0, CART[2] - 4, y0 + h], PINK)
 	var total := Game.cart_total()
 	text(CART[0] + 14, 172, "합계 %d만" % total, 22, GOLD)
 	text(CART[0] + 14, 132, "가게 돈 %d만" % Game.money, 22, INK if Game.money >= total else PINK)
@@ -277,3 +295,18 @@ func draw() -> void:
 	top_bar("shop")
 	if toast != "":
 		text(336, 36, toast, 22, PINK)
+
+
+func clamp_cart() -> void:
+	cart_top = clampi(cart_top, 0, maxi(0, Game.cart.size() - CART_ROWS))
+
+
+func scroll_cart(d: int) -> void:
+	cart_top += d
+	clamp_cart()
+
+
+## 마우스 휠: 장바구니 위에서 굴리면 스크롤
+func wheel(x: float, y: float, d: int) -> void:
+	if inside(x, y, CART):
+		scroll_cart(d)

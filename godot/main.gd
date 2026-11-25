@@ -166,6 +166,10 @@ func _input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton:
 		if ev.button_index == MOUSE_BUTTON_LEFT:
 			held_down = ev.pressed
+		if ev.pressed and ev.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			if top().has_method("wheel"):
+				top().wheel(mouse.x, mouse.y, -1 if ev.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
+			return
 		if ev.pressed and Rules.inside(mouse.x, mouse.y, BTN_MUTE):
 			toggle_mute()
 		elif ev.pressed and stack.size() == 1 and top() in [modes["shop"], modes["desk"], modes["build"], modes["wire"]] and Rules.inside(mouse.x, mouse.y, [0, 648, 440, 720]):
