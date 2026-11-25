@@ -398,7 +398,9 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 
 	var post := pc.post()
 	var boot: String = "ok" if post[0] == 4 else post[1]
-	var pc_s: float = 0.0 if boot != "ok" else max(0.0, 20.0 - 8 * max(0, req["perf"] - pc.stars()))
+	var pc_s: float = 0.0
+	if boot == "ok":   # 손님 용도(FPS · 렌더 · 빌드 · 조용함) 목표 달성률
+		pc_s = Bench.run(Bench.parts_of(pc), req["use"])["points"] if req.has("use") else max(0.0, 20.0 - 8 * max(0, req["perf"] - pc.stars()))
 	var syn := synergies(placed, pc)
 	var wire := wiring_score(cables, placed)
 

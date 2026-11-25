@@ -72,6 +72,27 @@ func _initialize() -> void:
 	var hs := {"id": "headset", "layer": "desk", "x": 400}
 	Rules.mount_pos(hs)
 	ok(Rules.rect_of(hs)[3] > Rules.DESK_Y and Rules.rect_of(hs)[3] < Rules.DESK_Y + 20 and not Rules.edge_fits([hs], "headset", 420), "헤드셋 → 책상 모서리 걸이, 겹치지 않게")
+	# 성능 테스트: 병목 · 발열 · 소음 · 고치는 방법
+	var all := func(_p): return true
+	var fps144 := {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144}
+	var weak_cpu := Bench.run({"CPU": "cpu1", "GPU": "gpu3", "RAM": ["ram2", "ram2"], "COOLER": "cool2", "CASE": "case2", "MB": "mb1"}, fps144)
+	ok(weak_cpu["limit"] == "CPU" and not weak_cpu["ok"] and weak_cpu["value"] < 144, "CPU 병목: 비싼 그래픽카드도 소용없음")
+	var fixed := Bench.fix({"CPU": "cpu1", "GPU": "gpu3", "RAM": ["ram2", "ram2"], "COOLER": "cool2", "CASE": "case2", "MB": "mb1"}, fps144, all)
+	ok(fixed.get("type") == "CPU" and fixed["value"] >= 144, "고치는 방법: CPU 바꾸기")
+	var basic := func(p): return not p.has("line")   # 업그레이드 전 가게
+	var stream := {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144, "stream": true}
+	var swap := Bench.fix({"CPU": "cpu1", "GPU": "gpu3", "RAM": ["ram2", "ram2"], "COOLER": "cool2", "CASE": "case3", "MB": "mb1"}, stream, basic)
+	ok(swap.get("type") == "CPU" and DB.PARTS[swap["id"]]["socket"] == "LGA" and swap["mb"] != "", "소켓이 다르면 보드까지 같이 추천 %s" % [swap])
+	var hot := Bench.run({"CPU": "cpu3", "GPU": "gpu2", "RAM": ["ram2", "ram2"], "COOLER": "cool1", "CASE": "case1"}, fps144)
+	ok(hot.get("shutdown", false) and not hot["ok"], "쿨러가 턱없이 모자라면 과열로 꺼짐")
+	var warm := Bench.run({"CPU": "cpu2", "GPU": "gpu2", "RAM": ["ram2", "ram2"], "COOLER": "cool1", "CASE": "case1"}, fps144)
+	ok(warm["cpu_temp"] >= 90 and warm["cpu_temp"] < 100 and warm["notes"].any(func(n): return n.contains("뜨거워")), "쿨러 조금 부족 → 스로틀링")
+	var quiet := {"kind": "office", "quiet": 30}
+	ok(not Bench.run({"CPU": "cpu1", "GPU": "gpu1", "RAM": ["ram2"], "COOLER": "cool1", "CASE": "case2"}, quiet)["ok"] and Bench.run({"CPU": "cpu1", "GPU": "gpu1", "RAM": ["ram2"], "COOLER": "cool2", "CASE": "case2"}, quiet)["ok"], "기본 쿨러는 시끄러움")
+	ok(Bench.run({"CPU": "cpu5", "GPU": "gpu2", "RAM": ["ram3", "ram3"], "COOLER": "cool2", "CASE": "case2"}, {"kind": "render", "min": 8})["ok"], "렌더 8분")
+	for req in DB.REQUESTS:   # 모든 손님 목표는 예산 안에서 달성 가능해야 함
+		var u: Dictionary = req["use"]
+		ok(u["kind"] == "office" or Bench.run({"CPU": "cpu3" if u["kind"] != "game" else "cpu5", "GPU": "gpu6", "RAM": ["ram3", "ram3"], "COOLER": "cool3", "CASE": "case3"}, u)["ratio"] >= 1.0, "달성 가능: " + req["customer"])
 	ok(Rules.adjacent(lamp, book) and Rules.fits_at(placed, "mug", "desk", book["x"] + 20, Rules.DESK_Y, book), "인접 · 자기 자리 무시")
 	ok(Rules.drop_target("frame", 500, 100) == null and Rules.drop_target("mug", 10, 300) == ["desk", Rules.AREA_X1, Rules.DESK_Y], "놓을 자리")
 
@@ -97,7 +118,7 @@ func _initialize() -> void:
 	var syn := Rules.synergies(placed, good)
 	ok("독서 콤보" in syn and "균형 조명" in syn and syn.size() == 2, "시너지 %s" % [syn])
 	var r := Rules.score(dev, placed, good, wired)
-	ok(r["parts"]["필수 · 금지"] == 25 and r["parts"]["PC 성능"] == 20 and r["parts"]["배선"] == 15 and r["total"] == 96 and r["stars"] == 3, "채점 %s" % [r])
+	ok(r["parts"]["필수 · 금지"] == 25 and r["parts"]["PC 성능"] == 19 and r["parts"]["배선"] == 15 and r["total"] == 95 and r["stars"] == 3, "채점 (기본 쿨러라 빌드가 목표보다 1.5초 느림) %s" % [r])
 	ok("케이블" in Rules.score(dev, placed, good, [])["line"], "선 안 꽂음")
 	Rules.place_slot(placed, "lamp_cool", "desk", 6)
 	var bad := Rules.score(dev, placed, PCBuild.full({"psu": "psu1"}), wired)

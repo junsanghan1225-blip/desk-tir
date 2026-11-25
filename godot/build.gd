@@ -13,6 +13,7 @@ const ROW_TOP := 600
 const CASE_AREA := [290, 70, 900, 636]
 const PSU_BAY := [306, 84, 520, 196]
 const BTN_POST := [930, 70, 1270, 116]
+const BTN_BENCH := [930, 6, 1270, 62]
 const PER := 14
 const BTN_PREV := [14, 70, 64, 100]
 const BTN_NEXT := [206, 70, 256, 100]
@@ -147,6 +148,10 @@ func placed_at(x: float, y: float) -> Array:
 func down(x: float, y: float, right: bool) -> void:
 	var pc := Game.pc
 	if tabs(x, y):
+		return
+	if inside(x, y, BTN_BENCH):
+		sfx("click")
+		m.modes["bench"].open()
 		return
 	if inside(x, y, BTN_POST):
 		post = pc.post()
@@ -393,7 +398,8 @@ func draw_side() -> void:
 		["전원선", pc.has("PSU") and pc.cable_targets().all(func(c): return c == "front" or pc.cables.has(c))], ["전원 버튼선", pc.cables.has("front")]]
 	for i in steps.size():
 		text(x0, 584 - i * 21, ("●  " if steps[i][1] else "○  ") + steps[i][0], 15, GREEN if steps[i][1] else QUIET)
-	text(x0, 344, "성능 %d  %s  (요구 %s)" % [pc.perf(), "★".repeat(pc.stars()) if pc.stars() else "-", "★".repeat(Game.request()["perf"])], 16, CYAN)
+	var b := Bench.run(Bench.parts_of(pc), Game.request().get("use", {}))
+	text(x0, 344, "예상 " + Bench.short(b), 22, GREEN if b["ok"] else GOLD)
 	text(x0, 316, "전력 %dW / %sW" % [pc.watt(), pc.capacity() if pc.capacity() else "?"], 16, PINK if pc.capacity() and pc.watt() > pc.capacity() else INK)
 	var extra := []
 	if pc.dual_channel():
@@ -417,6 +423,7 @@ func draw_side() -> void:
 		text(x0, 154, post[1].left(22), 15, GREEN if stage == 4 else PINK)
 		text(x0, 132, post[1].substr(22), 15, GREEN if stage == 4 else PINK)
 	button(BTN_POST, "전원 테스트", GOLD)
+	button(BTN_BENCH, "성능 테스트", CYAN)
 
 
 func draw_inventory() -> void:

@@ -88,6 +88,8 @@ class Request extends Mode:
 		for i in lines.size():
 			text(460, 550 - i * 56, "\"%s\"" % lines[i] if i == 0 else lines[i], 24)
 		text(460, 380, "예산은 %d만 원 정도 생각하고 있어요." % req["budget"], 20, GOLD)
+		if req.has("use"):
+			text(420, 290, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
 		text(420, 200, "무엇을 원하는지 말 속에서 찾아보세요.", 18, QUIET)
 		text(420, 120, "화면을 눌러 주문 받기 → 쇼핑으로", 18, DIM)
 
@@ -113,7 +115,10 @@ class Result extends Mode:
 			wanted.append("꼭 필요: %s %d개" % ["/".join(r["any"].map(func(i): return DB.ITEMS[i]["name"])), r["count"]])
 		if not req["forbidden"].is_empty():
 			wanted.append("싫어함: " + ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])))
-		wanted.append("PC 성능: " + "★".repeat(req["perf"]) + " 이상")
+		if req.has("use"):
+			wanted.append("성능: " + Bench.short(Bench.run(Bench.parts_of(Game.pc), req["use"])) + "  (" + Bench.describe(req["use"]) + ")")
+		else:
+			wanted.append("PC 성능: " + "★".repeat(req["perf"]) + " 이상")
 
 	func down(_x: float, _y: float, _right: bool) -> void:
 		m.go("request" if Game.next_customer() else "day_end")
@@ -259,13 +264,13 @@ class Product extends Mode:
 			return ["놓는 곳  %s" % Rules.LAYER_NAMES[p["layer"]], "연결  " + conn, "분위기  " + " · ".join(p["tags"].map(func(t): return DB.THEME_NAMES[t]))]
 		var rows: Array
 		match p["type"]:
-			"CASE": rows = ["보드 %s까지" % p["mb_max"], "그래픽카드 %dmm까지" % p["gpu_max"], "쿨러 높이 %dmm까지" % p["cooler_max"]]
+			"CASE": rows = ["보드 %s까지 · 공기 흐름 %s" % [p["mb_max"], ["", "약함", "보통", "좋음"][p["airflow"]]], "그래픽카드 %dmm까지" % p["gpu_max"], "쿨러 높이 %dmm까지" % p["cooler_max"]]
 			"MB": rows = ["소켓 %s · %s" % [p["socket"], p["size"]], "RAM 슬롯 %d개 · M.2 1개" % p["ram_slots"], "뒷면 USB %d개 · 오디오 2개" % p["usb"]]
-			"CPU": rows = ["소켓 %s" % p["socket"], "성능 %d · 발열 %dW" % [p["perf"], p["watt"]]]
-			"COOLER": rows = ["%dW까지 식힘" % p["tdp"], "높이 %dmm" % p["height"]]
+			"CPU": rows = ["%d코어 · %.1fGHz · 소켓 %s" % [p["cores"], p["ghz"], p["socket"]], "게임 %dfps까지 · 멀티 점수 %d" % [p["game"], p["mt"]], "발열 %dW (쿨러가 버텨야 함)" % p["watt"]]
+			"COOLER": rows = ["%dW까지 식힘 · 소음 +%ddB" % [p["tdp"], p["noise"]], "높이 %dmm" % p["height"]]
 			"SSD": rows = ["용량 %s" % p["capacity"], "M.2 슬롯에 장착 · 없으면 부팅 불가"]
-			"GPU": rows = ["성능 %d · 전력 %dW" % [p["perf"], p["watt"]], "길이 %dmm · DP %d개" % [p["length"], p["dp"]], "보조 전원선 %d개 필요" % p["pcie"]]
-			"RAM": rows = ["성능 +%d" % p["perf"], "같은 RAM 2장이면 듀얼 채널"]
+			"GPU": rows = ["1080p %dfps · VRAM %dGB" % [p["fps"], p["vram"]], "전력 %dW · 길이 %dmm · DP %d개" % [p["watt"], p["length"], p["dp"]], "보조 전원선 %d개 필요" % p["pcie"]]
+			"RAM": rows = ["%dGB (게임은 16GB 이상)" % p["gb"], "같은 RAM 2장이면 듀얼 채널"]
 			_: rows = ["용량 %dW" % p["capacity"], "그래픽카드 전원선 %d개" % p["pcie"]]
 		return ["종류  " + TYPE_NAMES[p["type"]]] + rows
 
@@ -433,6 +438,8 @@ class Pause extends Mode:
 			for i in lines.size():
 				text(BOX[0] + 30, BOX[3] - 116 - i * 30, "\"%s\"" % lines[i], 17)
 			text(BOX[0] + 30, BOX[3] - 116 - lines.size() * 30, "예산 %d만 원" % req["budget"], 16, GOLD)
+			if req.has("use"):
+				text(BOX[0] + 30, BOX[3] - 146 - lines.size() * 30, Bench.describe(req["use"]), 22, CYAN)
 		for i in BUTTONS.size():
 			button(btn_rect(i), BUTTONS[i][1], PINK if i == 0 else VIOLET)
 
@@ -499,3 +506,96 @@ class Album extends Mode:
 		button(BTN_NEXT, "▶", VIOLET)
 		text(600, 40, "%d / %d" % [page + 1, pages()], 16, QUIET)
 		button(BTN_BACK, "돌아가기", PINK)
+
+
+class BenchView extends Mode:
+	## 성능 테스트 결과 (조립 화면 위): 막대 두 개로 'CPU 한계 vs 그래픽카드 한계', 짧은 쪽이 발목.
+	## 숫자를 몰라도 되게 쉬운 말 + 가장 싸게 고치는 방법을 같이 보여 준다.
+	const BOX := [120, 40, 1160, 676]
+	const BTN_CLOSE := [960, 56, 1144, 116]
+	const BAR_X := 470.0
+	const BAR_W := 600.0
+	var t0 := 0
+	var r := {}
+	var fixit := {}
+
+	func _init() -> void:
+		overlay = true
+
+	func open() -> void:
+		var use: Dictionary = Game.request().get("use", {"kind": "office"})
+		r = Bench.run(Bench.parts_of(Game.pc), use)
+		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not r.get("shutdown", false) else {}
+		t0 = Time.get_ticks_msec()
+		m.push("bench")
+		sfx("boot_ok" if r["ok"] else "click")
+
+	func down(x: float, y: float, _right: bool) -> void:
+		if inside(x, y, BTN_CLOSE) or not inside(x, y, BOX):
+			m.pop()
+
+	func bar(y: float, label: String, v: float, scale: float, hot: bool, tag: String) -> void:
+		var k: float = clampf((Time.get_ticks_msec() - t0) / 1200.0, 0.0, 1.0)   # 막대가 차오르는 연출
+		text(150, y, label, 22, INK)
+		frame("ui_slot", [BAR_X, y - 22, BAR_X + BAR_W, y + 22])
+		box([BAR_X + 6, y - 14, BAR_X + 6 + (BAR_W - 12) * min(1.0, v / scale) * k, y + 14], PINK if hot else CYAN)
+		text(BAR_X + 12, y, tag, 22, Color.WHITE)
+
+	func draw() -> void:
+		dim()
+		panel(BOX, true)
+		var use: Dictionary = Game.request().get("use", {"kind": "office"})
+		text(150, 630, "성능 테스트", 33, PINK)
+		text(150, 588, "손님 요구: " + Bench.describe(use), 22, CYAN)
+		button(BTN_CLOSE, "닫기", VIOLET)
+		var done: bool = Time.get_ticks_msec() - t0 > 1300
+		var y := 520.0
+		if r.get("shutdown", false) or r["value"] == 0.0 and r["kind"] != "office":
+			for line in wrap_text(r["notes"][0] if not r["notes"].is_empty() else "", 980):
+				text(150, y, line, 22, PINK)
+				y -= 34
+			return
+		match r["kind"]:
+			"game":
+				var scale: float = max(r["target"] * 1.4, max(r["cpu_fps"], r["gpu_fps"]))
+				bar(520, "CPU가 낼 수 있는", r["cpu_fps"], scale, r["limit"] == "CPU", "%dfps" % r["cpu_fps"] + ("  ← 발목" if r["limit"] == "CPU" else ""))
+				bar(456, "그래픽카드가 낼 수 있는", r["gpu_fps"], scale, r["limit"] != "CPU", "%dfps" % r["gpu_fps"] + ("  ← 발목" if r["limit"] != "CPU" else ""))
+				var tx: float = BAR_X + 6 + (BAR_W - 12) * r["target"] / scale
+				box([tx - 2, 420, tx + 2, 552], GOLD)   # 목표선
+				text(tx - 40, 404, "목표 %d" % r["target"], 22, GOLD)
+			"render", "code":
+				var scale: float = max(r["value"], r["target"]) * 1.3
+				bar(520, "걸리는 시간 (짧을수록 좋음)", r["value"], scale, not r["ok"], Bench.value_text(r))
+				var tx: float = BAR_X + 6 + (BAR_W - 12) * r["target"] / scale
+				box([tx - 2, 484, tx + 2, 552], GOLD)
+				text(tx - 40, 468, "목표 " + {"render": "%d분", "code": "%d초"}[r["kind"]] % r["target"], 22, GOLD)
+			_:
+				text(150, 520, "켜지기만 하면 되는 손님이에요. 조용한지만 확인해요.", 22, INK)
+		if not done:
+			text(150, 360, "테스트 중" + ".".repeat(int((Time.get_ticks_msec() - t0) / 250) % 4), 33, QUIET)
+			return
+		var verdict := ("✓ 목표 달성!" if r["ok"] else "✗ 목표에 못 미쳐요")
+		text(150, 360, ("결과 " + Bench.value_text(r) + "   " if r["kind"] != "office" else "") + verdict, 33, GREEN if r["ok"] else PINK)
+		var hot_c: bool = r["cpu_temp"] >= 90
+		var hot_g: bool = r["gpu_temp"] >= 85
+		var loud: bool = use.has("quiet") and r["noise"] > use["quiet"]
+		text(150, 310, "CPU %d°C" % r["cpu_temp"], 22, PINK if hot_c else INK)
+		text(340, 310, "그래픽카드 %d°C" % r["gpu_temp"], 22, PINK if hot_g else INK)
+		text(620, 310, "소음 %ddB" % r["noise"] + (" (기준 %d)" % use["quiet"] if use.has("quiet") else ""), 22, PINK if loud else INK)
+		var ny := 264.0
+		for n in r["notes"].slice(0, 3):
+			for line in wrap_text("· " + n, 980):
+				text(150, ny, line, 22, QUIET)
+				ny -= 30
+		if fixit.is_empty() and not r["ok"]:
+			for line in wrap_text("한 부품만 바꿔서는 어려워요. 막대가 짧은 쪽(발목)부터 더 좋은 부품으로 바꿔 보세요. 가게를 업그레이드하면 고급 부품도 팔아요.", 980):
+				text(150, ny - 10, line, 22, GOLD)
+				ny -= 30
+		if not fixit.is_empty():
+			var p: Dictionary = DB.PARTS[fixit["id"]]
+			var after := Bench.value_text({"kind": r["kind"], "value": fixit["value"]})
+			var what: String = {"CPU": "CPU", "GPU": "그래픽카드", "RAM": "RAM", "COOLER": "쿨러", "CASE": "케이스"}[fixit["type"]]
+			var with_mb: String = " + %s" % DB.PARTS[fixit["mb"]]["name"] if fixit.get("mb", "") != "" else ""
+			for line in wrap_text("추천: %s을(를) %s%s(%d만)으로 바꾸면 %s → 목표 달성" % [what, p["name"], with_mb, fixit["cost"], after], 980):
+				text(150, ny - 10, line, 22, GOLD)
+				ny -= 30
