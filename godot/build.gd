@@ -28,6 +28,10 @@ var toast := ""
 var post: Array = []   # 마지막 전원 테스트 [단계, 메시지]
 var page := 0
 var tool := ""         # "" = 손(끌어 꽂기) · "driver"
+var seat := {}         # 덜 꽂힌 것: "RAM0"~"RAM3" · "GPU" · "SSD" · 선 이름 → 눌러서 끝까지 (딸깍)
+var press := {}        # 키 → 누른 시각 (쑥 들어가고 딸깍 연출)
+const SEAT_MS := 240.0
+const SEAT_SFX := {"GPU": "latch", "SSD": "snap", "24pin": "push"}   # RAM은 걸쇠 두 번(latch), 나머지 선은 snap
 var spin := {}         # 나사 키 -> 돌리기 시작한 시각 (돌아가는 연출)
 var showcase := false  # 완성 모습 보는 중
 
@@ -216,6 +220,19 @@ func down(x: float, y: float, right: bool) -> void:
 		showcase = true
 		sfx("boot_ok" if pc.boots() else "click")
 		return
+	prune_seat()
+	if not seat.is_empty() and (inside(x, y, BTN_BENCH) or inside(x, y, BTN_POST) or inside(x, y, BTN_DIAG)):
+		toast = "덜 꽂힌 곳을 눌러 끝까지 (딸깍)"
+		sfx("error")
+		return
+	for k in seat.keys():   # 손맛: 들뜬 부품 · 선을 눌러 끝까지 밀어 넣기
+		if tool == "" and not right and inside(x, y, grow(seat_rect(k), 6)):
+			seat.erase(k)
+			press[k] = Time.get_ticks_msec()
+			sfx(SEAT_SFX.get(k, "latch" if k.begins_with("RAM") else "snap"))
+			toast = "딸깍! 끝까지 들어갔어요"
+			post = []
+			return
 	if inside(x, y, BTN_BENCH):
 		sfx("click")
 		m.modes["bench"].open()
@@ -261,6 +278,7 @@ func down(x: float, y: float, right: bool) -> void:
 		if pc.has("CASE" if c == "front" else "PSU") and inside(x, y, psu_port(c)):
 			if right:
 				pc.cables.erase(c)
+				seat.erase(c)
 			elif c in pc.cable_targets():
 				held = ["cable", c]
 				toast = ""
@@ -343,6 +361,9 @@ func up(x: float, y: float) -> void:
 		if inside(x, y, grow(socket_rect(h[1]), 16)):
 			toast = pc.plug(h[1])
 			sfx("plug" if toast == "" else "error")
+			if toast == "":
+				seat[h[1]] = true
+				toast = "반쯤 꽂혔어요 → 커넥터를 눌러 딸깍"
 		return
 	var key: String = h[1]
 	var pid := pid_of(key)
@@ -363,6 +384,7 @@ func up(x: float, y: float) -> void:
 		Game.used.remove_at(int(key.substr(1)))
 		pc.place_used(e, slot)
 		sfx("place")
+		mark_seat(pid, slot)
 		toast = "중고 %s (%s) 장착" % [DB.PARTS[pid]["name"], used_label(e)]
 	elif DB.PARTS[pid]["price"] > Game.money_left():
 		toast = "손님 예산을 넘어요!"
@@ -371,6 +393,86 @@ func up(x: float, y: float) -> void:
 	else:
 		pc.place(pid, slot)
 		sfx("place")
+		mark_seat(pid, slot)
+
+
+## 끼운 직후엔 반쯤 걸쳐 있음 → 눌러야 딸깍 (RAM · 그래픽카드 · M.2)
+func mark_seat(pid: String, slot: int) -> void:
+	var t: String = DB.PARTS[pid]["type"]
+	if t == "RAM":
+		seat["RAM%d" % slot] = true
+	elif t in ["GPU", "SSD"]:
+		seat[t] = true
+	if seat.size() > 0 and toast == "":
+		toast = "반쯤 걸쳤어요 → 눌러서 딸깍"
+
+
+func prune_seat() -> void:   # 빼거나 손님이 바뀌면 지움
+	var pc := Game.pc
+	for k in seat.keys():
+		var ok: bool = (pc.ram[int(k.right(1))] != "") if k.begins_with("RAM") else pc.has(k) if k in ["GPU", "SSD"] else pc.cables.has(k)
+		if not ok:
+			seat.erase(k)
+
+
+func seat_rect(k: String) -> Array:
+	if k.begins_with("RAM"):
+		return ram_rect(int(k.right(1)))
+	if k == "GPU":
+		return gpu_rect()
+	if k == "SSD":
+		return ssd_rect()
+	return grow(socket_rect(k), 10)
+
+
+## 들뜬 높이(px): 덜 꽂혔으면 최대, 누르면 쑥 내려가고 살짝 튕김
+func lift(k: String) -> float:
+	var top := 9.0 if k in CABLE_NAMES else 12.0
+	if seat.has(k):
+		return top + 1.5 * sin(Time.get_ticks_msec() / 160.0)   # 살짝 들썩여서 '눌러 줘' 신호
+	if press.has(k):
+		var t: float = (Time.get_ticks_msec() - press[k]) / SEAT_MS
+		if t < 1.0:
+			return top * (1.0 - t) * (1.0 - t) - (2.0 * sin(t * PI) if t > 0.6 else 0.0)
+	return 0.0
+
+
+## 선이 빠져나오는 방향 (보드 오른쪽 소켓은 옆으로, 나머지는 위로)
+func out_dir(c: String) -> Vector2:
+	return Vector2(1, 0) if c in ["24pin", "front"] else Vector2(0, 1)
+
+
+func shifted(r: Array, d: Vector2) -> Array:
+	return [r[0] + d.x, r[1] + d.y, r[2] + d.x, r[3] + d.y]
+
+
+## 덜 꽂힌 곳: 하늘색 테두리가 깜빡 + 아래 화살표
+func draw_seat_hints() -> void:
+	if seat.is_empty() or tool != "":
+		return
+	var a := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 200.0)
+	for k in seat:
+		var r := grow(seat_rect(k), 4)
+		outline(r, Color(CYAN.r, CYAN.g, CYAN.b, a), 2)
+		var c := center(r)
+		poly([Vector2(c.x - 8, r[3] + 18), Vector2(c.x + 8, r[3] + 18), Vector2(c.x, r[3] + 6)], Color(1, 1, 1, a))
+
+
+## 딸깍 순간: 반짝 선 4개 + '딸깍' 글자가 떠오름
+func draw_clicks() -> void:
+	var now := Time.get_ticks_msec()
+	for k in press.keys():
+		var t: float = (now - press[k]) / 1000.0
+		if t > 0.7:
+			press.erase(k)
+			continue
+		if t < SEAT_MS / 1000.0 * 0.6:
+			continue
+		var c := center(seat_rect(k))
+		var a := clampf(1.0 - t / 0.7, 0.0, 1.0)
+		for d in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
+			line(c + d * (10 + t * 30), c + d * (18 + t * 40), Color(1, 1, 1, a), 2)
+		text(c.x - 20, c.y + 24 + t * 40, "딸깍", 22, Color(1, 1, 0.7, a))
 
 
 # ---------- 그리기 ----------
@@ -415,14 +517,21 @@ func draw_parts() -> void:
 		if pc.paste and not pc.has("COOLER"):
 			put("inb_paste", cpu_rect())
 	if pc.has("SSD"):
-		put("inb_ssd", ssd_rect())
+		put("inb_ssd", shifted(ssd_rect(), Vector2(0, lift("SSD"))))
 	if pc.has("COOLER"):
 		put("inb_" + DB.look(pc.parts["COOLER"]), cooler_rect())
 	for i in 4:
 		if pc.ram[i] != "":
-			put("inb_" + DB.look(pc.ram[i]), ram_rect(i))
+			var k := "RAM%d" % i
+			var up := lift(k)
+			put("inb_" + DB.look(pc.ram[i]), shifted(ram_rect(i), Vector2(0, up)))
+			var rr := ram_rect(i)   # 양 끝 흰 걸쇠: 들떠 있으면 바깥으로 벌어짐, 끝까지 들어가면 딸깍 닫힘
+			var open := up > 3.0
+			for e in [[rr[1] - 2, -1.0], [rr[3] + 2, 1.0]]:
+				var y0: float = e[0]
+				box([rr[0] - (5 if open else 1), y0 - 4 + (e[1] * 4 if open else 0.0), rr[2] + (5 if open else 1), y0 + 4 + (e[1] * 4 if open else 0.0)], Color8(232, 230, 240) if not open else Color8(190, 188, 200))
 	if pc.has("GPU"):
-		put("inb_" + DB.look(pc.parts["GPU"]), gpu_rect())
+		put("inb_" + DB.look(pc.parts["GPU"]), shifted(gpu_rect(), Vector2(0, lift("GPU"))))
 		for i in pc.spec("GPU")["pcie"]:
 			box(socket_rect("pcie%d" % i), Color8(20, 20, 28))
 			outline(socket_rect("pcie%d" % i), Color8(90, 90, 100))
@@ -449,7 +558,7 @@ func cable_color(c: String) -> Color:
 
 func cable_start(c: String) -> Vector2:
 	var r := psu_port(c)
-	return Vector2((r[0] + r[2]) / 2.0, r[3]) if c == "front" else Vector2(r[2], (r[1] + r[3]) / 2.0)
+	return Vector2((r[0] + r[2]) / 2.0, r[3]) if c == "front" else Vector2(r[0] + text_w(CABLE_NAMES[c], 22) + 24, (r[1] + r[3]) / 2.0)   # 이름 글자 바로 오른쪽 플러그에서 출발
 
 
 func draw_cables() -> void:
@@ -457,15 +566,69 @@ func draw_cables() -> void:
 	box(FRONT_SRC, Color8(60, 50, 100) if pc.cables.has("front") else DARK)   # 케이스 앞면 전원 버튼선 출발점
 	outline(FRONT_SRC, CYAN if "front" in pc.cable_targets() else DIM)
 	text(FRONT_SRC[0] + 4, 98, "버튼선", 11)
-	for c in pc.cables:   # 파워 포트 → 오른쪽 통로 → 소켓 높이 → 소켓 (실제 선 정리처럼 꺾인 선)
+	if not pc.cables.is_empty():   # 보드 옆 고무 선정리 구멍 (선이 뒤로 돌아 나옴)
+		var gx: float = mb_rect()[2] + 18
+		box([gx, mb_rect()[1] + 20, gx + 44, mb_rect()[3] - 20], Color8(14, 12, 20))
+		outline([gx, mb_rect()[1] + 20, gx + 44, mb_rect()[3] - 20], Color8(50, 46, 62), 2)
+	for c in pc.cables:   # 파워 포트 → 오른쪽 통로 → 소켓 높이 → 소켓 (실제 선 정리처럼, 모서리는 둥글게)
 		var r := socket_rect(c)
 		var a := cable_start(c)
 		var b := center(r)
-		var lane: float = mb_rect()[2] + 22 + CABLE_NAMES.keys().find(c) * 9
-		polyline([a, Vector2(lane, a.y), Vector2(lane, b.y), b], cable_color(c), 3)
-		box(r, Color8(24, 20, 30))   # 커넥터
-		outline(r, cable_color(c))
-		box([r[0] + 2, r[1] + 2, r[0] + 6, r[3] - 2], cable_color(c))
+		var lane: float = mb_rect()[2] + 24 + CABLE_NAMES.keys().find(c) * 9
+		var d := out_dir(c) * lift(c)   # 반쯤 꽂혔으면 커넥터가 빠져나와 있음
+		real_cable(c, [a, Vector2(lane, a.y), Vector2(lane, b.y + d.y), b + d])
+		plug(shifted(r, d), c)
+		if c != "front":
+			var pr := psu_port(c)
+			plug([a.x - 14, pr[1] + 3, a.x, pr[3] - 3], "psu")   # 모듈러 파워 쪽 플러그
+
+
+## 실제 선처럼: 24핀은 굵은 검은 슬리브, 8핀은 노랑 · 검정 가닥, 버튼선은 가는 색선 다발. 모서리는 둥글게.
+func real_cable(c: String, pts: Array) -> void:
+	var path := round_path(pts, 14.0)
+	match c:
+		"24pin":
+			polyline(path, Color8(90, 86, 104), 15)   # 어두운 배경에서도 보이게 테두리
+			polyline(path, Color8(22, 20, 28), 12)
+			polyline(path, Color8(52, 48, 62), 2)   # 슬리브 결
+		"front":
+			for k in 3:
+				var off := Vector2(k * 3 - 3, k * 3 - 3)
+				polyline(path.map(func(p): return p + off), [Color8(230, 230, 236), Color8(220, 70, 70), Color8(40, 40, 48)][k], 2)
+		_:   # CPU 8핀 · GPU 8핀: 노랑(12V) + 검정(GND) 가닥
+			polyline(path, Color8(90, 86, 104), 11)
+			polyline(path, Color8(22, 20, 28), 8)
+			polyline(path.map(func(p): return p + Vector2(-2, 2)), Color8(220, 180, 60), 2)
+			polyline(path.map(func(p): return p + Vector2(2, -2)), Color8(60, 56, 70), 2)
+
+
+## 꺾인 선의 모서리를 둥글게 (모서리마다 작은 곡선 점 추가)
+func round_path(pts: Array, rad: float) -> Array:
+	var out := [pts[0]]
+	for i in range(1, pts.size() - 1):
+		var p: Vector2 = pts[i]
+		var a: Vector2 = p + (pts[i - 1] - p).limit_length(rad)
+		var b: Vector2 = p + (pts[i + 1] - p).limit_length(rad)
+		for t in 5:
+			var u := t / 4.0
+			out.append(a.lerp(p, u).lerp(p.lerp(b, u), u))
+	out.append(pts[-1])
+	return out
+
+
+## 커넥터 머리: 검은 하우징 + 걸쇠 + 핀 구멍 줄
+func plug(r: Array, c: String) -> void:
+	var h := grow(r, 3)
+	box(h, Color8(16, 14, 20))
+	outline(h, Color8(70, 66, 84), 2)
+	var tall: bool = (r[3] - r[1]) > (r[2] - r[0])
+	var n: int = {"24pin": 12, "cpu8": 4, "front": 5}.get(c, 4)
+	for k in n:
+		var t: float = (k + 0.5) / n
+		var pt := Vector2(lerpf(r[0], r[2], 0.5), lerpf(r[1], r[3], t)) if tall else Vector2(lerpf(r[0], r[2], t), lerpf(r[1], r[3], 0.5))
+		box([pt.x - 2, pt.y - 2, pt.x + 2, pt.y + 2], Color8(40, 38, 50))
+	if c != "front":   # 딸깍 걸쇠
+		box([h[2] - 2, (h[1] + h[3]) / 2.0 - 5, h[2] + 3, (h[1] + h[3]) / 2.0 + 5] if tall else [(h[0] + h[2]) / 2.0 - 5, h[3] - 2, (h[0] + h[2]) / 2.0 + 5, h[3] + 3], Color8(70, 66, 84))
 
 
 ## 손가락 · 마우스를 올린 자리의 이름
@@ -652,6 +815,8 @@ func draw() -> void:
 		draw_parts()
 		draw_cables()
 		draw_screws()
+		draw_seat_hints()
+		draw_clicks()
 	draw_inventory()
 	draw_side()
 	draw_drag()

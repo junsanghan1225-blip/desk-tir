@@ -94,6 +94,12 @@ func photo(name: String) -> void:
 
 ## 납품: 책상 사진을 찍고 결과 화면으로
 func deliver() -> void:
+	var b = modes["build"]
+	b.prune_seat()
+	if not b.seat.is_empty():   # 덜 꽂힌 부품 · 선이 있으면 납품 전에 조립 화면으로
+		b.toast = "덜 꽂힌 곳을 눌러 끝까지 (딸깍)"
+		go("build")
+		return
 	await photo("day%d_%d" % [Game.day, Game.order_index + 1])
 	sfx("photo")
 	go("trial")

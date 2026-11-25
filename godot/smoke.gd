@@ -123,6 +123,12 @@ func run() -> void:
 	for c in Game.pc.cable_targets():
 		drag(b.psu_port(c), b.socket_rect(c))
 	tap(b.BTN_POST)
+	check(b.post.is_empty() and "덜 꽂힌" in b.toast, "덜 꽂힌 채로는 전원 테스트 안 됨")
+	await shot("8a_seat")
+	for k in b.seat.keys():   # 손맛: 들뜬 부품 · 선을 눌러 딸깍
+		tap(b.seat_rect(k))
+	check(b.seat.is_empty())
+	tap(b.BTN_POST)
 	check(b.post[0] == 3 and "SSD" in b.post[1], "나사 안 조이면 SSD 들뜸: %s" % [b.post])
 	screw_all(b)
 	check(Game.pc.loose().is_empty(), "나사 다 조임 %s %s" % [Game.pc.screws, b.screw_points()])
@@ -144,7 +150,9 @@ func run() -> void:
 	screw_all(b)
 	for c in Game.pc.cable_targets():
 		drag(b.psu_port(c), b.socket_rect(c))
-	check(Game.pc.boots())
+	for k in b.seat.keys():
+		tap(b.seat_rect(k))
+	check(Game.pc.boots() and b.seat.is_empty())
 
 	tap(b.tab_rect(3))
 	on("wire")
