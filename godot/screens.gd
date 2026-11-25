@@ -55,8 +55,9 @@ class News extends Mode:
 		panel([120, 180, 1160, 310], true)
 		text(150, 270, d["news"], 22)
 		text(150, 222, d["hint"], 17, GOLD)
-		text(120, 130, "가게 돈 %d만 원  ·  가게 레벨 %d  ·  오늘 손님 %d명" % [Game.money, Game.level(), Game.todays_requests().size()], 17, QUIET)
-		text(120, 80, "화면을 눌러 가게 열기", 18, DIM)
+		text(120, 150, "오늘의 목표: %s  (+%d만)" % [Game.daily()[0], Game.daily()[1]], 22, GREEN)
+		text(120, 110, "가게 돈 %d만 원  ·  가게 레벨 %d  ·  오늘 손님 %d명" % [Game.money, Game.level(), Game.todays_requests().size()], 17, QUIET)
+		text(120, 66, "화면을 눌러 가게 열기", 18, DIM)
 
 
 class Request extends Mode:
@@ -159,6 +160,8 @@ class Result extends Mode:
 		text(640, 430, "손님이 사실 원했던 것", 18, PINK)
 		for j in wanted.size():
 			text(640, 395 - j * 34, wanted[j], 17)
+		if not Game.new_achv.is_empty():
+			text(640, 100, "업적 달성! " + ", ".join(Game.new_achv.map(func(k): return "%s +%d만" % [Game.ACHV[k][0], Game.ACHV[k][2]])), 22, GOLD)
 		text(120, 100, "화면을 눌러 다음 손님 받기" if Game.order_index + 1 < Game.todays_requests().size() else "화면을 눌러 영업 마감", 18, DIM)
 
 
@@ -169,8 +172,13 @@ class DayEnd extends Mode:
 	func up_rect(i: int) -> Array:
 		return [120 + i * 420, 110, 520 + i * 420, 200]
 
+	var daily_paid := 0
+
 	func enter() -> void:
 		toast = ""
+		daily_paid = Game.claim_daily()
+		if daily_paid:
+			sfx("star")
 
 	func down(x: float, y: float, _right: bool) -> void:
 		if inside(x, y, BTN_NEXT):
@@ -227,6 +235,8 @@ class DayEnd extends Mode:
 			text(820, y, "%d만" % row["cost"], 20, Color8(200, 192, 240))
 			text(990, y, "%+d만" % mg, 20, GREEN if mg >= 0 else PINK)
 		text(160, 285, "오늘 마진 %+d만 원   ·   가게 돈 %d만 원" % [total, Game.money], 22, CYAN)
+		var dd := Game.daily()
+		text(700, 222, ("✓ 오늘의 목표 달성 +%d만" % dd[1]) if Game.stats.has("daily%d" % Game.day) else "✗ 오늘의 목표: " + dd[0], 22, GREEN if Game.stats.has("daily%d" % Game.day) else QUIET)
 		text(120, 222, "가게 업그레이드", 18, PINK)
 		var ids := DB.UPGRADES.keys()
 		for i in ids.size():
@@ -414,13 +424,13 @@ class Boot extends Mode:
 class Pause extends Mode:
 	## 일시정지 (ll 버튼 · ESC · 안드로이드 뒤로). 주문 중이면 손님이 한 말을 다시 보여 준다.
 	const BOX := [340, 140, 940, 600]
-	const BUTTONS := [["resume", "계속하기"], ["title", "타이틀로"], ["quit", "게임 종료"]]
+	const BUTTONS := [["resume", "계속하기"], ["dex", "도감 · 업적"], ["title", "타이틀로"], ["quit", "게임 종료"]]
 
 	func _init() -> void:
 		overlay = true
 
 	func btn_rect(i: int) -> Array:
-		var y := 330 - i * 64
+		var y := 360 - i * 56
 		return [440, y - 46, 840, y]
 
 	func in_order() -> bool:
@@ -432,6 +442,7 @@ class Pause extends Mode:
 				sfx("click")
 				match BUTTONS[i][0]:
 					"resume": m.pop()
+					"dex": m.push("dex")
 					"title": m.go("title")
 					_: m.get_tree().quit()
 
@@ -537,6 +548,8 @@ class BenchView extends Mode:
 		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
 		for e in Game.pc.used.values():   # 테스트하면 꽂힌 중고 부품의 진짜 상태가 보임
 			e["known"] = true
+			if e["paid"] > 0 and e["cond"] < 40:
+				Game.stats["scammed"] = 1
 		t0 = Time.get_ticks_msec()
 		m.push("bench")
 		sfx("boot_ok" if r["ok"] else "click")
@@ -744,3 +757,114 @@ class Trial extends Mode:
 				text(56, y, ln, 22, INK)
 				y -= 30
 			text_c([380, 60, 1240, 110], "누르면 결과 보기", 22, QUIET)
+
+
+class Dex extends Mode:
+	## 도감: 고친 고장(증상 · 단서 · 고치는 법), 납품에 써 본 부품, 업적
+	const TABS3 := ["고장", "부품", "업적"]
+	const BTN_BACK := [12, 648, 172, 714]
+	var tab := 0
+	var sel := 0
+
+	func tab_r(i: int) -> Array:
+		return [200 + i * 240, 648, 430 + i * 240, 714]
+
+	func fault_row(i: int) -> Array:
+		return [20, 572 - i * 56, 440, 622 - i * 56]
+
+	func part_cell(i: int) -> Array:
+		var x := 20 + (i % 8) * 155
+		var y := 630 - (i / 8 + 1) * 102
+		return [x, y + 4, x + 148, y + 100]
+
+	func parts_all() -> Array:
+		var ids := DB.PARTS.keys()
+		ids.sort_custom(func(a, b): return DB.PARTS[a]["type"] + str(DB.PARTS[a]["price"]).pad_zeros(4) < DB.PARTS[b]["type"] + str(DB.PARTS[b]["price"]).pad_zeros(4))
+		return ids
+
+	func down(x: float, y: float, _right: bool) -> void:
+		if inside(x, y, BTN_BACK):
+			m.pop()
+			return
+		for i in 3:
+			if inside(x, y, tab_r(i)):
+				tab = i
+				sel = 0
+				sfx("click")
+				return
+		if tab == 0:
+			for i in PCBuild.FAULTS.size():
+				if inside(x, y, fault_row(i)):
+					sel = i
+		elif tab == 1:
+			for i in parts_all().size():
+				if inside(x, y, part_cell(i)):
+					sel = i
+
+	func count(prefix: String) -> int:
+		return Game.dex.keys().filter(func(k): return k.begins_with(prefix)).size()
+
+	func draw() -> void:
+		box([0, 0, 1280, H], BG)
+		frame("ui_panel", [-12, BAR, 1292, H + 12])
+		button(BTN_BACK, "◀ 닫기", VIOLET)
+		var labels := ["고장 %d/%d" % [count("f:"), PCBuild.FAULTS.size()], "부품 %d/%d" % [count("p:"), DB.PARTS.size()], "업적 %d/%d" % [Game.achv.size(), Game.ACHV.size()]]
+		for i in 3:
+			frame("ui_button", tab_r(i), CYAN if i == tab else Color8(80, 66, 140))
+			text_c(tab_r(i), labels[i], 22, Color.WHITE if i == tab else QUIET)
+		match tab:
+			0: draw_faults()
+			1: draw_parts()
+			2: draw_achv()
+
+	func draw_faults() -> void:
+		var keys := PCBuild.FAULTS.keys()
+		for i in keys.size():
+			var on: bool = Game.dex.has("f:" + keys[i])
+			frame("ui_button", fault_row(i), PINK if i == sel else Color8(60, 50, 110))
+			text(fault_row(i)[0] + 16, fault_row(i)[1] + 25, (PCBuild.FAULT_INFO[keys[i]][0] if on else "???") + "  " + "★".repeat(PCBuild.FAULTS[keys[i]]), 22, INK if on else DIM)
+		var k: String = keys[sel]
+		panel([460, 20, 1260, 622], true)
+		if not Game.dex.has("f:" + k):
+			text(500, 560, "아직 고쳐 본 적 없는 고장이에요", 33, QUIET)
+			text(500, 500, "수리 의뢰에서 고치면 기록돼요", 22, DIM)
+			return
+		var info: Array = PCBuild.FAULT_INFO[k]
+		text(500, 570, info[0], 33, PINK)
+		var y := 500.0
+		for row in [["증상", info[1], INK], ["단서", info[2], CYAN], ["고치기", info[3], GOLD]]:
+			text(500, y, row[0], 22, QUIET)
+			for ln in wrap_text(row[1], 600):
+				text(620, y, ln, 22, row[2])
+				y -= 34
+			y -= 24
+
+	func draw_parts() -> void:
+		var ids := parts_all()
+		for i in ids.size():
+			var r := part_cell(i)
+			var on: bool = Game.dex.has("p:" + ids[i])
+			frame("ui_slot", r, PINK if i == sel else Color.WHITE)
+			if on:
+				fit(icon_of(ids[i]), (r[0] + r[2]) / 2.0, r[1] + 58, 80, 56)
+			else:
+				text_c(r, "?", 33, DIM)
+			text_c([r[0], r[1] + 2, r[2], r[1] + 30], wrap_text(DB.PARTS[ids[i]]["name"], 140)[0] if on else "", 22, QUIET)
+		var p: Dictionary = DB.PARTS[ids[sel]]
+		if Game.dex.has("p:" + ids[sel]):
+			text(30, 70, "%s · %d만 원" % [p["name"], p["price"]], 22, GOLD)
+			text(30, 36, wrap_text(p.get("desc", ""), 1200)[0], 22, INK)
+		else:
+			text(30, 52, "납품한 PC에 넣으면 기록돼요", 22, DIM)
+
+	func draw_achv() -> void:
+		var keys := Game.ACHV.keys()
+		for i in keys.size():
+			var a: Array = Game.ACHV[keys[i]]
+			var on: bool = Game.achv.has(keys[i])
+			var r := [40, 560 - i * 66, 1240, 618 - i * 66]
+			frame("ui_slot", r, GOLD if on else Color.WHITE)
+			text(r[0] + 20, r[1] + 29, "✓" if on else "○", 22, GREEN if on else DIM)
+			text(r[0] + 70, r[1] + 29, a[0], 22, INK if on else QUIET)
+			text(r[0] + 330, r[1] + 29, a[1], 22, QUIET)
+			text(r[2] - 150, r[1] + 29, "+%d만" % a[2], 22, GOLD if on else DIM)

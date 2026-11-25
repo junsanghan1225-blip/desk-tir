@@ -144,7 +144,7 @@ func _initialize() -> void:
 	Game.cart.clear()
 	Game.placed = [{"id": "lamp_warm", "layer": "desk", "x": 306, "y": 210}]
 	var before := Game.money
-	ok(Game.settle({"stars": 2}) == [120, 12] and Game.money == before + 132 and Game.ledger[-1]["cost"] == 4, "정산")
+	ok(Game.settle({"stars": 2}) == [120, 12] and Game.money == before + 132 + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
 	ok(Game.settle({"stars": 0}) == [0, 0], "별 0개는 0원")
 	Game.history["자취 1년차 대학생"] = 3
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
@@ -199,6 +199,22 @@ func _initialize() -> void:
 	Game.pc = oldpsu
 	ok(Game.spent() == 1 + DB.PARTS["case3"]["price"] + DB.PARTS["cpu5"]["price"] + 8 + DB.PARTS["gpu3"]["price"] + DB.PARTS["psu3"]["price"] + 10 + 5, "중고는 산 값으로 계산 %d" % Game.spent())
 	Game.new_game()
+
+	# --- 도감 · 업적 · 일일 목표 ---
+	Game.new_game()
+	for q in DB.REQUESTS:
+		if q.has("repair") and q["customer"] == "동네 카페 사장님":
+			Game.day = q["day"]
+			Game.order_index = Game.todays_requests().find(q)
+	Game.ledger = []
+	Game.reset_order()
+	Game.pc.faults.clear()
+	var m0 := Game.money
+	Game.settle(Rules.score(Game.request(), [], Game.pc, []))
+	ok(Game.dex.has("f:ram_seat") and Game.dex.has("p:cpu6") and Game.achv.has("first") and "first" in Game.new_achv, "도감 · 첫 납품 업적 %s" % [Game.new_achv])
+	ok("silent" in Game.new_achv and Game.money == m0 + Game.ledger[0]["pay"] + Game.ledger[0]["tip"] + Game.new_achv.reduce(func(a, k): return a + Game.ACHV[k][2], 0), "업적 보상 (조용한 사무용 PC라 숨죽인 PC도)")
+	Game.day = 4   # 목표: 수리 의뢰 별 3개 (카페 수리는 5일차 장부지만 목표 판정만 봄)
+	ok(Game.daily()[2] == "repair3" and Game.daily_done() and Game.claim_daily() == Game.daily()[1] and Game.claim_daily() == 0, "일일 목표 보상은 한 번만")
 
 	# --- 저장 ---
 	Game.pc = PCBuild.full()
