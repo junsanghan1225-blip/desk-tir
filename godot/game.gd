@@ -15,6 +15,8 @@ static var stars_total := 0
 static var history := {}       # 손님 이름 -> 지난번 별
 static var ledger := []        # 오늘 영업 기록 {customer, stars, pay, tip, cost}
 static var order_index := 0
+static var used := []          # 중고 창고: {id, cond(실제 상태 %), paid, known, note}
+static var bought := {}        # 오늘 중고 장터에서 산 매물 키 -> true
 
 static var cart := {}
 static var placed := []
@@ -31,12 +33,14 @@ static func new_game() -> void:
 	upgrades = {}
 	stars_total = 0
 	history = {}
+	used = []
 	start_day()
 	reset_order()
 
 
 static func start_day() -> void:
 	ledger = []
+	bought = {}
 	order_index = 0
 
 
@@ -79,6 +83,12 @@ static func repair_pc() -> PCBuild:
 	if rep.is_empty():
 		return PCBuild.new()
 	var b := PCBuild.full(rep["pc"])
+	var age: int = rep.get("age", 3)   # 손님 PC는 쓴 지 몇 년 된 중고 (값 0원)
+	for t in b.parts:
+		b.used[t] = {"id": b.parts[t], "cond": rep.get("cond", {}).get(t, 100 - age * 8), "paid": 0, "known": false, "note": "손님 PC에서 뺀 부품"}
+	for i in 4:
+		if b.ram[i] != "":
+			b.used["RAM%d" % i] = {"id": b.ram[i], "cond": 100 - age * 8, "paid": 0, "known": false, "note": "손님 PC에서 뺀 부품"}
 	for f in rep["break"]:
 		b.faults[f] = true
 	return b
@@ -95,13 +105,42 @@ static func difficulty(req: Dictionary) -> int:
 	return clampi(s, 1, 3)
 
 
-## 손님이 가져온 부품 id -> 개수 (값을 안 받음)
-static func lent() -> Dictionary:
-	var out := {}
-	if request().has("repair"):
-		for id in PCBuild.full(request()["repair"]["pc"]).ids():
-			out[id] = out.get(id, 0) + 1
-	return out
+## 오늘의 중고 장터 매물 3개 (날짜로 정해짐). 판매자 말(claim)로 값이 정해지고, 진짜 상태(cond)는 꽂고 테스트해야 안다.
+static func offers() -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = day * 7919 + 13
+	var out := []
+	for k in 3:
+		var t: String = ["GPU", "PSU", "COOLER", "RAM", "SSD", "CPU"][rng.randi() % 6]
+		var ids := DB.PARTS.keys().filter(func(p): return DB.PARTS[p]["type"] == t)
+		ids.sort()
+		var id: String = ids[rng.randi() % ids.size()]
+		var cond := rng.randi_range(25, 95)
+		var lie := rng.randf() < 0.35   # 셋 중 하나는 상태를 부풀림
+		var claim: String = "거의 새것이에요" if cond >= 80 or lie else "사용감 조금 있어요" if cond >= 55 else "작동은 돼요"
+		if t == "GPU" and claim == "거의 새것이에요":
+			claim = "채굴 안 했어요, 거의 새것"
+		var rate: float = {"거의 새것이에요": 0.7, "채굴 안 했어요, 거의 새것": 0.7, "사용감 조금 있어요": 0.5, "작동은 돼요": 0.3}[claim]
+		out.append({"key": "d%d_%d" % [day, k], "id": id, "cond": cond, "claim": claim, "price": maxi(1, roundi(DB.PARTS[id]["price"] * rate))})
+	return out.filter(func(o): return not bought.has(o["key"]))
+
+
+static func buy_offer(o: Dictionary) -> bool:
+	if o["price"] > money or bought.has(o["key"]):
+		return false
+	money -= o["price"]
+	bought[o["key"]] = true
+	used.append({"id": o["id"], "cond": o["cond"], "paid": o["price"], "known": false, "note": "판매자: " + o["claim"]})
+	return true
+
+
+## 중고 되팔기: 새 값 × 상태 × 30%
+static func sell_used(i: int) -> int:
+	var e: Dictionary = used[i]
+	var v: int = maxi(1, roundi(price_of(e["id"]) * e["cond"] / 100.0 * 0.3))
+	money += v
+	used.remove_at(i)
+	return v
 
 
 static func unlocked(thing: Dictionary) -> bool:
@@ -179,12 +218,11 @@ static func spent() -> int:
 	var total := 0
 	for p in placed:
 		total += price_of(p["id"])
-	var free := lent()
-	for id in pc.ids():
-		if free.get(id, 0) > 0:
-			free[id] -= 1
-		else:
-			total += price_of(id)
+	for t in pc.parts:   # 중고는 산 값(손님 부품은 0원), 새것은 정가
+		total += pc.used[t]["paid"] if pc.used.has(t) else price_of(pc.parts[t])
+	for i in 4:
+		if pc.ram[i] != "":
+			total += pc.used["RAM%d" % i]["paid"] if pc.used.has("RAM%d" % i) else price_of(pc.ram[i])
 	return total
 
 
@@ -201,13 +239,7 @@ static func settle(result: Dictionary) -> Array:
 	stars_total += result["stars"]
 	history[request()["customer"]] = result["stars"]
 	ledger.append({"customer": request()["customer"], "stars": result["stars"], "pay": pay, "tip": tip, "cost": spent()})
-	var left := lent()   # 교체하고 남은 손님 헌 부품은 손님이 도로 가져감
-	for id in pc.ids():
-		if left.get(id, 0) > 0:
-			left[id] -= 1
-	for id in left:
-		stock[id] = max(0, stock.get(id, 0) - left[id])
-	return [pay, tip]
+	return [pay, tip]   # 교체하고 남은 헌 부품은 중고 창고에 남음 (손님이 처분해 달래요)
 
 
 static func next_customer() -> bool:
@@ -232,7 +264,7 @@ static func save(mode: String) -> void:
 		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(),
 			"cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
 	var d := {"mode": mode, "money": money, "day": day, "stock": stock, "upgrades": upgrades.keys(), "stars_total": stars_total,
-		"history": history, "ledger": ledger, "order_index": oi, "order": order}
+		"history": history, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -261,6 +293,8 @@ static func load_save() -> String:
 	history = d["history"]
 	ledger = d["ledger"]
 	order_index = d["order_index"]
+	used = d.get("used", [])
+	bought = d.get("bought", {})
 	reset_order()
 	if d["order"] != null:
 		cart = d["order"]["cart"]

@@ -535,6 +535,8 @@ class BenchView extends Mode:
 		r = Bench.run(Bench.parts_of(Game.pc), use)
 		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not Game.request().has("repair") else {}   # 수리는 정답을 안 알려 줌
 		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
+		for e in Game.pc.used.values():   # 테스트하면 꽂힌 중고 부품의 진짜 상태가 보임
+			e["known"] = true
 		t0 = Time.get_ticks_msec()
 		m.push("bench")
 		sfx("boot_ok" if r["ok"] else "click")
@@ -604,10 +606,16 @@ class BenchView extends Mode:
 		text(70, 646, "성능 테스트", 33, PINK)
 		text(70, 606, "손님 요구: " + Bench.describe(use), 22, CYAN)
 		button(BTN_CLOSE, "닫기", VIOLET)
-		if r.get("shutdown", false):   # 과열로 꺼짐: 빨간 온도계 하나로 바로 보이게
-			thermo(230, 150, 340, r["cpu_temp"] * k(), "CPU")
+		if r.get("shutdown", false):   # 테스트 중 꺼짐: 과열이면 빨간 온도계, 파워면 전력 막대
+			var heat: bool = r["cpu_temp"] >= 100
+			if heat:
+				thermo(230, 150, 340, r["cpu_temp"] * k(), "CPU")
+			else:
+				box([200, 150, 260, 490], Color8(30, 22, 60))
+				box([206, 156, 254, 156 + 328 * minf(1.0, k() * 1.15)], PINK)
+				text(176, 120, "파워 부하", 22, INK)
 			text(GRAPH[0], 460, "✗ 테스트 중 꺼졌어요", 33, PINK)
-			text(GRAPH[0], 410, "CPU %d°C: 쿨러가 열을 못 따라가요" % r["cpu_temp"], 22, INK)
+			text(GRAPH[0], 410, "CPU %d°C: 쿨러가 열을 못 따라가요" % r["cpu_temp"] if heat else r["notes"][0], 22, INK)
 			if not fixit.is_empty():
 				text(GRAPH[0], 360, "추천: 쿨러 → %s (%d만)" % [DB.PARTS[fixit["id"]]["name"], fixit["cost"]], 22, GOLD)
 			return

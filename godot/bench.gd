@@ -12,8 +12,11 @@ const KIND_NAMES := {"office": "문서 · 화상회의", "code": "코딩(빌드)
 ## 조립 상태 → 계산에 쓰는 부품 묶음 {CPU, GPU, COOLER, CASE: id, RAM: [id...]}
 static func parts_of(pc: PCBuild) -> Dictionary:
 	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy()}
-	for t in ["CPU", "GPU", "COOLER", "CASE", "MB"]:
+	for t in ["CPU", "GPU", "COOLER", "CASE", "MB", "PSU"]:
 		d[t] = pc.parts.get(t, "")
+	d["cond"] = {}
+	for t in ["PSU", "COOLER", "GPU"]:
+		d["cond"][t] = pc.cond_of(t)
 	return d
 
 
@@ -47,10 +50,11 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	var dual: bool = d["RAM"].size() >= 2 and d["RAM"][0] == d["RAM"][1]
 	var af: int = _s(d["CASE"], "airflow", 2) + (1 if d.get("tidy", false) else 0)   # 선 정리 = 바람길
 	var cpu_w: int = _s(d["CPU"], "watt")
-	var tdp: int = _s(d["COOLER"], "tdp", 95)
+	var cd: Dictionary = d.get("cond", {})
+	var tdp: float = _s(d["COOLER"], "tdp", 95) * (0.75 if cd.get("COOLER", 100) < 60 else 1.0)   # 낡은 쿨러: 팬 베어링 · 굳은 구리스
 	var gpu_w: int = _s(d["GPU"], "watt")
 	r["cpu_temp"] = clampi(roundi(30 + 60.0 * cpu_w / tdp - (af - 1) * 4), 30, 105)
-	r["gpu_temp"] = clampi(roundi(45 + gpu_w * 0.1 - (af - 1) * 6), 35, 100)
+	r["gpu_temp"] = clampi(roundi(45 + gpu_w * 0.1 - (af - 1) * 6), 35, 100) + (8 if cd.get("GPU", 100) < 60 else 0)
 	var f: Dictionary = d.get("faults", {})
 	r["cpu_temp"] += (25 if f.has("paste_dry") else 0) + (10 if f.has("dust") else 0) + (70 if f.has("cpu_fan") else 0)
 	r["gpu_temp"] += 10 if f.has("dust") else 0
@@ -58,13 +62,19 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	if "COOLER" in lz:   # 쿨러가 CPU에 꽉 안 붙음
 		r["cpu_temp"] += 30
 		r["notes"].append("쿨러 나사가 헐거워서 CPU가 뜨거워요 → 드라이버로 조이기")
-	r["noise"] = roundi(16 + _s(d["COOLER"], "noise", 12) + gpu_w / 40.0 + af + (7 if f.has("dust") else 0) + (4 if f.has("bloat") else 0))
+	r["noise"] = roundi((5 if cd.get("COOLER", 100) < 60 else 0) + 16 + _s(d["COOLER"], "noise", 12) + gpu_w / 40.0 + af + (7 if f.has("dust") else 0) + (4 if f.has("bloat") else 0))
 	var cpu_thr := 0.75 if r["cpu_temp"] >= 90 else 1.0
 	var gpu_thr := 0.85 if r["gpu_temp"] >= 85 else 1.0
 	if cpu_thr < 1:
 		r["notes"].append("CPU가 %d°C로 너무 뜨거워서 스스로 느려졌어요 → 더 좋은 쿨러" % r["cpu_temp"])
 	if gpu_thr < 1:
 		r["notes"].append("그래픽카드가 %d°C로 뜨거워요 → 바람이 잘 통하는 케이스" % r["gpu_temp"])
+	var psu_cap: float = _s(d.get("PSU", ""), "capacity", 9999) * (0.55 + 0.45 * cd.get("PSU", 100) / 100.0)   # 낡은 파워는 표시 용량을 못 냄
+	if cpu_w + gpu_w + 60 > psu_cap:
+		r["notes"].push_front("부하가 걸리자 파워가 버티지 못하고 꺼졌어요")
+		r["shutdown"] = true
+		r["points"] = 0.0
+		return r
 	if r["cpu_temp"] >= 100:   # 쿨러가 턱없이 모자라면 테스트 도중 꺼짐
 		r["notes"].push_front("CPU가 %d°C까지 올라가서 테스트 중에 꺼졌어요 → 쿨러를 바꿔 주세요" % r["cpu_temp"])
 		r["shutdown"] = true
@@ -83,7 +93,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 			var w: float = GENRE[use["genre"]]
 			var ram_f := 0.75 if gb < 16 else 1.0
 			var cpu_fps: float = _s(d["CPU"], "game") * w * cpu_thr * soft * ram_f * (1.05 if dual else 1.0) * (0.8 if use.get("stream", false) else 1.0)
-			var gpu_fps: float = _s(d["GPU"], "fps") * w * RES[use["res"]] * gpu_thr * (0.85 if use["res"] == "4K" and _s(d["GPU"], "vram") < 12 else 1.0)
+			var gpu_fps: float = _s(d["GPU"], "fps") * (0.88 if cd.get("GPU", 100) < 60 else 1.0) * w * RES[use["res"]] * gpu_thr * (0.85 if use["res"] == "4K" and _s(d["GPU"], "vram") < 12 else 1.0)
 			r["cpu_fps"] = roundi(cpu_fps)
 			r["gpu_fps"] = roundi(gpu_fps)
 			r["value"] = min(cpu_fps, gpu_fps)

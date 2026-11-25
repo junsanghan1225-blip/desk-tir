@@ -16,6 +16,7 @@ var paste := false
 var screws := {}               # 자리 -> [조였나, …] (끼우면 헐거운 상태로 시작, 드라이버로 하나씩 조임)
 var ties := {}                 # 케이블 타이로 묶은 전원선: 이름 -> true
 const SCREWS := {"MB": 4, "COOLER": 4, "GPU": 1, "SSD": 1, "PSU": 2}
+var used := {}                 # 중고 부품이 꽂힌 자리("GPU" · "RAM1" …) -> {id, cond(상태 %), paid(산 값), known(상태 확인함)}
 var faults := {}               # 수리 의뢰 고장: 이름 -> true (FAULTS). 손님 PC에만 있다
 
 ## 실제 수리점에서 흔한 고장. 숫자 = 찾기 어려움(난이도 점수)
@@ -109,6 +110,29 @@ func place(pid: String, ram_slot := -1) -> String:
 	return reason
 
 
+## 중고 부품을 꽂는다 (자리 규칙은 place와 같음)
+func place_used(e: Dictionary, ram_slot := -1) -> String:
+	var reason := place(e["id"], ram_slot)
+	if reason == "":
+		used[key_of(DB.PARTS[e["id"]]["type"], ram_slot)] = e
+	return reason
+
+
+static func key_of(t: String, ram_slot := -1) -> String:
+	return "RAM%d" % ram_slot if t == "RAM" else t
+
+
+## 자리별 상태 % (새것 100). RAM은 가장 나쁜 것
+func cond_of(t: String) -> int:
+	if t == "RAM":
+		var worst := 100
+		for i in 4:
+			if used.has("RAM%d" % i):
+				worst = mini(worst, used["RAM%d" % i]["cond"])
+		return worst
+	return used[t]["cond"] if used.has(t) else 100
+
+
 ## 나사 조이기 / 풀기 (드라이버). 조였으면 true
 func turn(slot: String, i: int) -> bool:
 	screws[slot][i] = not screws[slot][i]
@@ -135,12 +159,14 @@ func remove(slot: String, ram_slot := -1) -> Array:
 	var out := []
 	if slot == "RAM":
 		if ram[ram_slot] != "":
-			out.append(ram[ram_slot])
+			out.append(used.get("RAM%d" % ram_slot, ram[ram_slot]))   # 중고면 상태 정보째로 돌려줌
+			used.erase("RAM%d" % ram_slot)
 			ram[ram_slot] = ""
 		return out
 	if not has(slot):
 		return out
-	out.append(parts[slot])
+	out.append(used.get(slot, parts[slot]))
+	used.erase(slot)
 	parts.erase(slot)
 	screws.erase(slot)
 	if slot == "COOLER" and faults.erase("paste_dry"):   # 쿨러를 떼면 굳은 구리스가 보이고, 닦아 내면 새로 발라야 함
@@ -152,8 +178,8 @@ func remove(slot: String, ram_slot := -1) -> Array:
 	for child in NEEDS:
 		if NEEDS[child] == slot:
 			if child == "RAM":
-				out += ram.filter(func(r): return r != "")
-				ram = ["", "", "", ""]
+				for i in 4:
+					out += remove("RAM", i)
 			else:
 				out += remove(child)
 	var ok := cable_targets()
@@ -262,6 +288,8 @@ func post() -> Array:
 		if faults.has("boot_order"):
 			return [3, "'부팅 장치를 찾을 수 없음' 글자만 떠요"]
 		return [3, "BOOT 불이 켜졌어요 (부팅 장치 없음 · SSD)"]
+	if cond_of("SSD") < 30:
+		return [3, "부팅이 한참 걸리다가 멈춰요"]
 	if "SSD" in loose():
 		return [3, "BOOT 불이 켜졌어요 (SSD가 들떠 있어요 · 나사)"]
 	return [4, "부팅 성공!" + (" 단, 쿨러가 약해서 성능이 떨어져요" if throttled() else "")]
@@ -285,7 +313,7 @@ static func level_of(fs: Array) -> int:
 
 
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "faults": faults.keys(), "screws": screws, "ties": ties.keys()}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -307,6 +335,7 @@ static func from_dict(d: Dictionary) -> PCBuild:
 				b.screws[t].fill(true)
 	for c in d.get("ties", []):
 		b.ties[c] = true
+	b.used = d.get("used", {})
 	return b
 
 

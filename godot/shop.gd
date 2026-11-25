@@ -15,6 +15,7 @@ var cat := "screen"
 var part_type := "CASE"
 var page := 0
 var toast := ""
+var pending := ""   # 중고 매물: 한 번 더 누르면 구매
 
 
 func enter() -> void:
@@ -32,7 +33,16 @@ func products() -> Array:
 	else:
 		ids = DB.ITEMS.keys().filter(func(i): return DB.ITEMS[i]["cat"] == cat)
 	ids.sort_custom(func(a, b): return _key(a) < _key(b))
+	if cat == "parts":   # 오늘의 중고 매물을 맨 앞에
+		var os := Game.offers()
+		for k in os.size():
+			if DB.PARTS[os[k]["id"]]["type"] == part_type:
+				ids.push_front("o%d" % k)
 	return ids
+
+
+func offer(key: String) -> Dictionary:
+	return Game.offers()[int(key.substr(1))]
 
 
 func pages() -> int:
@@ -91,6 +101,17 @@ func down(x: float, y: float, right: bool) -> void:
 	var shown := visible()
 	for i in shown.size():
 		if inside(x, y, card_rect(i)):
+			if shown[i].begins_with("o"):   # 중고: 바로 거래 (환불 없음)
+				var o := offer(shown[i])
+				if pending == o["key"]:
+					var ok := Game.buy_offer(o)
+					toast = "중고 %s 샀어요 → 조립 탭 재고" % DB.PARTS[o["id"]]["name"] if ok else "가게 돈이 모자라요"
+					sfx("buy" if ok else "error")
+					pending = ""
+				else:
+					pending = o["key"]
+					toast = "한 번 더 누르면 %d만에 구매 (환불 안 돼요)" % o["price"]
+				return
 			if right:
 				var added := Game.add_to_cart(shown[i])
 				toast = "%s 담음" % DB.spec(shown[i])["name"] if added else "업그레이드가 필요해요"
@@ -134,7 +155,27 @@ func short_spec(id: String) -> String:
 	return "선 %d개" % p["pcie"]
 
 
+func draw_offer(i: int, key: String) -> void:
+	var r := card_rect(i)
+	var o := offer(key)
+	var p: Dictionary = DB.PARTS[o["id"]]
+	panel(r, pending == o["key"])
+	var img := [r[0] + 10, r[1] + 10, r[0] + 120, r[3] - 10]
+	frame("ui_slot", img, GOLD)
+	fit(icon_of(o["id"]), (img[0] + img[2]) / 2.0, (img[1] + img[3]) / 2.0, 96, img[3] - img[1] - 16)
+	box([img[0], img[3] - 34, img[0] + 64, img[3]], PINK)
+	text(img[0] + 8, img[3] - 17, "중고", 22, Color.WHITE)
+	var tx: float = r[0] + 132
+	text(tx, r[3] - 26, wrap_text(p["name"], r[2] - tx - 10)[0], 22, INK)
+	text(tx, r[3] - 58, "%d만 · 새 %d만" % [o["price"], p["price"]], 22, GOLD)
+	for k in mini(3, wrap_text("\"%s\"" % o["claim"], r[2] - tx - 10).size()):
+		text(tx, r[3] - 92 - k * 28, wrap_text("\"%s\"" % o["claim"], r[2] - tx - 10)[k], 22, QUIET)
+
+
 func draw_card(i: int, id: String) -> void:
+	if id.begins_with("o"):
+		draw_offer(i, id)
+		return
 	var r := card_rect(i)
 	var p := DB.spec(id)
 	var locked := not Game.unlocked(p)

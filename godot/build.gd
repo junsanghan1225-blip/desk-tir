@@ -65,8 +65,8 @@ func gpu_rect() -> Array:
 	var length := 280
 	if Game.pc.has("GPU"):
 		length = Game.pc.spec("GPU")["length"]
-	elif held.size() == 2 and held[0] == "part" and DB.PARTS[held[1]]["type"] == "GPU":
-		length = DB.PARTS[held[1]]["length"]
+	elif held.size() == 2 and held[0] == "part" and DB.PARTS[pid_of(held[1])]["type"] == "GPU":
+		length = DB.PARTS[pid_of(held[1])]["length"]
 	var b := mb_rect()
 	return [b[0] + 10, b[1] + 4, b[0] + 10 + int(length * 1.25), b[1] + 64]
 
@@ -184,7 +184,18 @@ func inv_all() -> Array:
 	var out := []
 	for t in ORDER:
 		out += DB.PARTS.keys().filter(func(p): return DB.PARTS[p]["type"] == t and Game.stock.get(p, 0) > 0)
+	for i in Game.used.size():   # 중고 창고 (손님이 두고 간 헌 부품 · 장터에서 산 것)
+		out.append("u%d" % i)
 	return out
+
+
+## 재고 줄 키 → 부품 id ("u3" = 중고 3번)
+func pid_of(key: String) -> String:
+	return Game.used[int(key.substr(1))]["id"] if key.begins_with("u") else key
+
+
+func used_label(e: Dictionary) -> String:
+	return "%d%%" % e["cond"] if e["known"] else "상태?"
 
 
 func inv_ids() -> Array:
@@ -264,6 +275,11 @@ func down(x: float, y: float, right: bool) -> void:
 	var ids := inv_ids()
 	for i in ids.size():
 		if inside(x, y, inv_row(i)):
+			if right and ids[i].begins_with("u"):   # 중고 두 번 누르기 = 되팔기
+				var nm: String = DB.PARTS[pid_of(ids[i])]["name"]
+				toast = "중고 %s 되팔기 +%d만" % [nm, Game.sell_used(int(ids[i].substr(1)))]
+				sfx("buy")
+				return
 			held = ["part", ids[i]]
 			toast = ""
 			return
@@ -275,7 +291,10 @@ func down(x: float, y: float, right: bool) -> void:
 			return
 		var pid: String = pc.ram[hit[1]] if hit[0] == "RAM" else pc.parts[hit[0]]
 		for id in pc.remove(hit[0], hit[1]):
-			Game.give_back(id)
+			if id is Dictionary:   # 중고는 상태째로 중고 창고에
+				Game.used.append(id)
+			else:
+				Game.give_back(id)
 		post = []
 		toast = "%s을(를) 뺐어요%s" % [DB.PARTS[pid]["name"], " (위에 꽂힌 부품도 재고로)" if hit[0] in ["CASE", "MB", "CPU"] else ""]
 
@@ -299,7 +318,8 @@ func up(x: float, y: float) -> void:
 			toast = pc.plug(h[1])
 			sfx("plug" if toast == "" else "error")
 		return
-	var pid: String = h[1]
+	var key: String = h[1]
+	var pid := pid_of(key)
 	var slot := target_for(pid, x, y)
 	if slot == -2:
 		if inside(x, y, CASE_AREA):
@@ -309,7 +329,16 @@ func up(x: float, y: float) -> void:
 	if toast != "":
 		sfx("error")
 		return
-	if DB.PARTS[pid]["price"] > Game.money_left():
+	if key.begins_with("u"):
+		var e: Dictionary = Game.used[int(key.substr(1))]
+		if e["paid"] > Game.money_left():
+			toast = "손님 예산을 넘어요!"
+			return
+		Game.used.remove_at(int(key.substr(1)))
+		pc.place_used(e, slot)
+		sfx("place")
+		toast = "중고 %s (%s) 장착" % [DB.PARTS[pid]["name"], used_label(e)]
+	elif DB.PARTS[pid]["price"] > Game.money_left():
 		toast = "손님 예산을 넘어요!"
 	elif not Game.take(pid):
 		toast = "재고가 없어요"
@@ -493,7 +522,8 @@ func draw_drag() -> void:
 		outline(grow(socket_rect(held[1]), 6), CYAN, 2)
 		line(cable_start(held[1]), m.mouse, GOLD, 4)
 		return
-	var t: String = DB.PARTS[held[1]]["type"]   # 갈 수 있는 자리 미리 보기
+	var hid := pid_of(held[1])
+	var t: String = DB.PARTS[hid]["type"]   # 갈 수 있는 자리 미리 보기
 	var zones := []
 	if t == "RAM":
 		for i in pc.ram_slots():
@@ -502,11 +532,11 @@ func draw_drag() -> void:
 	else:
 		zones.append([-1, zone(t)])
 	for z in zones:
-		var reason := pc.check(held[1], z[0])
+		var reason := pc.check(hid, z[0])
 		outline(grow(z[1], 4), CYAN if reason == "" else PINK, 2)
 		if reason != "" and inside(x, y, grow(z[1], 20)):
 			text(x + 20, y - 30, reason, 14, PINK)
-	fit(icon_of(held[1]), x, y, 56, 56)
+	fit(icon_of(hid), x, y, 56, 56)
 
 
 func draw_side() -> void:
@@ -569,11 +599,18 @@ func draw_inventory() -> void:
 		text(92, 85, "%d/%d" % [page + 1, (total - 1) / PER + 1], 13, QUIET)
 	for i in ids.size():
 		var r := inv_row(i)
-		var p: Dictionary = DB.PARTS[ids[i]]
+		var pid := pid_of(ids[i])
+		var p: Dictionary = DB.PARTS[pid]
 		var cy: float = (r[1] + r[3]) / 2.0
-		fit(icon_of(ids[i]), r[0] + 16, cy, 28, 26)
-		text(r[0] + 36, cy, p["name"], 16)
-		text(r[2] - 34, cy, "x%d" % Game.stock[ids[i]], 16, CYAN)
+		fit(icon_of(pid), r[0] + 16, cy, 28, 26)
+		if ids[i].begins_with("u"):
+			var e: Dictionary = Game.used[int(ids[i].substr(1))]
+			box([r[0], r[1], r[0] + 4, r[3]], GOLD)
+			text(r[0] + 36, cy, wrap_text(p["name"], r[2] - r[0] - 110)[0], 16, GOLD)
+			text(r[2] - 64, cy, used_label(e), 16, (GREEN if e["cond"] >= 60 else PINK) if e["known"] else QUIET)
+		else:
+			text(r[0] + 36, cy, wrap_text(p["name"], r[2] - r[0] - 80)[0], 16)
+			text(r[2] - 34, cy, "x%d" % Game.stock[ids[i]], 16, CYAN)
 
 
 func draw() -> void:

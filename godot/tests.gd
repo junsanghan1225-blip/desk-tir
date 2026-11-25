@@ -37,7 +37,7 @@ func _initialize() -> void:
 		b.screws[t].fill(true)
 	ok(b.boots() and b.throttled() and b.perf() == 4 + 1 + 3 - 3, "부팅 · 쓰로틀링 · 성능 %d" % b.perf())
 	var out := b.remove("MB")
-	out.sort()
+	out.sort()   # 새 부품은 id 문자열로 돌아옴
 	ok(out == ["cool1", "cpu2", "gpu1", "mb2", "ram1", "ssd1"] and b.cables.is_empty() and not b.paste, "보드를 빼면 위의 것도 다 빠짐")
 	var good := PCBuild.full()
 	ok(good.boots() and good.dual_channel() and good.perf() == 13, "기본 완성 PC 성능 13: %d" % good.perf())
@@ -172,11 +172,32 @@ func _initialize() -> void:
 		fixes[q["customer"]].call(Game.pc)
 		var rs := Rules.score(q, [], Game.pc, [])
 		ok(rs["stars"] == 3 and Game.spent() <= q["budget"], "수리 후 %s %s 비용 %d" % [q["customer"], rs, Game.spent()])
-	Game.stock = {"ram2": 0}
-	Game.give_back("ram2")   # 손님 RAM을 빼 둔 채 정산하면 손님이 가져감
-	Game.pc.ram[0] = ""
-	Game.settle({"stars": 3})
-	ok(Game.stock["ram2"] == 0, "손님 헌 부품 반환")
+	var old: Dictionary = Game.pc.remove("RAM", 1)[0]   # 손님 헌 RAM은 상태째로 나옴 → 중고 창고에 남아 다음에 씀
+	ok(old["id"] == "ram2" and old["paid"] == 0 and old["cond"] < 100, "손님 헌 부품 %s" % [old])
+
+	# --- 중고 · 노후화 ---
+	Game.new_game()
+	Game.money = 999
+	var os := Game.offers()
+	ok(os.size() == 3 and Game.offers() == os, "오늘 매물 3개 (날짜로 고정)")
+	ok(Game.buy_offer(os[0]) and Game.used.size() == 1 and Game.offers().size() == 2 and Game.money == 999 - os[0]["price"], "중고 구매")
+	var lie_seen := false
+	for dd in range(1, 40):   # 판매자 말과 실제 상태가 다른 매물이 있어야 '모르면 손해'
+		Game.day = dd
+		for o in Game.offers():
+			lie_seen = lie_seen or (o["claim"].contains("새것") and o["cond"] < 55)
+	ok(lie_seen, "상태를 부풀린 매물")
+	var oldpsu := PCBuild.full({"case": "case3", "cpu": "cpu5", "mb": "mb1", "cooler": "cool2", "gpu": "gpu3", "psu": "psu3"})
+	var fps_use := {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144}
+	ok(not Bench.run(Bench.parts_of(oldpsu), fps_use).get("shutdown", false), "새 파워는 버팀")
+	oldpsu.used["PSU"] = {"id": "psu3", "cond": 25, "paid": 4, "known": false}
+	ok(Bench.run(Bench.parts_of(oldpsu), fps_use).get("shutdown", false), "낡은 파워(25%)는 부하에 꺼짐")
+	oldpsu.used["COOLER"] = {"id": "cool2", "cond": 40, "paid": 1, "known": false}
+	oldpsu.used.erase("PSU")
+	var worn := Bench.run(Bench.parts_of(oldpsu), fps_use)
+	ok(worn["cpu_temp"] > Bench.run(Bench.parts_of(PCBuild.full({"case": "case3", "cpu": "cpu5", "mb": "mb1", "cooler": "cool2", "gpu": "gpu3", "psu": "psu3"})), fps_use)["cpu_temp"], "낡은 쿨러는 더 뜨거움")
+	Game.pc = oldpsu
+	ok(Game.spent() == 1 + DB.PARTS["case3"]["price"] + DB.PARTS["cpu5"]["price"] + 8 + DB.PARTS["gpu3"]["price"] + DB.PARTS["psu3"]["price"] + 10 + 5, "중고는 산 값으로 계산 %d" % Game.spent())
 	Game.new_game()
 
 	# --- 저장 ---
