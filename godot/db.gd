@@ -52,5 +52,10 @@ static func tex(name: String) -> Texture2D:
 	return _tex[name]
 
 
+## 그림이 따로 없는 확장 부품은 비슷한 부품 그림을 빌려 씀 (parts.json "look")
+static func look(id: String) -> String:
+	return PARTS[id].get("look", id) if PARTS.has(id) else id
+
+
 static func size_of(name: String) -> Vector2i:
 	return Vector2i(tex(name).get_size())

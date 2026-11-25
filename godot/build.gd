@@ -283,8 +283,20 @@ func down(x: float, y: float, right: bool) -> void:
 			held = ["part", ids[i]]
 			toast = ""
 			return
+	if tool == "" and inside(x, y, CASE_AREA):   # 손으로 나사를 눌러도 드라이버로 조여 줌
+		for s in screw_points():
+			if Vector2(x, y).distance_to(s[2]) < 18:
+				tool = "driver"
+				use_tool(x, y)
+				tool = ""
+				return
 	var hit := placed_at(x, y)
 	if right and not hit.is_empty():   # 빼기는 두 번 누르기만 (실수로 조립이 풀리지 않게)
+		var kids := pc.blockers(hit[0])
+		if not kids.is_empty():   # 위에 꽂힌 부품부터 (케이스 · 보드를 통째로 빼서 조립이 날아가지 않게)
+			toast = "%s부터 빼 주세요" % ", ".join(kids.map(func(k): return TYPE_NAMES[k]))
+			sfx("error")
+			return
 		if pc.tight(hit[0]) > 0:
 			toast = "나사 %d개를 먼저 풀어요 (드라이버)" % pc.tight(hit[0])
 			sfx("error")
@@ -296,7 +308,7 @@ func down(x: float, y: float, right: bool) -> void:
 			else:
 				Game.give_back(id)
 		post = []
-		toast = "%s을(를) 뺐어요%s" % [DB.PARTS[pid]["name"], " (위에 꽂힌 부품도 재고로)" if hit[0] in ["CASE", "MB", "CPU"] else ""]
+		toast = "%s을(를) 뺐어요" % DB.PARTS[pid]["name"]
 
 
 func up(x: float, y: float) -> void:
@@ -372,7 +384,7 @@ func draw_board() -> void:
 		outline(b, DIM)
 		text(b[0] + 110, (b[1] + b[3]) / 2.0, "메인보드 자리", 18, DIM)
 		return
-	put("inb_" + pc.parts["MB"], b)
+	put("inb_" + DB.look(pc.parts["MB"]), b)
 	var l := lever_rect()   # 소켓 레버: 열리면 위로 선다
 	if pc.lever_open:
 		box([l[0] + 5, l[3], l[2] - 5, l[3] + 56], Color8(216, 216, 224))
@@ -391,12 +403,12 @@ func draw_parts() -> void:
 	if pc.has("SSD"):
 		put("inb_ssd", ssd_rect())
 	if pc.has("COOLER"):
-		put("inb_" + pc.parts["COOLER"], cooler_rect())
+		put("inb_" + DB.look(pc.parts["COOLER"]), cooler_rect())
 	for i in 4:
 		if pc.ram[i] != "":
-			put("inb_" + pc.ram[i], ram_rect(i))
+			put("inb_" + DB.look(pc.ram[i]), ram_rect(i))
 	if pc.has("GPU"):
-		put("inb_" + pc.parts["GPU"], gpu_rect())
+		put("inb_" + DB.look(pc.parts["GPU"]), gpu_rect())
 		for i in pc.spec("GPU")["pcie"]:
 			box(socket_rect("pcie%d" % i), Color8(20, 20, 28))
 			outline(socket_rect("pcie%d" % i), Color8(90, 90, 100))

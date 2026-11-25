@@ -83,7 +83,7 @@ func _initialize() -> void:
 	var fixed := Bench.fix({"CPU": "cpu1", "GPU": "gpu3", "RAM": ["ram2", "ram2"], "COOLER": "cool2", "CASE": "case2", "MB": "mb1"}, fps144, all)
 	ok(fixed.get("type") == "CPU" and fixed["value"] >= 144, "고치는 방법: CPU 바꾸기")
 	var basic := func(p): return not p.has("line")   # 업그레이드 전 가게
-	var stream := {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144, "stream": true}
+	var stream := {"kind": "game", "genre": "fps", "res": "1080p", "fps": 170, "stream": true}   # 같은 소켓(AM) 중급으론 모자람
 	var swap := Bench.fix({"CPU": "cpu1", "GPU": "gpu3", "RAM": ["ram2", "ram2"], "COOLER": "cool2", "CASE": "case3", "MB": "mb1"}, stream, basic)
 	ok(swap.get("type") == "CPU" and DB.PARTS[swap["id"]]["socket"] == "LGA" and swap["mb"] != "", "소켓이 다르면 보드까지 같이 추천 %s" % [swap])
 	var hot := Bench.run({"CPU": "cpu3", "GPU": "gpu2", "RAM": ["ram2", "ram2"], "COOLER": "cool1", "CASE": "case1"}, fps144)
@@ -234,6 +234,28 @@ func _initialize() -> void:
 	var amd := PCBuild.full({"cpu": "cpu4", "mb": "mb1"})
 	amd.remove("GPU")
 	ok(amd.post()[0] == 2 and "내장" in amd.post()[1] and not Bench.run(Bench.parts_of(amd), {"kind": "office"}).has("noise"), "내장 그래픽 없는 CPU는 그래픽카드 필요")
+
+	# --- 확장 부품 수치 ---
+	var fps144s := {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144, "stream": true}
+	var base_pc := {"CPU": "cpu2", "GPU": "gpu1", "RAM": ["ram2", "ram2"], "COOLER": "cool2", "CASE": "case2", "MB": "mb3", "PSU": "psu3"}
+	var with_enc := base_pc.duplicate()
+	with_enc["GPU"] = "gpu8"
+	ok(Bench.run(with_enc, fps144s)["cpu_fps"] > Bench.run(base_pc, fps144s)["cpu_fps"], "인코더 있는 그래픽카드는 방송 부담이 적음")
+	var weak_mb := base_pc.duplicate()
+	weak_mb["MB"] = "mb6"
+	ok(Bench.run(weak_mb, fps144s)["cpu_fps"] < Bench.run(base_pc, fps144s)["cpu_fps"] and "VRM" in " ".join(Bench.run(weak_mb, fps144s)["notes"]), "약한 보드 전원부")
+	var fast := base_pc.duplicate()
+	fast["RAM"] = ["ram6", "ram6"]
+	ok(Bench.run(fast, fps144s)["cpu_fps"] > Bench.run(base_pc, fps144s)["cpu_fps"], "빠른 RAM")
+	var fake := base_pc.duplicate()
+	fake["GPU"] = "gpu9"
+	fake["PSU"] = "psu8"
+	ok(Bench.run(fake, fps144s).get("shutdown", false), "인증 없는 700W는 부하에 꺼짐")
+	var silent := base_pc.duplicate()
+	silent["CASE"] = "case8"
+	ok(Bench.run(silent, {"kind": "office"})["noise"] <= Bench.run(base_pc, {"kind": "office"})["noise"] - 4, "방음 케이스 -4dB")
+	var bl := PCBuild.full()
+	ok(bl.blockers("MB").size() >= 4 and bl.blockers("CASE") == ["MB", "PSU"] and bl.blockers("GPU").is_empty(), "위에 꽂힌 것부터 빼기 %s" % [bl.blockers("CASE")])
 
 	# --- 저장 ---
 	Game.pc = PCBuild.full()

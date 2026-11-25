@@ -295,14 +295,14 @@ class Product extends Mode:
 			return ["놓는 곳  %s" % Rules.LAYER_NAMES[p["layer"]], "연결  " + conn, "분위기  " + " · ".join(p["tags"].map(func(t): return DB.THEME_NAMES[t]))]
 		var rows: Array
 		match p["type"]:
-			"CASE": rows = ["보드 %s까지 · 공기 흐름 %s" % [p["mb_max"], ["", "약함", "보통", "좋음"][p["airflow"]]], "그래픽카드 %dmm까지" % p["gpu_max"], "쿨러 높이 %dmm까지" % p["cooler_max"]]
-			"MB": rows = ["소켓 %s · %s" % [p["socket"], p["size"]], "RAM 슬롯 %d개 · M.2 1개" % p["ram_slots"], "뒷면 USB %d개 · 오디오 2개" % p["usb"]]
-			"CPU": rows = ["%d코어 · %.1fGHz · 소켓 %s" % [p["cores"], p["ghz"], p["socket"]] + (" · 내장 그래픽" if p.get("igpu", 0) else ""), "게임 %dfps까지 · 멀티 점수 %d" % [p["game"], p["mt"]], "발열 %dW (쿨러가 버텨야 함)" % p["watt"]]
-			"COOLER": rows = ["%dW까지 식힘 · 소음 +%ddB" % [p["tdp"], p["noise"]], "높이 %dmm" % p["height"]]
-			"SSD": rows = ["용량 %s" % p["capacity"], "M.2 슬롯에 장착 · 없으면 부팅 불가"]
-			"GPU": rows = ["1080p %dfps · VRAM %dGB" % [p["fps"], p["vram"]], "전력 %dW · 길이 %dmm · DP %d개" % [p["watt"], p["length"], p["dp"]], "보조 전원선 %d개 필요" % p["pcie"]]
-			"RAM": rows = ["%dGB (게임은 16GB 이상)" % p["gb"], "같은 RAM 2장이면 듀얼 채널"]
-			_: rows = ["용량 %dW" % p["capacity"], "그래픽카드 전원선 %d개" % p["pcie"]]
+			"CASE": rows = ["보드 %s까지 · 공기 흐름 %s" % [p["mb_max"], ["", "약함", "보통", "좋음"][p["airflow"]]] + (" · 방음 -%ddB" % p["quiet"] if p.has("quiet") else ""), "그래픽카드 %dmm까지" % p["gpu_max"], "쿨러 높이 %dmm까지" % p["cooler_max"]]
+			"MB": rows = ["소켓 %s · %s · RAM 슬롯 %d개" % [p["socket"], p["size"], p["ram_slots"]], "전원부(VRM) %dW까지 · USB %d개" % [p.get("vrm", 999), p["usb"]], "무선 Wi-Fi " + ("있음" if p.get("wifi", false) else "없음 (랜선 필요)")]
+			"CPU": rows = ["%d코어 · %.1fGHz · 캐시 %dMB · 소켓 %s" % [p["cores"], p["ghz"], p.get("cache", 16), p["socket"]], "게임 %dfps까지 · 멀티 점수 %s" % [p["game"], str(p["mt"])], "발열 %dW · 내장 그래픽 %s" % [p["watt"], "있음" if p.get("igpu", 0) else "없음 (그래픽카드 필수)"]]
+			"COOLER": rows = ["%dW까지 식힘 · 소음 +%ddB" % [p["tdp"], p["noise"]] + (" (팬 없음)" if p["noise"] == 0 else ""), "높이 %dmm (케이스 한계 확인)" % p["height"]]
+			"SSD": rows = ["용량 %s · 읽기 %dMB/s" % [p["capacity"], p.get("read", 3500)], "느린 SSD는 부팅 · 빌드가 느려요" if p.get("read", 3500) < 1000 else "M.2 슬롯에 장착 · 없으면 부팅 불가"]
+			"GPU": rows = ["1080p %dfps · VRAM %dGB" % [p["fps"], p["vram"]], "전력 %dW · 길이 %dmm · DP %d개" % [p["watt"], p["length"], p["dp"]], "보조 전원선 %d개 · 방송 인코더 %s" % [p["pcie"], "있음" if p.get("enc", false) else "없음"]]
+			"RAM": rows = ["%dGB · %dMHz" % [p["gb"], p.get("mhz", 3200)], "같은 RAM 2장이면 듀얼 채널 · 섞으면 느린 쪽 속도"]
+			_: rows = ["용량 %dW · 인증 %s" % [p["capacity"], p.get("grade", "없음")], "그래픽카드 전원선 %d개" % p["pcie"]]
 		return ["종류  " + TYPE_NAMES[p["type"]]] + rows
 
 	func down(x: float, y: float, _right: bool) -> void:

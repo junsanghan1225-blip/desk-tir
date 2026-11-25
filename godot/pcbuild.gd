@@ -129,6 +129,15 @@ func place(pid: String, ram_slot := -1) -> String:
 	return reason
 
 
+## 이 자리 위에 꽂혀 있어서 먼저 빼야 하는 부품 종류 (실제처럼 위에서부터 하나씩)
+func blockers(slot: String) -> Array:
+	var out := []
+	for child in NEEDS:
+		if NEEDS[child] == slot and (ram.any(func(r): return r != "") if child == "RAM" else has(child)):
+			out.append(child)
+	return out
+
+
 ## 중고 부품을 꽂는다 (자리 규칙은 place와 같음)
 func place_used(e: Dictionary, ram_slot := -1) -> String:
 	var reason := place(e["id"], ram_slot)

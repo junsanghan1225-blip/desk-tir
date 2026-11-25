@@ -146,13 +146,13 @@ func short_spec(id: String) -> String:
 		return " · ".join(p["tags"].map(func(t): return DB.THEME_NAMES[t]))
 	match p["type"]:
 		"CASE": return "보드 %s까지" % p["mb_max"]
-		"MB": return "%s · %s" % [p["socket"], p["size"]]
+		"MB": return "%s · %s" % [p["socket"], p["size"]] + (" · Wi-Fi" if p.get("wifi", false) else "")
 		"CPU": return "%d코어 %.1fGHz" % [p["cores"], p["ghz"]] + (" · 내장" if p.get("igpu", 0) else "")
 		"COOLER": return "%dW · 소음 %d" % [p["tdp"], p["noise"]]
 		"GPU": return "%dfps · %dGB" % [p["fps"], p["vram"]]
-		"RAM": return "%dGB" % p["gb"]
-		"SSD": return "M.2"
-	return "선 %d개" % p["pcie"]
+		"RAM": return "%dGB %dMHz" % [p["gb"], p.get("mhz", 3200)]
+		"SSD": return "%s · %dMB/s" % [p["capacity"], p.get("read", 3500)]
+	return "%dW · %s" % [p["capacity"], p.get("grade", "인증 없음")]
 
 
 func draw_offer(i: int, key: String) -> void:

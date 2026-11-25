@@ -344,7 +344,7 @@ func draw_pc() -> void:
 		put("case_empty", r)
 		text(r[0] + 30, r[3] + 18, "PC 조립 필요", 16, CYAN)
 		return
-	var body: Color = CASE_BODY.get(pc.parts["CASE"], Color8(42, 35, 80))
+	var body: Color = CASE_BODY.get(DB.look(pc.parts["CASE"]), Color8(42, 35, 80))
 	box([r[0] + 10, r[1] - 6, r[0] + 36, r[1]], Color8(10, 6, 24))   # 받침발
 	box([r[2] - 36, r[1] - 6, r[2] - 10, r[1]], Color8(10, 6, 24))
 	box(r, body)
