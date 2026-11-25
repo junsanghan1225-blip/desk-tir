@@ -512,7 +512,7 @@ class BenchView extends Mode:
 	## 성능 테스트 (조립 화면 위): 숫자를 몰라도 한눈에 — 속도계 바늘, 시간에 따른 FPS 그래프, 발목(병목) 막대, 온도계, 소음계.
 	const BOX := [40, 24, 1240, 680]
 	const BTN_CLOSE := [1060, 596, 1224, 664]
-	const GRAPH := [420, 336, 1210, 560]
+	const GRAPH := [420, 330, 1210, 540]
 	const N := 40
 	var t0 := 0
 	var r := {}
@@ -546,6 +546,30 @@ class BenchView extends Mode:
 		box([x0, y - 18, x0 + w * minf(1.0, v / scale) * k(), y + 18], PINK if hot else CYAN)
 		text(x0 + 10, y, tag, 22, Color.WHITE)
 
+	func text_c_x(cx: float, s: String) -> float:
+		return cx - text_w(s, 22) / 2.0
+
+	## 렌더 · 빌드: 시간에 따른 진행률. 목표 시간(세로 점선)보다 먼저 100%에 닿으면 성공
+	func draw_progress() -> void:
+		var g := [GRAPH[0], 220, GRAPH[2], GRAPH[3]]
+		box(g, Color8(14, 10, 32))
+		outline(g, DIM)
+		text(g[0] + 12, g[3] - 22, "진행률", 22, QUIET)
+		var tmax: float = maxf(r["value"], r["target"]) * 1.25
+		var xx := func(v: float) -> float: return g[0] + (g[2] - g[0]) * v / tmax
+		var tx: float = xx.call(r["target"])
+		for y in range(int(g[1]), int(g[3]), 24):
+			box([tx - 1.5, y, tx + 1.5, y + 12], GOLD)
+		var unit: String = {"render": "%d분", "code": "%d초"}[r["kind"]]
+		text(tx + 8, g[3] - 22, "목표 " + unit % r["target"], 22, GOLD)
+		var line_pts := []
+		for i in maxi(2, int(N * k())):
+			var tt: float = tmax * i / float(N - 1)
+			line_pts.append(Vector2(xx.call(tt), g[1] + (g[3] - g[1]) * minf(1.0, tt / r["value"])))
+		polyline(line_pts, GREEN if r["value"] <= r["target"] else PINK, 4)
+		circle(line_pts[-1].x, line_pts[-1].y, 7, Color.WHITE)
+
+
 	func draw_graph() -> void:
 		var g := GRAPH
 		box(g, Color8(14, 10, 32))
@@ -562,9 +586,8 @@ class BenchView extends Mode:
 			line_pts.append(Vector2(g[0] + (g[2] - g[0]) * i / float(N - 1), yy.call(pts[i])))
 		polyline(line_pts, GREEN if r["ok"] else PINK, 4)
 		circle(line_pts[-1].x, line_pts[-1].y, 7, Color.WHITE)
-		text(g[0], g[3] + 24, "FPS 변화 (게임 30초)", 22, QUIET)
-		var why := "  ↓ 뚝 끊김 = RAM 부족" if r.get("ram_low", false) else "  ↘ 점점 느려짐 = 과열" if r.get("throttle", false) else ""
-		text(g[0] + 260, g[3] + 24, why, 22, PINK)
+		var why := "↓ 뚝 끊김 = RAM 부족" if r.get("ram_low", false) else "↘ 점점 느려짐 = 과열" if r.get("throttle", false) else ""
+		text(g[0] + 12, g[1] + 22, why, 22, PINK)
 
 	func draw() -> void:
 		dim()
@@ -596,43 +619,36 @@ class BenchView extends Mode:
 				hbar(284, "CPU 한계", r["cpu_fps"], scale, r["limit"] == "CPU", "%dfps" % r["cpu_fps"] + ("  ← 발목" if r["limit"] == "CPU" else ""))
 				hbar(238, "그래픽카드 한계", r["gpu_fps"], scale, r["limit"] != "CPU", "%dfps" % r["gpu_fps"] + ("  ← 발목" if r["limit"] != "CPU" else ""))
 			"render", "code":
-				var scale: float = maxf(r["value"], r["target"]) * 1.3
-				hbar(500, "걸리는 시간", r["value"], scale, r["value"] > r["target"], Bench.value_text(r))
-				hbar(440, "손님 목표", r["target"], scale, false, {"render": "%d분", "code": "%d초"}[r["kind"]] % r["target"])
-				text(GRAPH[0], 380, "CPU 코어가 많을수록 짧아져요 (지금 %d코어)" % DB.PARTS[Game.pc.parts["CPU"]].get("cores", 0), 22, QUIET)
+				draw_progress()
 			_:
-				text(GRAPH[0], 500, "켜지기만 하면 되는 손님이에요.", 22, INK)
-				text(GRAPH[0], 460, "소음만 기준보다 조용하면 OK", 22, QUIET)
+				text(GRAPH[0], 520, "켜지기만 하면 되는 손님이에요.", 22, INK)
+				text(GRAPH[0], 480, "소음만 기준보다 조용하면 OK", 22, QUIET)
 		# 3) 왼쪽 아래: 온도계 2개 + 소음 막대
-		thermo(90, 70, 120, r["cpu_temp"] * kk, "CPU")
-		thermo(200, 70, 120, r["gpu_temp"] * kk, "그래픽")
+		thermo(96, 104, 104, r["cpu_temp"] * kk, "CPU")
+		thermo(216, 104, 104, r["gpu_temp"] * kk, "그래픽")
 		var q2: float = use.get("quiet", 40)
 		var loud: bool = r["noise"] > q2
-		text(286, 36, "소음", 22, INK)
+		text(text_c_x(342, "소음"), 70, "소음", 22, INK)
 		for i in 6:   # 소리 막대 (높을수록 시끄러움)
 			var on: bool = i < int(6 * minf(1.0, r["noise"] / 50.0) * kk + 0.5)
-			box([290 + i * 18, 70, 302 + i * 18, 82 + i * 18], (PINK if loud else CYAN) if on else Color8(30, 22, 60))
-		text(286, 200, "%ddB" % r["noise"], 22, PINK if loud else INK)
+			box([300 + i * 15, 104, 310 + i * 15, 116 + i * 16], (PINK if loud else CYAN) if on else Color8(30, 22, 60))
+		text(text_c_x(342, "%ddB" % r["noise"]), 220, "%ddB" % r["noise"], 22, PINK if loud else INK)
 		if kk < 1.0:
 			text(GRAPH[0], 180, "테스트 중" + ".".repeat(int((Time.get_ticks_msec() - t0) / 250) % 4), 33, QUIET)
 			return
 		# 4) 판정 + 쉬운 말 + 가장 싼 해결책
-		text(70, 240, "✓ 목표 달성!" if r["ok"] else "✗ 못 미쳐요", 33, GREEN if r["ok"] else PINK)
-		var ny := 186.0
-		for n in r["notes"].slice(0, 3):
-			for ln in wrap_text("· " + n, 800):
-				text(GRAPH[0], ny, ln, 22, QUIET)
-				ny -= 30
+		text(70, 262, "✓ 목표 달성!" if r["ok"] else "✗ 너무 시끄러워요" if r["ratio"] >= 1.0 else "✗ 목표 미달", 33, GREEN if r["ok"] else PINK)
+		var ny: float = 430.0 if r["kind"] == "office" else 160.0   # 한 줄만: 고칠 방법, 없으면 원인
 		var tip := ""
 		if not fixit.is_empty():
 			var p: Dictionary = DB.PARTS[fixit["id"]]
 			var what: String = {"CPU": "CPU", "GPU": "그래픽카드", "RAM": "RAM", "COOLER": "쿨러", "CASE": "케이스"}[fixit["type"]]
 			var with_mb: String = " + %s" % DB.PARTS[fixit["mb"]]["name"] if fixit.get("mb", "") != "" else ""
-			tip = "추천: %s → %s%s(%d만)면 %s, 목표 달성" % [what, p["name"], with_mb, fixit["cost"], Bench.value_text({"kind": r["kind"], "value": fixit["value"]})]
+			tip = "추천: %s → %s%s%s (%d만)" % [what, p["name"], " ×2" if fixit["type"] == "RAM" else "", with_mb, fixit["cost"]]
 		elif not r["ok"]:
-			tip = "한 부품만 바꿔선 어려워요. 빨간 막대(발목)부터 바꿔 보세요."
+			tip = r["notes"][0].split(" →")[0] if not r["notes"].is_empty() else "빨간 막대(발목)부터 바꿔 보세요"
 		for ln in wrap_text(tip, 800):
-			text(GRAPH[0], ny - 6, ln, 22, GOLD)
+			text(GRAPH[0], ny, ln, 22, GOLD)
 			ny -= 30
 
 
