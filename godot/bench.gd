@@ -14,6 +14,7 @@ static func parts_of(pc: PCBuild) -> Dictionary:
 	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy()}
 	for t in ["CPU", "GPU", "COOLER", "CASE", "MB", "PSU", "SSD"]:
 		d[t] = pc.parts.get(t, "")
+	d["dead_cooler"] = pc.dead("COOLER")   # 고장 난 중고 쿨러: 팬이 안 돎
 	d["cond"] = {}
 	for t in ["PSU", "COOLER", "GPU"]:
 		d["cond"][t] = pc.cond_of(t)
@@ -61,7 +62,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	r["cpu_temp"] = clampi(roundi(30 + 60.0 * cpu_w / tdp - (af - 1) * 4), 30, 105)
 	r["gpu_temp"] = clampi(roundi(45 + gpu_w * 0.1 - (af - 1) * 6), 35, 100) + (8 if cd.get("GPU", 100) < 60 else 0)
 	var f: Dictionary = d.get("faults", {})
-	r["cpu_temp"] += (25 if f.has("paste_dry") else 0) + (10 if f.has("dust") else 0) + (70 if f.has("cpu_fan") else 0)
+	r["cpu_temp"] += (25 if f.has("paste_dry") else 0) + (10 if f.has("dust") else 0) + (70 if f.has("cpu_fan") or d.get("dead_cooler", false) else 0)
 	r["gpu_temp"] += 10 if f.has("dust") else 0
 	var lz: Array = d.get("loose", [])
 	if "COOLER" in lz:   # 쿨러가 CPU에 꽉 안 붙음

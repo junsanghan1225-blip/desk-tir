@@ -107,6 +107,10 @@ class Request extends Mode:
 		text(460, 380, ("수리비는 %d만 원 드릴게요." if req.has("repair") else "예산은 %d만 원 정도 생각하고 있어요.") % req["budget"], 20, GOLD)
 		if req.has("use"):
 			text(420, 290, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
+		if req.has("used"):   # 중고 정책
+			var ok_used: bool = req["used"] == "ok"
+			frame("ui_button", [420, 228, 420 + text_w("중고도 괜찮아요" if ok_used else "새 제품만", 22) + 24, 264], GREEN if ok_used else PINK)
+			text(432, 246, "중고도 괜찮아요" if ok_used else "새 제품만", 22, Color8(20, 14, 40))
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
 		var kind := Rules.kind_of(req)
@@ -446,8 +450,9 @@ class Boot extends Mode:
 
 
 class Pause extends Mode:
-	## 일시정지 (ll 버튼 · ESC · 안드로이드 뒤로). 주문 중이면 손님이 한 말을 다시 보여 준다.
+	## 일시정지 (ll 버튼 · 왼쪽 위 손님 이름 · ESC · 안드로이드 뒤로). 주문 중이면 왼쪽에 '의뢰 메모'(핵심만 크게).
 	const BOX := [340, 140, 940, 600]
+	const MEMO := [30, 40, 780, 620]
 	const BUTTONS := [["resume", "계속하기"], ["dex", "도감 · 업적"], ["title", "타이틀로"], ["quit", "게임 종료"]]
 
 	func _init() -> void:
@@ -455,7 +460,7 @@ class Pause extends Mode:
 
 	func btn_rect(i: int) -> Array:
 		var y := 360 - i * 56
-		return [440, y - 46, 840, y]
+		return [850, y - 46, 1230, y] if in_order() else [440, y - 46, 840, y]
 
 	func in_order() -> bool:
 		return m.stack.size() > 1 and m.stack[0] in [m.modes["shop"], m.modes["desk"], m.modes["build"], m.modes["wire"]]
@@ -470,19 +475,39 @@ class Pause extends Mode:
 					"title": m.go("title")
 					_: m.get_tree().quit()
 
+	func row(y: float, label: String, value: String, c: Color) -> float:   # 이름표 + 값 (길면 줄바꿈). 다음 줄 y를 돌려줌
+		text(MEMO[0] + 30, y, label, 22, QUIET)
+		var lines: Array = wrap_text(value, MEMO[2] - MEMO[0] - 200, 33)
+		for ln in lines:
+			text(MEMO[0] + 170, y, ln, 33, c)
+			y -= 44
+		return y - 10
+
 	func draw() -> void:
 		dim()
-		panel(BOX, true)
-		text(BOX[0] + 30, BOX[3] - 40, "일시정지", 28, PINK)
-		if in_order():
+		if not in_order():
+			panel(BOX, true)
+			text(BOX[0] + 30, BOX[3] - 40, "일시정지", 28, PINK)
+		else:
 			var req := Game.request()
-			text(BOX[0] + 30, BOX[3] - 84, "%s의 주문" % req["customer"], 16, QUIET)
+			var kind := Rules.kind_of(req)
+			panel(MEMO, true)
+			text(MEMO[0] + 30, MEMO[3] - 38, "의뢰 메모  ·  " + req["customer"], 33, PINK)
+			var y: float = MEMO[3] - 100
+			var kinds := {"repair": "수리", "pc": "PC 조립", "desk": "데스크테리어", "full": "PC + 데스크"}
+			y = row(y, "종류", kinds[kind], CYAN)
+			if req.has("use") and kind != "desk":
+				y = row(y, "용도", Bench.describe(req["use"]), GOLD)
+			if req.has("used"):
+				y = row(y, "부품", "중고도 괜찮아요" if req["used"] == "ok" else "새 제품만!", GREEN if req["used"] == "ok" else PINK)
+			y = row(y, "예산", "%d만 원  (남은 %d만)" % [req["budget"], Game.money_left()], INK if Game.money_left() >= 0 else PINK)
+			text(MEMO[0] + 30, y - 6, "손님이 한 말", 22, QUIET)
 			var lines := Game.lines()
 			for i in lines.size():
-				text(BOX[0] + 30, BOX[3] - 116 - i * 30, "\"%s\"" % lines[i], 17)
-			text(BOX[0] + 30, BOX[3] - 116 - lines.size() * 30, "예산 %d만 원" % req["budget"], 16, GOLD)
-			if req.has("use"):
-				text(BOX[0] + 30, BOX[3] - 146 - lines.size() * 30, Bench.describe(req["use"]), 22, CYAN)
+				for ln in wrap_text("\"%s\"" % lines[i], MEMO[2] - MEMO[0] - 60):
+					y -= 32
+					text(MEMO[0] + 30, y - 6, ln, 22, INK)
+			text(850, 410, "일시정지", 28, PINK)
 		for i in BUTTONS.size():
 			button(btn_rect(i), BUTTONS[i][1], PINK if i == 0 else VIOLET)
 

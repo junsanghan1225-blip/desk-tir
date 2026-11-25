@@ -198,6 +198,8 @@ func pid_of(key: String) -> String:
 
 
 func used_label(e: Dictionary) -> String:
+	if e["known"] and e.get("dead", false):
+		return "고장"
 	return "%d%%" % e["cond"] if e["known"] else "상태?"
 
 
@@ -252,6 +254,10 @@ func down(x: float, y: float, right: bool) -> void:
 		return
 	if inside(x, y, BTN_POST):
 		post = pc.post()
+		if post[0] < 4:   # 안 켜지면 고장 난 중고가 들통남
+			for e in pc.used.values():
+				if e.get("dead", false) and e["paid"] > 0:
+					e["known"] = true
 		sfx("boot_ok" if post[0] == 4 else "boot_fail")
 		if post[0] == 4:
 			m.modes["boot"].open()

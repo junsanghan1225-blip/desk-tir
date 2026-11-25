@@ -180,8 +180,8 @@ func _initialize() -> void:
 	Game.new_game()
 	Game.money = 999
 	var os := Game.offers()
-	ok(os.size() == 3 and Game.offers() == os, "오늘 매물 3개 (날짜로 고정)")
-	ok(Game.buy_offer(os[0]) and Game.used.size() == 1 and Game.offers().size() == 2 and Game.money == 999 - os[0]["price"], "중고 구매")
+	ok(os.size() == 6 and Game.offers() == os, "오늘 매물 6개 (날짜로 고정)")
+	ok(Game.buy_offer(os[0]) and Game.used.size() == 1 and Game.offers().size() == 5 and Game.money == 999 - os[0]["price"], "중고 구매")
 	var lie_seen := false
 	for dd in range(1, 40):   # 판매자 말과 실제 상태가 다른 매물이 있어야 '모르면 손해'
 		Game.day = dd
@@ -271,6 +271,21 @@ func _initialize() -> void:
 	mon_a["x"] += 400
 	Rules.sync_mounts(mp)
 	ok(absf(arm_p["x"] - Rules.center_x(mon_a)) <= Rules.ARM_REACH and "모니터 암 정리" in Rules.synergies(mp, PCBuild.new()), "멀리 옮기면 집게가 미끄러져 따라옴")
+
+	# --- 고장 난 중고 · 새 제품만 손님 ---
+	var dead_seen := false
+	for dd in range(1, 30):
+		Game.day = dd
+		dead_seen = dead_seen or Game.offers().any(func(o): return o["dead"])
+	ok(dead_seen, "가끔 아예 안 되는 중고")
+	Game.day = 1
+	var dpc := PCBuild.full()
+	dpc.used["GPU"] = {"id": "gpu2", "cond": 80, "paid": 20, "known": false, "dead": true}
+	ok(dpc.post()[0] == 2 and not "고장" in dpc.post()[1], "고장 난 중고 그래픽카드: VGA 불 (원인은 안 알려 줌)")
+	var newonly: Dictionary = DB.REQUESTS.filter(func(q): return q.get("used", "") == "new")[0]
+	var upc := PCBuild.full()
+	upc.used["RAM1"] = {"id": "ram2", "cond": 90, "paid": 3, "known": true}
+	ok("새 제품만" in Rules.score(newonly, [], upc, [])["line"], "새 제품만 손님에게 중고")
 
 	# --- 저장 ---
 	Game.pc = PCBuild.full()

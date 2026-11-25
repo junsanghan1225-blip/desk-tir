@@ -150,6 +150,14 @@ static func key_of(t: String, ram_slot := -1) -> String:
 	return "RAM%d" % ram_slot if t == "RAM" else t
 
 
+## 꽂힌 중고 부품 중 아예 고장 난 게 있는지 (RAM은 어느 슬롯이든)
+func dead(t: String) -> bool:
+	for k in used:
+		if k.begins_with(t) and used[k].get("dead", false):
+			return true
+	return false
+
+
 ## 자리별 상태 % (새것 100). RAM은 가장 나쁜 것
 func cond_of(t: String) -> int:
 	if t == "RAM":
@@ -289,15 +297,19 @@ func post() -> Array:
 		return [-1, "전원이 안 들어와요 (파워 · 24핀 확인)"]
 	if not cables.has("front"):
 		return [-1, "전원 버튼을 눌러도 반응이 없어요 (케이스 전원 버튼선)"]
+	if dead("PSU") or dead("MB"):   # 고장 난 중고: 증상만
+		return [-1, "전원 버튼을 눌러도 아무 반응이 없어요"]
 	if not has("CPU") or not cables.has("cpu8"):
 		return [0, "CPU 불이 켜졌어요 (CPU · CPU 8핀 확인)"]
 	if lever_open:
 		return [0, "CPU 불이 켜졌어요 (소켓 레버가 열려 있어요)"]
 	if not has("COOLER"):
 		return [0, "켜지자마자 과열로 꺼졌어요 (쿨러 없음)"]
+	if dead("CPU"):
+		return [0, "CPU 불이 켜진 채로 멈춰요"]
 	if not paste:
 		return [0, "몇 초 뒤 과열로 꺼졌어요 (서멀 구리스 안 바름)"]
-	if faults.has("ram_seat"):
+	if faults.has("ram_seat") or dead("RAM"):
 		return [1, "팬은 도는데 화면이 안 나오고 삐— 삐 삐 소리가 나요"]
 	if ram.all(func(r): return r == ""):
 		return [1, "DRAM 불이 켜졌어요 (RAM 없음)"]
@@ -308,12 +320,12 @@ func post() -> Array:
 	for i in pcie_needed():
 		if not cables.has("pcie%d" % i):
 			return [2, "VGA 불이 켜졌어요 (그래픽카드 전원선 확인)"]
-	if faults.has("gpu_power"):
+	if faults.has("gpu_power") or dead("GPU"):
 		return [2, "팬은 도는데 화면이 안 나와요"]
 	if watt() > capacity():
 		return [3, "부팅 중 꺼졌어요 (전력 %dW > 파워 %dW)" % [watt(), capacity()]]
-	if not has("SSD") or faults.has("boot_order"):
-		if faults.has("boot_order"):
+	if not has("SSD") or faults.has("boot_order") or dead("SSD"):
+		if faults.has("boot_order") or dead("SSD"):
 			return [3, "'부팅 장치를 찾을 수 없음' 글자만 떠요"]
 		return [3, "BOOT 불이 켜졌어요 (부팅 장치 없음 · SSD)"]
 	if cond_of("SSD") < 30:

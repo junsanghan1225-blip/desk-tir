@@ -2,7 +2,7 @@ extends Mode
 ## 쇼핑 탭 (데스크몰): 카테고리 → 상품 카드 → 누르면 상세 → 장바구니 → 결제 → 영수증. 두 번 누르기 = 바로 담기.
 ## 폰 기준: 글씨 22px 이상, 누르는 곳 높이 54px 이상.
 
-const CATS := [["parts", "PC 부품"], ["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽"]]
+const CATS := [["parts", "PC 부품"], ["used", "중고"], ["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽"]]
 const PART_TYPES := [["CASE", "케이스"], ["MB", "보드"], ["CPU", "CPU"], ["COOLER", "쿨러"], ["SSD", "SSD"], ["GPU", "그래픽"], ["RAM", "RAM"], ["PSU", "파워"]]
 const PER := 6
 const CART := [956, 76, 1276, 632]
@@ -28,6 +28,8 @@ func _key(id: String) -> int:
 
 func products() -> Array:
 	var ids: Array
+	if cat == "used":   # 오늘의 중고 매물 전부
+		return range(Game.offers().size()).map(func(k): return "o%d" % k)
 	if cat == "parts":
 		ids = DB.PARTS.keys().filter(func(p): return DB.PARTS[p]["type"] == part_type)
 	else:
@@ -65,7 +67,7 @@ func card_rect(i: int) -> Array:
 
 
 func cat_rect(i: int) -> Array:
-	return [12 + i * 116, 572, 122 + i * 116, 632]
+	return [12 + i * 104, 572, 110 + i * 104, 632]
 
 
 func sub_rect(i: int) -> Array:
@@ -168,7 +170,8 @@ func draw_offer(i: int, key: String) -> void:
 	var tx: float = r[0] + 132
 	text(tx, r[3] - 26, wrap_text(p["name"], r[2] - tx - 10)[0], 22, INK)
 	text(tx, r[3] - 58, "%d만 · 새 %d만" % [o["price"], p["price"]], 22, GOLD)
-	for k in mini(3, wrap_text("\"%s\"" % o["claim"], r[2] - tx - 10).size()):
+	text(tx, r[1] + 22, "환불 · 보증 없음", 22, PINK)   # 중고의 단점: 안 되면 끝
+	for k in mini(2, wrap_text("\"%s\"" % o["claim"], r[2] - tx - 10).size()):
 		text(tx, r[3] - 92 - k * 28, wrap_text("\"%s\"" % o["claim"], r[2] - tx - 10)[k], 22, QUIET)
 
 

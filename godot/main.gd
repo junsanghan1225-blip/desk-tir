@@ -159,6 +159,9 @@ func _input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton:
 		if ev.pressed and Rules.inside(mouse.x, mouse.y, BTN_MUTE):
 			toggle_mute()
+		elif ev.pressed and stack.size() == 1 and top() in [modes["shop"], modes["desk"], modes["build"], modes["wire"]] and Rules.inside(mouse.x, mouse.y, [0, 648, 440, 720]):
+			sfx("click")   # 왼쪽 위 손님 이름을 누르면 의뢰 메모
+			push("pause")
 		elif ev.pressed and Rules.inside(mouse.x, mouse.y, BTN_PAUSE) and stack.size() == 1 and top() != modes["title"] and top() != modes["album"]:
 			sfx("click")
 			push("pause")

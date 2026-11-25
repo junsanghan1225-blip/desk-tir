@@ -103,6 +103,8 @@ static func reset_order() -> void:
 
 ## 수리 의뢰면 손님이 맡긴 고장 난 PC, 아니면 빈 케이스
 static func repair_pc() -> PCBuild:
+	if order_index >= todays_requests().size():   # 영업 마감 뒤 등 손님이 없을 때
+		return PCBuild.new()
 	var rep: Dictionary = request().get("repair", {})
 	if rep.is_empty() and request().has("own_pc"):   # 데스크테리어 의뢰: 손님이 쓰던 PC가 이미 있음
 		rep = {"pc": request()["own_pc"], "break": []}
@@ -129,7 +131,10 @@ static func computer() -> PCBuild:
 		var spec = DB.ITEMS[p["id"]].get("pc")
 		if spec:
 			if not _laptops.has(p["id"]):
-				_laptops[p["id"]] = PCBuild.full(spec)
+				var lp := PCBuild.full(spec)
+				for c in lp.cables:   # 노트북은 공장에서 깔끔하게 조립된 완제품
+					lp.ties[c] = true
+				_laptops[p["id"]] = lp
 			return _laptops[p["id"]]
 	return pc
 
@@ -145,23 +150,24 @@ static func difficulty(req: Dictionary) -> int:
 	return clampi(s, 1, 3)
 
 
-## 오늘의 중고 장터 매물 3개 (날짜로 정해짐). 판매자 말(claim)로 값이 정해지고, 진짜 상태(cond)는 꽂고 테스트해야 안다.
+## 오늘의 중고 장터 매물 6개 (날짜로 정해짐). 가끔은 아예 고장 난 물건(dead)도 섞여 있다. 판매자 말(claim)로 값이 정해지고, 진짜 상태(cond)는 꽂고 테스트해야 안다.
 static func offers() -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = day * 7919 + 13
 	var out := []
-	for k in 3:
-		var t: String = ["GPU", "PSU", "COOLER", "RAM", "SSD", "CPU"][rng.randi() % 6]
+	for k in 6:
+		var t: String = ["GPU", "GPU", "CPU", "CPU", "RAM", "PSU", "COOLER", "SSD", "MB", "CASE"][rng.randi() % 10]
 		var ids := DB.PARTS.keys().filter(func(p): return DB.PARTS[p]["type"] == t)
 		ids.sort()
 		var id: String = ids[rng.randi() % ids.size()]
 		var cond := rng.randi_range(25, 95)
 		var lie := rng.randf() < 0.35   # 셋 중 하나는 상태를 부풀림
+		var dead := rng.randf() < 0.12 + (0.2 if cond < 40 else 0.0)   # 꽂아 보면 아예 안 됨
 		var claim: String = "거의 새것이에요" if cond >= 80 or lie else "사용감 조금 있어요" if cond >= 55 else "작동은 돼요"
 		if t == "GPU" and claim == "거의 새것이에요":
 			claim = "채굴 안 했어요, 거의 새것"
 		var rate: float = {"거의 새것이에요": 0.7, "채굴 안 했어요, 거의 새것": 0.7, "사용감 조금 있어요": 0.5, "작동은 돼요": 0.3}[claim]
-		out.append({"key": "d%d_%d" % [day, k], "id": id, "cond": cond, "claim": claim, "price": maxi(1, roundi(DB.PARTS[id]["price"] * rate))})
+		out.append({"key": "d%d_%d" % [day, k], "id": id, "cond": cond, "claim": claim, "dead": dead, "price": maxi(1, roundi(DB.PARTS[id]["price"] * rate))})
 	return out.filter(func(o): return not bought.has(o["key"]))
 
 
@@ -170,14 +176,14 @@ static func buy_offer(o: Dictionary) -> bool:
 		return false
 	money -= o["price"]
 	bought[o["key"]] = true
-	used.append({"id": o["id"], "cond": o["cond"], "paid": o["price"], "known": false, "note": "판매자: " + o["claim"]})
+	used.append({"id": o["id"], "cond": o["cond"], "paid": o["price"], "known": false, "dead": o.get("dead", false), "note": "판매자: " + o["claim"]})
 	return true
 
 
 ## 중고 되팔기: 새 값 × 상태 × 30%
 static func sell_used(i: int) -> int:
 	var e: Dictionary = used[i]
-	var v: int = maxi(1, roundi(price_of(e["id"]) * e["cond"] / 100.0 * 0.3))
+	var v: int = 1 if e.get("dead", false) and e["known"] else maxi(1, roundi(price_of(e["id"]) * e["cond"] / 100.0 * 0.3))   # 고장 난 걸 알면 고철값
 	money += v
 	used.remove_at(i)
 	return v

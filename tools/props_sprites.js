@@ -125,6 +125,11 @@ const laptopG = [208, 130, `<path d="M20 4 L188 4 L188 110 L20 110 Z" fill="#141
     <path d="M0 112 L208 112 L196 128 L12 128 Z" fill="#1c1830"/><rect x="24" y="114" width="160" height="3" fill="#ff4d8d"/><rect x="40" y="119" width="128" height="3" fill="#2ee6d6"/>`];
 for (const [id, v] of Object.entries(MON)) front[id] = v.slice(0, 3);
 front.laptop_gaming = laptopG;
+const lap = (lid, deck, screen, accent) => [208, 130, `<path d="M20 4 L188 4 L188 110 L20 110 Z" fill="${lid}"/>${screen(28, 12, 152, 90)}
+    <path d="M0 112 L208 112 L196 128 L12 128 Z" fill="${deck}"/><rect x="84" y="114" width="40" height="4" fill="${accent}"/>`];
+front.laptop_budget = lap('#5a5672', '#8a87a0', scrn.doc, '#4a4860');
+front.laptop_creator = lap('#c9ccd6', '#e8e6f2', scrn.photo, '#2ee6d6');
+front.laptop_gaming_pro = lap('#0b0816', '#14102a', scrn.game, '#ff4d8d');
 const monTop = (body, top, glow) => (W, H) => `<path d="M6 ${H * .3} L${W - 6} ${H * .3} L${W - 24} ${H} L24 ${H} Z" fill="${glow}" opacity=".18"/>
   ${sh(2, 4, W - 4, H * .22, 3)}<rect x="2" y="4" width="${W - 4}" height="${H * .22}" rx="3" fill="${body}"/><rect x="2" y="4" width="${W - 4}" height="5" rx="2" fill="${top}"/><rect x="2" y="${4 + H * .22 - 3}" width="${W - 4}" height="3" fill="${glow}"/>
   <rect x="${W / 2 - 7}" y="${H * .26}" width="14" height="${H * .2}" fill="${top}"/>${sh(W * .32, H * .44, W * .36, H * .48, 8)}<rect x="${W * .32}" y="${H * .44}" width="${W * .36}" height="${H * .48}" rx="8" fill="${body}"/>`;
@@ -132,6 +137,9 @@ Object.assign(top, {
   monitor_22: monTop('#2a2440', '#3b3466', CYAN), monitor_144: monTop('#0f0a22', '#2a2350', PINK), monitor_240: monTop('#0f0a22', '#2a2350', CYAN),
   monitor_qhd165: monTop('#14102a', '#2a2350', VIO), monitor_4k: monTop('#1a1830', '#3b3466', CYAN), monitor_oled: monTop('#0b0816', '#2a2350', PINK),
   monitor_pivot: monTop('#2a2440', '#3b3466', CYAN), monitor_portable: (W, H) => `${sh(2, 2, W - 4, H - 6, 2)}<rect x="2" y="2" width="${W - 4}" height="${H - 6}" rx="2" fill="#c9ccd6"/><rect x="2" y="${H - 7}" width="${W - 4}" height="3" fill="${CYAN}"/>`,
+  laptop_budget: (W, H) => `${sh(2, 2, W - 4, H - 4, 5)}<rect x="2" y="2" width="${W - 4}" height="${H * .14}" rx="3" fill="#5a5672"/><rect x="2" y="${H * .18}" width="${W - 4}" height="${H * .8}" rx="4" fill="#8a87a0"/>${[0, 1, 2, 3].map(r => `<rect x="${W * .1}" y="${H * (.26 + r * .11)}" width="${W * .8}" height="${H * .07}" fill="#4a4860"/>`).join('')}<rect x="${W * .35}" y="${H * .74}" width="${W * .3}" height="${H * .16}" rx="3" fill="#6a6680"/>`,
+  laptop_creator: (W, H) => `${sh(2, 2, W - 4, H - 4, 5)}<rect x="2" y="2" width="${W - 4}" height="${H * .14}" rx="3" fill="#c9ccd6"/><rect x="2" y="${2 + H * .14 - 3}" width="${W - 4}" height="3" fill="${CYAN}"/><rect x="2" y="${H * .18}" width="${W - 4}" height="${H * .8}" rx="4" fill="#e8e6f2"/>${[0, 1, 2, 3].map(r => `<rect x="${W * .1}" y="${H * (.26 + r * .11)}" width="${W * .8}" height="${H * .07}" fill="#c9ccd6"/>`).join('')}<rect x="${W * .35}" y="${H * .74}" width="${W * .3}" height="${H * .16}" rx="3" fill="#cfcbe0"/>`,
+  laptop_gaming_pro: (W, H) => `${sh(2, 2, W - 4, H - 4, 5)}<rect x="2" y="2" width="${W - 4}" height="${H * .14}" rx="3" fill="#0b0816"/><rect x="2" y="${2 + H * .14 - 3}" width="${W - 4}" height="3" fill="${PINK}"/><rect x="2" y="${H * .18}" width="${W - 4}" height="${H * .8}" rx="4" fill="#14102a"/>${[0, 1, 2, 3].map(r => `<rect x="${W * .1}" y="${H * (.26 + r * .11)}" width="${W * .8}" height="${H * .07}" fill="${[PINK, VIO, CYAN, PINK][r]}" opacity=".8"/>`).join('')}<rect x="${W * .35}" y="${H * .74}" width="${W * .3}" height="${H * .16}" rx="3" fill="#2a2350"/>`,
   laptop_gaming: (W, H) => `${sh(2, 2, W - 4, H - 4, 5)}<rect x="2" y="2" width="${W - 4}" height="${H * .14}" rx="3" fill="#14102a"/><rect x="2" y="${2 + H * .14 - 3}" width="${W - 4}" height="3" fill="${PINK}"/>
     <rect x="2" y="${H * .18}" width="${W - 4}" height="${H * .8}" rx="4" fill="#1c1830"/>${[0, 1, 2, 3].map(r => `<rect x="${W * .1}" y="${H * (.26 + r * .11)}" width="${W * .8}" height="${H * .07}" fill="${[PINK, VIO, CYAN, VIO][r]}" opacity=".7"/>`).join('')}<rect x="${W * .35}" y="${H * .74}" width="${W * .3}" height="${H * .16}" rx="3" fill="#2a2350"/>`,
 });

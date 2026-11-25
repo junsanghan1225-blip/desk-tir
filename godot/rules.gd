@@ -427,6 +427,9 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 	for f in req["forbidden"]:
 		req_s -= 12.5 * ids.count(f)
 	req_s = max(0.0, req_s)
+	var used_bad: bool = req.get("used", "") == "new" and pc.used.values().any(func(e): return e["paid"] > 0)   # '새 제품만' 손님인데 중고를 넣음
+	if used_bad:
+		req_s = 0.0
 
 	var post := pc.post()
 	var boot: String = "ok" if post[0] == 4 else post[1]
@@ -452,7 +455,10 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		var pp := {}
 		for k in w:
 			pp[k] = fr[k] * w[k]
-		return _total(pp, w, syn, boot, wire[1])
+		var res := _total(pp, w, syn, boot, wire[1])
+		if used_bad and boot == "ok":
+			res["line"] = "새 제품만 부탁드렸는데… 중고 부품이 들어갔네요."
+		return res
 	# 데스크테리어 의뢰: 손님 PC는 그대로, 책상 분위기 · 필수 소품 · 조합 · 배선
 	var w2 := {"테마 일치": 30, "필수 · 금지": 30, "조합 시너지": 20, "배선": 20}
 	var dp := {"테마 일치": theme_s / 25.0 * 30, "필수 · 금지": req_s / 25.0 * 30, "조합 시너지": minf(20.0, 10.0 * syn.size()), "배선": wire[0] * 2.0}

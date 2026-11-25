@@ -310,7 +310,7 @@ func tab_at(x: float, y: float) -> String:
 func top_bar(current: String) -> void:
 	var req := Game.request()
 	frame("ui_panel", [-12, BAR, 1292, H + 12])
-	text(16, H - 24, "%d일차 · %s" % [Game.day, req["customer"]], 22, CYAN)   # 손님이 한 말은 ll(일시정지)에서 다시 봄
+	text(16, H - 24, "%d일차 · %s ▾" % [Game.day, req["customer"]], 22, CYAN)   # 누르면 의뢰 메모   # 손님이 한 말은 ll(일시정지)에서 다시 봄
 	var left := Game.money_left()
 	text(16, H - 56, "남은 예산 %d만 / %d만" % [left, req["budget"]], 22, INK if left >= 0 else PINK)
 	var wire := Rules.wiring_score(Game.cables, Game.placed)
