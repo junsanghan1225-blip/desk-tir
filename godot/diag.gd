@@ -345,60 +345,54 @@ func draw_back() -> void:
 		text(810, 376, "보드 단자가 정답", 22, QUIET)
 
 
-func draw_close() -> void:
+func draw_close() -> void:   # 그림: tools/close_sprites.js (실제 매크로 사진 구도)
 	var pc := Game.pc
-	var names := ["RAM 슬롯", "CPU 팬 커넥터", "그래픽카드 전원선", "방열판 · 팬", "보드 콘덴서"]
+	var names := ["RAM 슬롯", "CPU 팬 단자", "그래픽카드 8핀 전원", "방열판", "보드 콘덴서"]
 	for i in 5:
 		var r: Array = TILES[i]
 		frame("ui_slot", r)
 		text(r[0] + 16, r[3] - 26, names[i], 22, CYAN)
-	# RAM: 반쯤 빠지면 한쪽이 들뜨고 걸쇠가 열림
-	var sticks := pc.ram.filter(func(s): return s != "")
-	for k in sticks.size():
-		var x: float = 120 + k * 120
-		var lift: float = 26.0 if k == 0 and faults().has("ram_seat") else 0.0
-		box([x - 6, 360, x + 66, 380], Color8(20, 18, 28))   # 슬롯
-		box([x, 372 + lift, x + 60, 560 + lift], Color8(40, 120, 80))
-		for j in 6:
-			box([x + 6 + j * 9, 374 + lift, x + 11 + j * 9, 384 + lift], GOLD)
-		var open := lift > 0
-		box([x - 14, 360, x - 6, 410] if not open else [x - 30, 380, x - 6, 392], Color8(220, 220, 230))
-	# CPU_FAN 단자
-	box([840, 420, 940, 460], Color8(20, 18, 28))
-	text(950, 440, "CPU_FAN", 22, DIM)
-	var unplugged := faults().has("cpu_fan")
-	var plug := [850, 420, 930, 460] if not unplugged else [1000, 360, 1080, 400]
-	polyline([Vector2(890, 560), Vector2(890, 500), Vector2(center(plug).x, center(plug).y + 30), center(plug)], Color8(40, 40, 50), 6)
-	box(plug, Color8(240, 240, 240))
-	# 그래픽카드 8핀: 덜 꽂히면 틈이 보임
-	box([120, 80, 520, 160], Color8(60, 56, 80))
+	# RAM (옆에서): 덜 꽂히면 통째로 들뜨고 금색 단자가 보이고 걸쇠가 벌어짐
+	put("close_ram_bg", [24, 334, 626, 578])
+	var lift := 24.0 if faults().has("ram_seat") else 0.0
+	if pc.ram.any(func(s): return s != ""):
+		put("close_ram", [85, 424 + lift, 565, 544 + lift])
+	put("close_ram_slot", [65, 404, 585, 438])
+	if lift > 0:
+		put("close_latch_open", [65, 400, 25, 440])   # 왼쪽은 좌우 뒤집기
+		put("close_latch_open", [585, 400, 625, 440])
+	else:
+		put("close_latch", [47, 422, 65, 486])
+		put("close_latch", [603, 422, 585, 486])
+	# CPU_FAN 4핀 (위에서): 빠지면 플러그가 옆에 놓이고 금색 핀이 보임
+	put("close_fan_bg", [654, 334, 1256, 578])
+	put("close_fan_header", [904, 424, 984, 468])
+	var plug: Array = [1074, 372, 1170, 428] if faults().has("cpu_fan") else [896, 418, 992, 474]
+	var cx: float = (plug[0] + plug[2]) / 2.0
+	for k in 4:   # 검정 · 노랑 · 초록 · 파랑 선
+		var dx := -15.0 + k * 10
+		polyline([Vector2(cx + dx, plug[1] + 4), Vector2(cx + dx, plug[1] - 24), Vector2(1190 + dx, 362), Vector2(1232 + dx, 340)],
+			[Color8(20, 20, 24), Color8(230, 200, 60), Color8(60, 170, 90), Color8(60, 110, 210)][k], 5)
+	put("close_fan_plug", plug)
+	# 그래픽카드 8핀 (옆에서): 덜 꽂히면 틈 사이로 금색 핀
+	put("close_gpu_bg", [24, 24, 626, 268])
 	var gap := 22.0 if faults().has("gpu_power") else 0.0
-	box([260, 160, 380, 190], Color8(20, 18, 28))
-	box([262, 160 + gap, 378, 220 + gap], Color8(30, 30, 36))
 	if gap > 0:
-		for j in 4:
-			box([270 + j * 28, 162, 284 + j * 28, 178], GOLD)
-	polyline([Vector2(320, 220 + gap), Vector2(320, 290)], Color8(230, 190, 80), 8)
-	# 방열판: 먼지
-	for j in 8:
-		box([672 + j * 34, 60, 694 + j * 34, 240], Color8(160, 160, 176))
+		for k in 8:
+			box([266 + k * 15, 178, 274 + k * 15, 188], GOLD)
+	for k in 8:   # 노랑 3 (12V) + 검정 5
+		var x := 270.0 + k * 15
+		polyline([Vector2(x, 236 + gap), Vector2(x, 262 + gap), Vector2(310 + k * 5, 306)], Color8(230, 190, 60) if k < 3 else Color8(26, 26, 30), 5)   # 위로 모여 슬리브로 (제목 줄 오른쪽 빈자리까지)
+	put("close_gpu_plug", [262, 174 + gap, 390, 238 + gap])
+	# 방열판: 먼지가 핀 사이 · 팬날에 뭉침
+	put("close_fins", [654, 24, 946, 268])
 	if faults().has("dust"):
-		for j in 20:
-			circle(680 + fmod(j * 97.0, 250.0), 70 + fmod(j * 53.0, 170.0), 12 + j % 3 * 3, Color(0.55, 0.52, 0.5, 0.9))
-	# 보드 콘덴서: 부풀면 윗면이 볼록 + 갈색 자국
-	box([990, 40, 1240, 250], Color8(30, 80, 60))
-	for j in 3:
-		var cx := 1040.0 + j * 75
-		var bulge: bool = j == 1 and faults().has("cap_bulge")
-		box([cx - 20, 80, cx + 20, 190], Color8(40, 40, 60))
-		box([cx - 20, 180, cx + 20, 190], Color8(190, 190, 200))
-		box([cx - 6, 80, cx + 6, 190], Color8(70, 70, 100))
-		if bulge:
-			circle(cx, 194, 20, Color8(190, 190, 200))
-			circle(cx + 6, 186, 8, Color8(120, 70, 30))
-		else:
-			box([cx - 14, 184, cx + 14, 188], Color8(120, 120, 130))
-	text(TILES[3][0] + 16, TILES[3][1] + 22, "눌러서 에어 스프레이", 22, DIM)
+		put("close_dust", [654, 24, 946, 268])
+	# 콘덴서: 부푼 건 윗면이 볼록 + 갈색 진액
+	put("close_cap_bg", [974, 24, 1256, 268])
+	for k in 3:
+		var x := 998.0 + k * 70
+		put("close_cap_bulge" if k == 1 and faults().has("cap_bulge") else "close_cap", [x, 78, x + 56, 198])
 
 
 # ---------- 인두 작업 ----------
