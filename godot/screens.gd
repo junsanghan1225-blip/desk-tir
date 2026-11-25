@@ -98,28 +98,34 @@ class Request extends Mode:
 		spr("face_%s_%s" % [req["face"], mood()], 220, 450)
 		text(80, 260, req["customer"], 30)
 		if req.get("returns", false):
-			frame("ui_button", [76, 202, 200, 240], GOLD)
-			text(92, 221, "단골 손님", 15, BG)
+			chip(76, 221, "단골 손님", GOLD)
 		panel([420, 330, 1200, 600])
 		var lines := Game.lines()
+		var ly := 550.0   # 말풍선 폭(700) 안에서 줄바꿈 → 패널 밖으로 안 튀어나감
 		for i in lines.size():
-			text(460, 550 - i * 56, "\"%s\"" % lines[i] if i == 0 else lines[i], 24)
+			for ln in wrap_text("\"%s\"" % lines[i] if i == 0 else lines[i], 700, 24):
+				text(460, ly, ln, 24)
+				ly -= 34
+			ly -= 14
 		text(460, 380, ("수리비는 %d만 원 드릴게요." if req.has("repair") else "예산은 %d만 원 정도 생각하고 있어요.") % req["budget"], 20, GOLD)
 		var kind := Rules.kind_of(req)
-		var y := 290.0   # 조건은 숨기지 않고 다 보여 줌 (분위기만 손님 말로 짐작)
+		var y := 290.0   # 아래로 차례차례: 줄이 길면 폭(800) 안에서 줄바꿈하고 다음 줄은 그만큼 밀림 → 겹치거나 튀어나가지 않음
+		var rows := []
 		if req.has("use") and kind != "desk":   # 데스크테리어는 손님 PC 그대로라 용도 메모 없음
-			text(420, y, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
-			y -= 40
-		var need := Game.need_text(req)
-		if need != "":
-			text(420, y, "꼭 필요: " + need, 22, GOLD)
-			y -= 40
+			rows.append(["용도 메모: " + Bench.describe(req["use"]), CYAN])
+		if Game.need_text(req) != "":
+			rows.append(["꼭 필요: " + Game.need_text(req), GOLD])
 		if Game.dislike_text(req) != "":
-			text(420, y, Game.dislike_text(req), 22, PINK)
-			y -= 40
+			rows.append([Game.dislike_text(req), PINK])
+		for rw in rows:
+			for ln in wrap_text(rw[0], 800):
+				text(420, y, ln, 22, rw[1])
+				y -= 30
+			y -= 8
 		if req.has("used"):   # 중고 정책
 			var ok_used: bool = req["used"] == "ok"
-			chip(420, y, "중고도 괜찮아요" if ok_used else "새 제품만", GREEN if ok_used else PINK)
+			chip(420, y - 4, "중고도 괜찮아요" if ok_used else "새 제품만", GREEN if ok_used else PINK)
+			y -= 46
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
 		var badge: Array = {"repair": ["수리 의뢰", PINK], "pc": ["PC 조립 의뢰", CYAN], "desk": ["데스크테리어 의뢰", GOLD], "full": ["PC + 데스크 의뢰", GREEN]}[kind]
@@ -133,9 +139,11 @@ class Request extends Mode:
 			info = ["PC도 맞추고 책상도 꾸며요: 성능 · 분위기 · 소품 · 모니터 모두 점수예요.", "예산 안에서 PC와 소품에 돈을 잘 나눠야 해요."]
 		elif kind == "desk":
 			info = ["책상을 꾸며요: 분위기 · 꼭 필요한 소품 · 조합 · 배선이 점수예요.", "PC는 손님이 쓰던 걸 그대로 써요 (조립 안 해도 돼요)."]
-		for i in info.size():
-			text(420, 150 - i * 30, info[i], 18, QUIET)
-		text(420, 70, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") else "쇼핑으로"), 18, DIM)
+		y = minf(y - 10, 160.0)
+		for ln in info:
+			text(420, y, ln, 18, QUIET)
+			y -= 28
+		text(420, y - 12, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") else "쇼핑으로"), 18, DIM)
 
 
 class Result extends Mode:
