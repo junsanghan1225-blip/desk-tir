@@ -64,6 +64,11 @@ func ram_slots() -> int:
 	return spec("MB")["ram_slots"] if has("MB") else 0
 
 
+## CPU에 내장 그래픽이 있는지
+func igpu() -> bool:
+	return has("CPU") and spec("CPU").get("igpu", 0) > 0
+
+
 func pcie_needed() -> int:
 	return spec("GPU")["pcie"] if has("GPU") else 0
 
@@ -287,8 +292,8 @@ func post() -> Array:
 		return [1, "팬은 도는데 화면이 안 나오고 삐— 삐 삐 소리가 나요"]
 	if ram.all(func(r): return r == ""):
 		return [1, "DRAM 불이 켜졌어요 (RAM 없음)"]
-	if not has("GPU"):
-		return [2, "VGA 불이 켜졌어요 (그래픽카드 없음)"]
+	if not has("GPU") and not igpu():   # 내장 그래픽 CPU면 그래픽카드 없이도 화면이 나옴 (모니터는 보드 단자에)
+		return [2, "VGA 불이 켜졌어요 (그래픽카드 없음 · 이 CPU는 내장 그래픽이 없어요)"]
 	if pcie_needed() > spec("PSU")["pcie"]:
 		return [2, "VGA 불이 켜졌어요 (이 파워엔 그래픽카드 전원선이 %d개뿐)" % spec("PSU")["pcie"]]
 	for i in pcie_needed():

@@ -297,7 +297,7 @@ class Product extends Mode:
 		match p["type"]:
 			"CASE": rows = ["보드 %s까지 · 공기 흐름 %s" % [p["mb_max"], ["", "약함", "보통", "좋음"][p["airflow"]]], "그래픽카드 %dmm까지" % p["gpu_max"], "쿨러 높이 %dmm까지" % p["cooler_max"]]
 			"MB": rows = ["소켓 %s · %s" % [p["socket"], p["size"]], "RAM 슬롯 %d개 · M.2 1개" % p["ram_slots"], "뒷면 USB %d개 · 오디오 2개" % p["usb"]]
-			"CPU": rows = ["%d코어 · %.1fGHz · 소켓 %s" % [p["cores"], p["ghz"], p["socket"]], "게임 %dfps까지 · 멀티 점수 %d" % [p["game"], p["mt"]], "발열 %dW (쿨러가 버텨야 함)" % p["watt"]]
+			"CPU": rows = ["%d코어 · %.1fGHz · 소켓 %s" % [p["cores"], p["ghz"], p["socket"]] + (" · 내장 그래픽" if p.get("igpu", 0) else ""), "게임 %dfps까지 · 멀티 점수 %d" % [p["game"], p["mt"]], "발열 %dW (쿨러가 버텨야 함)" % p["watt"]]
 			"COOLER": rows = ["%dW까지 식힘 · 소음 +%ddB" % [p["tdp"], p["noise"]], "높이 %dmm" % p["height"]]
 			"SSD": rows = ["용량 %s" % p["capacity"], "M.2 슬롯에 장착 · 없으면 부팅 불가"]
 			"GPU": rows = ["1080p %dfps · VRAM %dGB" % [p["fps"], p["vram"]], "전력 %dW · 길이 %dmm · DP %d개" % [p["watt"], p["length"], p["dp"]], "보조 전원선 %d개 필요" % p["pcie"]]
@@ -632,6 +632,11 @@ class BenchView extends Mode:
 		text(70, 646, "성능 테스트", 33, PINK)
 		text(70, 606, "손님 요구: " + Bench.describe(use), 22, CYAN)
 		button(BTN_CLOSE, "닫기", VIOLET)
+		if not r.has("noise"):   # 부품이 모자라 테스트를 못 함
+			for i in r["notes"].size():
+				for ln in wrap_text(r["notes"][i], 1100):
+					text(70, 520 - i * 50, ln, 33, PINK)
+			return
 		if r.get("shutdown", false):   # 테스트 중 꺼짐: 과열이면 빨간 온도계, 파워면 전력 막대
 			var heat: bool = r["cpu_temp"] >= 100
 			if heat:
@@ -666,7 +671,7 @@ class BenchView extends Mode:
 				draw_graph()
 				var scale: float = maxf(r["target"] * 1.4, maxf(r["cpu_fps"], r["gpu_fps"]))
 				hbar(284, "CPU 한계", r["cpu_fps"], scale, r["limit"] == "CPU", "%dfps" % r["cpu_fps"] + ("  ← 발목" if r["limit"] == "CPU" else ""))
-				hbar(238, "그래픽카드 한계", r["gpu_fps"], scale, r["limit"] != "CPU", "%dfps" % r["gpu_fps"] + ("  ← 발목" if r["limit"] != "CPU" else ""))
+				hbar(238, "그래픽카드 한계" if Game.pc.has("GPU") else "내장 그래픽 한계", r["gpu_fps"], scale, r["limit"] != "CPU", "%dfps" % r["gpu_fps"] + ("  ← 발목" if r["limit"] != "CPU" else ""))
 			"render", "code":
 				draw_progress()
 			_:

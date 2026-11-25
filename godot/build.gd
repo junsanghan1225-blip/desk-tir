@@ -546,7 +546,7 @@ func draw_side() -> void:
 	text(x0, 610, "조립 순서", 18, PINK)
 	var steps := [["케이스", pc.has("CASE")], ["메인보드", pc.has("MB")], ["CPU (레버 닫기)", pc.has("CPU") and not pc.lever_open],
 		["서멀 구리스", pc.paste], ["쿨러", pc.has("COOLER")], ["RAM", pc.ram.any(func(r): return r != "")], ["M.2 SSD", pc.has("SSD")],
-		["그래픽카드", pc.has("GPU")], ["파워", pc.has("PSU")],
+		["그래픽 (내장 OK)" if pc.igpu() and not pc.has("GPU") else "그래픽카드", pc.has("GPU") or pc.igpu()], ["파워", pc.has("PSU")],
 		["전원선", pc.has("PSU") and pc.cable_targets().all(func(c): return c == "front" or pc.cables.has(c))], ["전원 버튼선", pc.cables.has("front")],
 		["나사 조이기", not pc.screws.is_empty() and pc.loose().is_empty()]]
 	for i in steps.size():

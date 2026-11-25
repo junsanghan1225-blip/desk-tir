@@ -40,8 +40,11 @@ static func _s(id: String, key: String, def = 0):
 ## 계산. ok = 목표 달성, points = 채점의 PC 성능(0~20)
 static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	var r := {"kind": use.get("kind", "office"), "notes": [], "value": 0.0, "target": 0.0, "ok": false, "ratio": 0.0, "limit": ""}
-	if d["CPU"] == "" or d["GPU"] == "" or d["RAM"].is_empty():
-		r["notes"].append("CPU · 그래픽카드 · RAM이 있어야 테스트할 수 있어요")
+	if d["GPU"] == "" and _s(d["CPU"], "igpu") > 0:   # 내장 그래픽: 그래픽카드 대신 CPU가 화면을 그림 (전력 · 발열은 CPU에 포함)
+		d = d.duplicate()
+		d["IGPU"] = _s(d["CPU"], "igpu")
+	if d["CPU"] == "" or d["RAM"].is_empty() or (d["GPU"] == "" and not d.has("IGPU")):
+		r["notes"].append("CPU · RAM이 있어야 테스트할 수 있어요 (내장 그래픽이 없는 CPU면 그래픽카드도)" if d["GPU"] != "" or d["CPU"] == "" or d["RAM"].is_empty() else "이 CPU는 내장 그래픽이 없어서 그래픽카드가 필요해요")
 		r["points"] = 0.0
 		return r
 	var gb := 0
@@ -93,7 +96,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 			var w: float = GENRE[use["genre"]]
 			var ram_f := 0.75 if gb < 16 else 1.0
 			var cpu_fps: float = _s(d["CPU"], "game") * w * cpu_thr * soft * ram_f * (1.05 if dual else 1.0) * (0.8 if use.get("stream", false) else 1.0)
-			var gpu_fps: float = _s(d["GPU"], "fps") * (0.88 if cd.get("GPU", 100) < 60 else 1.0) * w * RES[use["res"]] * gpu_thr * (0.85 if use["res"] == "4K" and _s(d["GPU"], "vram") < 12 else 1.0)
+			var gpu_fps: float = d.get("IGPU", _s(d["GPU"], "fps")) * (0.88 if cd.get("GPU", 100) < 60 else 1.0) * w * RES[use["res"]] * gpu_thr * (0.85 if use["res"] == "4K" and _s(d["GPU"], "vram") < 12 else 1.0)
 			r["cpu_fps"] = roundi(cpu_fps)
 			r["gpu_fps"] = roundi(gpu_fps)
 			r["value"] = min(cpu_fps, gpu_fps)
@@ -111,7 +114,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 				r["notes"].append("방송 프로그램이 CPU를 20% 써요")
 		"render":
 			var ram_f := 1.0 if gb >= 32 else 1.15 if gb >= 16 else 1.5
-			r["value"] = 120.0 / (mt + _s(d["GPU"], "fps") / 40.0) * ram_f
+			r["value"] = 120.0 / (mt + d.get("IGPU", _s(d["GPU"], "fps")) / 40.0) * ram_f
 			r["target"] = float(use["min"])
 			r["ratio"] = r["target"] / r["value"]
 			r["limit"] = "CPU 코어 수"

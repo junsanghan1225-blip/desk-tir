@@ -147,7 +147,7 @@ func short_spec(id: String) -> String:
 	match p["type"]:
 		"CASE": return "보드 %s까지" % p["mb_max"]
 		"MB": return "%s · %s" % [p["socket"], p["size"]]
-		"CPU": return "%d코어 %.1fGHz" % [p["cores"], p["ghz"]]
+		"CPU": return "%d코어 %.1fGHz" % [p["cores"], p["ghz"]] + (" · 내장" if p.get("igpu", 0) else "")
 		"COOLER": return "%dW · 소음 %d" % [p["tdp"], p["noise"]]
 		"GPU": return "%dfps · %dGB" % [p["fps"], p["vram"]]
 		"RAM": return "%dGB" % p["gb"]

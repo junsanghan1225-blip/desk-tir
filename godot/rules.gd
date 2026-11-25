@@ -259,7 +259,7 @@ const PLUG_Y := 405
 ## DP는 그래픽카드, USB는 메인보드가 개수를 정한다.
 static func port_count(t: String, pc: PCBuild) -> int:
 	if t == "DP":
-		return pc.spec("GPU")["dp"] if pc.has("GPU") else 0
+		return pc.spec("GPU")["dp"] if pc.has("GPU") else (2 if pc.igpu() else 0)   # 그래픽카드가 없으면 보드 영상 단자
 	if t == "USB":
 		return pc.spec("MB")["usb"] if pc.has("MB") else 0
 	return 2

@@ -225,6 +225,16 @@ func _initialize() -> void:
 	for nm in DB.REQUESTS.map(func(q): return q["customer"]):
 		ok(DB.STORY["epilogue"].has(nm), "뒷이야기 있음: " + nm)
 
+	# --- 내장 그래픽: 사무용은 그래픽카드 없이 ---
+	var office := PCBuild.full({"cpu": "cpu6", "mb": "mb2", "cooler": "cool1", "ram": ["ram2", "ram2"]})
+	office.remove("GPU")
+	ok(office.boots() and Rules.port_count("DP", office) == 2, "내장 그래픽이면 그래픽카드 없이 부팅")
+	ok(Bench.run(Bench.parts_of(office), {"kind": "office"})["ok"], "사무용 테스트 OK")
+	ok(Bench.run(Bench.parts_of(office), {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144})["value"] < 60, "내장 그래픽으로 게임은 힘듦")
+	var amd := PCBuild.full({"cpu": "cpu4", "mb": "mb1"})
+	amd.remove("GPU")
+	ok(amd.post()[0] == 2 and "내장" in amd.post()[1] and not Bench.run(Bench.parts_of(amd), {"kind": "office"}).has("noise"), "내장 그래픽 없는 CPU는 그래픽카드 필요")
+
 	# --- 저장 ---
 	Game.pc = PCBuild.full()
 	Game.placed = []
