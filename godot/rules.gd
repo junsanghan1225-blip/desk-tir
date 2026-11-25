@@ -408,7 +408,7 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 
 	if req.has("repair"):   # 수리: 증상이 사라졌는지(성능 테스트 통과) + 성능만 본다
 		var b := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
-		var rp := {"증상 해결": 50.0 if b["ok"] else 0.0, "성능": pc_s * 2.5}
+		var rp := {"증상 해결": 50.0 if b["ok"] and pc.faults.is_empty() and pc.picture() else 0.0, "성능": pc_s * 2.5}
 		var rt := int(round(rp["증상 해결"] + rp["성능"]))
 		return {"parts": rp, "total": rt, "stars": 3 if rt >= 90 else 2 if rt >= 75 else 1 if rt >= 60 else 0,
 			"synergies": [], "boot": boot, "line": _reaction(rp, boot, 0)}

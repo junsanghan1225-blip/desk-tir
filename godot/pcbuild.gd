@@ -13,6 +13,21 @@ var ram := ["", "", "", ""]    # 슬롯 0~3, 빈 칸은 ""
 var cables := {}               # 꽂힌 선: 이름 -> true ('24pin', 'cpu8', 'pcie0', 'pcie1', 'front')
 var lever_open := false
 var paste := false
+var faults := {}               # 수리 의뢰 고장: 이름 -> true (FAULTS). 손님 PC에만 있다
+
+## 실제 수리점에서 흔한 고장. 숫자 = 찾기 어려움(난이도 점수)
+const FAULTS := {
+	"psu_switch": 1,   # 파워 뒤 스위치가 O(꺼짐)
+	"monitor_mb": 1,   # 모니터 선을 그래픽카드가 아니라 메인보드 단자에 꽂음
+	"dust": 1,         # 팬 · 방열판 먼지 → 시끄럽고 뜨거움
+	"bloat": 1,        # 몰래 깔린 채굴 프로그램 → CPU 사용률 높음
+	"ram_seat": 2,     # RAM이 반쯤 빠짐 → DRAM 불 + 삐 소리
+	"gpu_power": 2,    # 그래픽카드 전원선이 덜 꽂힘 → VGA 불
+	"cpu_fan": 2,      # CPU 쿨러 팬 선 빠짐 → 조용하다가 과열로 꺼짐
+	"boot_order": 2,   # 부팅 순서가 SSD가 아님
+	"paste_dry": 3,    # 서멀 구리스가 말라 굳음 → 오래 쓰면 뜨거워져 느려짐
+	"xmp_off": 3,      # BIOS에서 RAM 속도(XMP)가 꺼짐 → 프레임이 조금 모자람
+}
 
 
 func has(slot: String) -> bool:
@@ -97,6 +112,8 @@ func remove(slot: String, ram_slot := -1) -> Array:
 		return out
 	out.append(parts[slot])
 	parts.erase(slot)
+	if slot == "COOLER" and faults.erase("paste_dry"):   # 쿨러를 떼면 굳은 구리스가 보이고, 닦아 내면 새로 발라야 함
+		paste = false
 	if slot == "CPU":
 		paste = false
 	if slot == "MB":
@@ -180,6 +197,8 @@ func capacity() -> int:
 func post() -> Array:
 	if not has("CASE") or not has("MB"):
 		return [-1, "메인보드가 없어요"]
+	if faults.has("psu_switch"):   # 증상만 알려 준다 (원인은 진단 화면에서)
+		return [-1, "전원 버튼을 눌러도 아무 반응이 없어요"]
 	if not has("PSU") or not cables.has("24pin"):
 		return [-1, "전원이 안 들어와요 (파워 · 24핀 확인)"]
 	if not cables.has("front"):
@@ -192,6 +211,8 @@ func post() -> Array:
 		return [0, "켜지자마자 과열로 꺼졌어요 (쿨러 없음)"]
 	if not paste:
 		return [0, "몇 초 뒤 과열로 꺼졌어요 (서멀 구리스 안 바름)"]
+	if faults.has("ram_seat"):
+		return [1, "팬은 도는데 화면이 안 나오고 삐— 삐 삐 소리가 나요"]
 	if ram.all(func(r): return r == ""):
 		return [1, "DRAM 불이 켜졌어요 (RAM 없음)"]
 	if not has("GPU"):
@@ -201,9 +222,13 @@ func post() -> Array:
 	for i in pcie_needed():
 		if not cables.has("pcie%d" % i):
 			return [2, "VGA 불이 켜졌어요 (그래픽카드 전원선 확인)"]
+	if faults.has("gpu_power"):
+		return [2, "팬은 도는데 화면이 안 나와요"]
 	if watt() > capacity():
 		return [3, "부팅 중 꺼졌어요 (전력 %dW > 파워 %dW)" % [watt(), capacity()]]
-	if not has("SSD"):
+	if not has("SSD") or faults.has("boot_order"):
+		if faults.has("boot_order"):
+			return [3, "'부팅 장치를 찾을 수 없음' 글자만 떠요"]
 		return [3, "BOOT 불이 켜졌어요 (부팅 장치 없음 · SSD)"]
 	return [4, "부팅 성공!" + (" 단, 쿨러가 약해서 성능이 떨어져요" if throttled() else "")]
 
@@ -212,8 +237,21 @@ func boots() -> bool:
 	return post()[0] == 4
 
 
+## 모니터에 화면이 나오는지 (켜져도 선을 메인보드에 꽂으면 신호 없음)
+func picture() -> bool:
+	return boots() and not faults.has("monitor_mb")
+
+
+## 고장 난이도 ★1~3
+static func level_of(fs: Array) -> int:
+	var s := 0
+	for f in fs:
+		s += FAULTS.get(f, 1)
+	return clampi(ceili(s / 2.0), 1, 3)
+
+
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "faults": faults.keys()}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -224,6 +262,8 @@ static func from_dict(d: Dictionary) -> PCBuild:
 		b.cables[c] = true
 	b.lever_open = d["lever_open"]
 	b.paste = d["paste"]
+	for f in d.get("faults", []):
+		b.faults[f] = true
 	return b
 
 

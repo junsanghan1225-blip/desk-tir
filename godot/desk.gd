@@ -392,7 +392,7 @@ func draw_screen(p: Dictionary) -> void:
 		line(Vector2(s[0] + sw * 0.55, s[3] - 2), Vector2(s[0] + sw * 0.75, s[1] + 2), Color(1, 1, 1, 0.05), sw * 0.08)   # 꺼진 화면 반사
 		box([s[2] - 8, s[1] - 7, s[2] - 4, s[1] - 4], Color8(255, 150, 60))   # 대기 LED
 		return
-	if not dp_linked(p):
+	if not dp_linked(p) or Game.pc.faults.has("monitor_mb"):
 		box([s[0] + sw * 0.3, s[1] + sh * 0.4, s[0] + sw * 0.7, s[1] + sh * 0.6], Color8(30, 30, 60))
 		text(s[0] + sw * 0.3 + 8, s[1] + sh * 0.5, "신호 없음", 16, QUIET)
 		return

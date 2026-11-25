@@ -80,10 +80,19 @@ static func repair_pc() -> PCBuild:
 		return PCBuild.new()
 	var b := PCBuild.full(rep["pc"])
 	for f in rep["break"]:
-		match f:
-			"paste": b.paste = false
-			_: b.cables.erase(f)   # 선 빠짐 (cpu8 · 24pin · pcie0 …)
+		b.faults[f] = true
 	return b
+
+
+## 의뢰 난이도 ★1~3: 수리는 고장 개수 · 숨은 정도, 조립은 요구 성능
+static func difficulty(req: Dictionary) -> int:
+	if req.has("repair"):
+		return PCBuild.level_of(req["repair"]["break"])
+	var u: Dictionary = req.get("use", {})
+	var s := 0 if u.get("kind", "office") == "office" else 1
+	s += 1 if u.has("quiet") else 0
+	s += 1 if u.get("stream", false) or u.get("fps", 0) >= 240 or u.get("res", "") != "1080p" and u.has("res") else 0
+	return clampi(s, 1, 3)
 
 
 ## 손님이 가져온 부품 id -> 개수 (값을 안 받음)

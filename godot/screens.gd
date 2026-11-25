@@ -90,10 +90,12 @@ class Request extends Mode:
 		text(460, 380, ("수리비는 %d만 원 드릴게요." if req.has("repair") else "예산은 %d만 원 정도 생각하고 있어요.") % req["budget"], 20, GOLD)
 		if req.has("use"):
 			text(420, 290, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
+		var lv := Game.difficulty(req)
+		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
 		if req.has("repair"):
 			frame("ui_button", [212, 202, 360, 240], PINK)
 			text(228, 221, "수리 의뢰", 15, Color.WHITE)
-			text(420, 200, "맡긴 PC를 켜 보고 성능 테스트로 원인을 찾아요.", 18, QUIET)
+			text(420, 200, "맡긴 PC를 진단 화면에서 살펴보고 원인을 찾아요.", 18, QUIET)
 			text(420, 170, "손님 부품은 공짜, 새로 산 부품만 비용이에요.", 18, QUIET)
 		else:
 			text(420, 200, "무엇을 원하는지 말 속에서 찾아보세요.", 18, QUIET)
@@ -531,7 +533,7 @@ class BenchView extends Mode:
 	func open() -> void:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
 		r = Bench.run(Bench.parts_of(Game.pc), use)
-		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] else {}
+		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not Game.request().has("repair") else {}   # 수리는 정답을 안 알려 줌
 		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
 		t0 = Time.get_ticks_msec()
 		m.push("bench")
@@ -658,6 +660,8 @@ class BenchView extends Mode:
 			var what: String = {"CPU": "CPU", "GPU": "그래픽카드", "RAM": "RAM", "COOLER": "쿨러", "CASE": "케이스"}[fixit["type"]]
 			var with_mb: String = " + %s" % DB.PARTS[fixit["mb"]]["name"] if fixit.get("mb", "") != "" else ""
 			tip = "추천: %s → %s%s%s (%d만)" % [what, p["name"], " ×2" if fixit["type"] == "RAM" else "", with_mb, fixit["cost"]]
+		elif not r["ok"] and Game.request().has("repair"):
+			tip = "원인은 진단 화면(조립 → 진단)에서 찾아보세요"
 		elif not r["ok"]:
 			tip = r["notes"][0].split(" →")[0] if not r["notes"].is_empty() else "빨간 막대(발목)부터 바꿔 보세요"
 		for ln in wrap_text(tip, 800):
@@ -674,7 +678,7 @@ class Trial extends Mode:
 
 	func enter() -> void:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
-		boot = Game.pc.post()[0] == 4
+		boot = Game.pc.picture()
 		r = Bench.run(Bench.parts_of(Game.pc), use)
 		t0 = Time.get_ticks_msec()
 

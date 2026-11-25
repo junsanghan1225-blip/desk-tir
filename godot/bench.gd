@@ -11,7 +11,7 @@ const KIND_NAMES := {"office": "문서 · 화상회의", "code": "코딩(빌드)
 
 ## 조립 상태 → 계산에 쓰는 부품 묶음 {CPU, GPU, COOLER, CASE: id, RAM: [id...]}
 static func parts_of(pc: PCBuild) -> Dictionary:
-	var d := {"RAM": pc.ram.filter(func(r): return r != "")}
+	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults}
 	for t in ["CPU", "GPU", "COOLER", "CASE", "MB"]:
 		d[t] = pc.parts.get(t, "")
 	return d
@@ -51,7 +51,10 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	var gpu_w: int = _s(d["GPU"], "watt")
 	r["cpu_temp"] = clampi(roundi(30 + 60.0 * cpu_w / tdp - (af - 1) * 4), 30, 105)
 	r["gpu_temp"] = clampi(roundi(45 + gpu_w * 0.1 - (af - 1) * 6), 35, 100)
-	r["noise"] = roundi(16 + _s(d["COOLER"], "noise", 12) + gpu_w / 40.0 + af)
+	var f: Dictionary = d.get("faults", {})
+	r["cpu_temp"] += (25 if f.has("paste_dry") else 0) + (10 if f.has("dust") else 0) + (70 if f.has("cpu_fan") else 0)
+	r["gpu_temp"] += 10 if f.has("dust") else 0
+	r["noise"] = roundi(16 + _s(d["COOLER"], "noise", 12) + gpu_w / 40.0 + af + (7 if f.has("dust") else 0) + (4 if f.has("bloat") else 0))
 	var cpu_thr := 0.75 if r["cpu_temp"] >= 90 else 1.0
 	var gpu_thr := 0.85 if r["gpu_temp"] >= 85 else 1.0
 	if cpu_thr < 1:
@@ -66,12 +69,13 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	r["throttle"] = cpu_thr < 1
 	r["ram_low"] = gb < 16
 	r["gb"] = gb
-	var mt: float = _s(d["CPU"], "mt") * cpu_thr
+	var soft: float = (0.9 if f.has("xmp_off") else 1.0) * (0.35 if f.has("bloat") else 1.0)   # 숨은 고장: 숫자만 조금 모자람
+	var mt: float = _s(d["CPU"], "mt") * cpu_thr * soft
 	match r["kind"]:
 		"game":
 			var w: float = GENRE[use["genre"]]
 			var ram_f := 0.75 if gb < 16 else 1.0
-			var cpu_fps: float = _s(d["CPU"], "game") * w * cpu_thr * ram_f * (1.05 if dual else 1.0) * (0.8 if use.get("stream", false) else 1.0)
+			var cpu_fps: float = _s(d["CPU"], "game") * w * cpu_thr * soft * ram_f * (1.05 if dual else 1.0) * (0.8 if use.get("stream", false) else 1.0)
 			var gpu_fps: float = _s(d["GPU"], "fps") * w * RES[use["res"]] * gpu_thr * (0.85 if use["res"] == "4K" and _s(d["GPU"], "vram") < 12 else 1.0)
 			r["cpu_fps"] = roundi(cpu_fps)
 			r["gpu_fps"] = roundi(gpu_fps)

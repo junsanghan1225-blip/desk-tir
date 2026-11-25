@@ -12,7 +12,8 @@ const ROW_H := 34
 const ROW_TOP := 600
 const CASE_AREA := [290, 70, 900, 636]
 const PSU_BAY := [306, 84, 520, 196]
-const BTN_POST := [930, 70, 1270, 116]
+const BTN_POST := [930, 70, 1096, 116]
+const BTN_DIAG := [1104, 70, 1270, 116]
 const BTN_BENCH := [930, 6, 1270, 62]
 const PER := 14
 const BTN_PREV := [14, 70, 64, 100]
@@ -152,6 +153,10 @@ func down(x: float, y: float, right: bool) -> void:
 	if inside(x, y, BTN_BENCH):
 		sfx("click")
 		m.modes["bench"].open()
+		return
+	if inside(x, y, BTN_DIAG):
+		sfx("click")
+		m.push("diag")
 		return
 	if inside(x, y, BTN_POST):
 		post = pc.post()
@@ -422,7 +427,8 @@ func draw_side() -> void:
 	if not post.is_empty():
 		text(x0, 154, post[1].left(22), 15, GREEN if stage == 4 else PINK)
 		text(x0, 132, post[1].substr(22), 15, GREEN if stage == 4 else PINK)
-	button(BTN_POST, "전원 테스트", GOLD)
+	button(BTN_POST, "전원", GOLD)
+	button(BTN_DIAG, "진단", PINK if Game.request().has("repair") else VIOLET)
 	button(BTN_BENCH, "성능 테스트", CYAN)
 
 

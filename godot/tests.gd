@@ -148,9 +148,15 @@ func _initialize() -> void:
 	ok("학점" in Game.lines(regular)[0], "단골 대사")
 
 	# --- 수리 의뢰: 고장 난 채로 와서, 원인을 고치면 별 3개 ---
-	var fixes := {"웹소설 작가": func(b: PCBuild): b.paste = true,
-		"손녀 바보 할머니": func(b: PCBuild): b.place("ram1", 1),
-		"프로게이머 지망생": func(b: PCBuild): b.parts["COOLER"] = "cool2"}
+	var fixes := {"재택근무 회사원": func(b: PCBuild): b.faults.erase("monitor_mb"),
+		"웹소설 작가": func(b: PCBuild): b.faults.erase("cpu_fan"),
+		"동네 카페 사장님": func(b: PCBuild): b.faults.erase("ram_seat"),
+		"손녀 바보 할머니": func(b: PCBuild): b.faults.clear(),
+		"프로게이머 지망생": func(b: PCBuild):   # 쿨러 떼기 → 굳은 구리스 닦기 → 새로 바르기 → 쿨러 → BIOS XMP
+			b.remove("COOLER")
+			b.apply_paste()
+			b.place("cool2")
+			b.faults.erase("xmp_off")}
 	for i in DB.REQUESTS.size():
 		var q: Dictionary = DB.REQUESTS[i]
 		if not q.has("repair"):
@@ -158,7 +164,7 @@ func _initialize() -> void:
 		Game.day = q["day"]
 		Game.order_index = Game.todays_requests().find(q)
 		Game.reset_order()
-		ok(Game.spent() == 0 and Rules.score(q, [], Game.pc, [])["stars"] == 0, "수리 전엔 증상: " + q["customer"])
+		ok(Game.spent() == 0 and Rules.score(q, [], Game.pc, [])["stars"] == 0 and Game.difficulty(q) >= 1, "수리 전엔 증상: " + q["customer"])
 		fixes[q["customer"]].call(Game.pc)
 		var rs := Rules.score(q, [], Game.pc, [])
 		ok(rs["stars"] == 3 and Game.spent() <= q["budget"], "수리 후 %s %s 비용 %d" % [q["customer"], rs, Game.spent()])
