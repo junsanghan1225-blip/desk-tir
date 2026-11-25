@@ -44,6 +44,12 @@ static var pc := PCBuild.new()
 static var cables := []
 static var power := false   # 책상에서 PC 전원을 켰는지 (조립을 바꾸면 꺼짐)
 static var power_t := 0     # 켠 시각 (부팅 화면 → 바탕화면)
+static var order_t0 := 0    # 이번 주문 시작 시각 (작업 시간 재기)
+static var checkouts := 0   # 이번 주문 결제 횟수 (두 번째부터 배송비)
+static var ship_paid := 0   # 이번 주문 추가 배송비 (만)
+static var bill := []       # 마지막 정산 내역 [[항목, 금액(만)], ...] → 결과 화면
+const TIME_LIMIT := {"desk": 240, "repair": 240, "pc": 360, "full": 480}   # 제한 시간(초, 실제 시간)
+const SHIP_FEE := 2         # 한 주문에서 두 번째 결제부터 붙는 배송비 (만)
 
 
 static func new_game() -> void:
@@ -94,6 +100,9 @@ static func today() -> Dictionary:
 
 
 static func reset_order() -> void:
+	order_t0 = Time.get_ticks_msec()
+	checkouts = 0
+	ship_paid = 0
 	power = false
 	cart = {}
 	placed = []
@@ -217,14 +226,17 @@ static func cart_total() -> int:
 ## 결제: 가게 돈에서 빠지고 물건은 창고로. 돈이 모자라면 아무것도 안 바뀌고 빈 Dictionary.
 static func checkout() -> Dictionary:
 	var total := cart_total()
-	if cart.is_empty() or total > money:
+	var fee := SHIP_FEE if checkouts > 0 else 0   # 방해 요소: 나눠 사면 배송비
+	if cart.is_empty() or total + fee > money:
 		return {}
-	money -= total
+	checkouts += 1
+	ship_paid += fee
+	money -= total + fee
 	var receipt := cart.duplicate()
 	for id in cart:
 		stock[id] = stock.get(id, 0) + cart[id]
 	cart.clear()
-	return {"items": receipt, "total": total}
+	return {"items": receipt, "total": total, "fee": fee}
 
 
 ## 반품: 산 값의 절반 환불.
@@ -283,9 +295,16 @@ const PAY_RATE := [40, 80, 100, 100]   # 별 0~3개일 때 받는 비율(%). 별
 
 static func settle(result: Dictionary) -> Array:
 	var budget: int = request()["budget"]
-	var pay: int = roundi(budget * PAY_RATE[result["stars"]] / 100.0)   # 실망해도 물건 값 정도는 받음
+	var sat: int = roundi(budget * PAY_RATE[result["stars"]] / 100.0) - budget   # 실망하면 깎아서 냄
+	var tm: int = roundi(budget * time_pct() / 100.0)   # 오래 걸리면 깎고, 빨리 하면 조금 더
+	var pay: int = max(0, budget + sat + tm)
 	var tip: int = result["stars"] * budget * TIP_RATE[level() - 1] / 100
 	money += pay + tip
+	bill = [["손님 예산", budget], ["만족도 별 %d개 (%d%%)" % [result["stars"], PAY_RATE[result["stars"]]], sat],
+		["작업 시간 %s / %s" % [clock(elapsed()), clock(limit())] + ("  (재촉 전화)" if rush() else ""), tm], ["팁", tip],
+		["물건 값", -spent()]]
+	if ship_paid > 0:
+		bill.append(["나눠 산 배송비 (%d번)" % (checkouts - 1), -ship_paid])
 	stars_total += result["stars"]
 	history[request()["customer"]] = result["stars"]
 	visits[request()["customer"]] = visits.get(request()["customer"], []) + [result["stars"]]
@@ -443,3 +462,36 @@ static func load_save() -> String:
 static func delete_save() -> void:
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(SAVE_PATH)
+
+
+## ---------- 작업 시간 · 방해 요소 ----------
+static func elapsed() -> float:
+	return (Time.get_ticks_msec() - order_t0) / 1000.0
+
+
+## 주문마다 절반쯤은 중간에 손님이 재촉 전화 → 제한 시간 1분 줄어듦 (날짜 · 순서로 정해짐)
+static func rush_at() -> float:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = day * 97 + order_index * 13
+	return TIME_LIMIT[Rules.kind_of(request())] * rng.randf_range(0.3, 0.6) if rng.randf() < 0.5 else -1.0
+
+
+static func rush() -> bool:
+	var at := rush_at()
+	return at >= 0 and elapsed() >= at
+
+
+static func limit() -> int:
+	return TIME_LIMIT[Rules.kind_of(request())] - (60 if rush() else 0)
+
+
+## 시간 보정(%): 절반 안에 끝내면 +5, 넘기면 1분마다 -10 (최대 -30)
+static func time_pct() -> int:
+	var over := elapsed() - limit()
+	if over > 0:
+		return -10 * mini(3, ceili(over / 60.0))
+	return 5 if elapsed() <= limit() * 0.5 else 0
+
+
+static func clock(sec: float) -> String:
+	return "%d:%02d" % [int(sec) / 60, int(sec) % 60]

@@ -82,6 +82,7 @@ class Request extends Mode:
 	func down(_x: float, _y: float, _right: bool) -> void:
 		var kind := Rules.kind_of(Game.request())
 		m.modes["shop"].cat = "parts" if kind in ["pc", "full"] else "screen"
+		Game.order_t0 = Time.get_ticks_msec()   # 주문 받은 순간부터 작업 시간
 		m.go("build" if kind == "repair" else "shop")   # 수리는 맡긴 PC부터 열어 봄
 
 	func mood() -> String:
@@ -171,10 +172,20 @@ class Result extends Mode:
 			text(120, 490 - i * 40, k, 19, Color8(200, 192, 240))
 			text(320, 490 - i * 40, "%d / %d" % [round(result["parts"][k]), result["max"][k]], 19, Color.WHITE)
 			i += 1
-		text(120, 220, "달성 시너지: " + (", ".join(result["synergies"]) if not result["synergies"].is_empty() else "없음"), 17, GREEN)
-		text(120, 180, "받은 돈  %d만 + 팁 %d만%s" % [pay, tip, "" if result["stars"] > 1 else "  (실망해서 %d%%만 냄)" % Game.PAY_RATE[result["stars"]]], 20, CYAN)
-		var margin := pay + tip - cost
-		text(120, 148, "물건 값 %d만  →  이번 주문 마진 %+d만" % [cost, margin], 18, GREEN if margin >= 0 else PINK)
+		text(120, 290, "달성 시너지: " + (", ".join(result["synergies"]) if not result["synergies"].is_empty() else "없음"), 22, GREEN)
+		var y := 250.0   # 정산 내역: 무엇 때문에 깎이고 더해졌는지
+		var margin := 0
+		for b in Game.bill:
+			if b[0] == "손님 예산" or b[1] != 0:
+				text(120, y, b[0], 22, QUIET)
+				var amt := ("%d만" % b[1]) if b[0] == "손님 예산" else ("%+d만" % b[1])
+				text(560 - text_w(amt, 22), y, amt, 22, INK if b[0] == "손님 예산" else GREEN if b[1] > 0 else PINK)
+				y -= 30
+			margin += b[1]
+		box([120, y + 8, 560, y + 10], QUIET)
+		text(120, y - 14, "이번 주문 마진", 22, INK)
+		var ms := "%+d만" % margin
+		text(560 - text_w(ms, 26), y - 14, ms, 26, GREEN if margin >= 0 else PINK)
 		var mood := "happy" if result["stars"] == 3 else "neutral" if result["stars"] > 0 else "sad"
 		panel([628, 458, 792, 632], true)
 		put("face_%s_%s" % [Game.request()["face"], mood], [640, 470, 780, 620])
@@ -191,7 +202,7 @@ class Result extends Mode:
 			text(640, 395 - j * 34, wanted[j], 17)
 		if not Game.new_achv.is_empty():
 			text(640, 100, "업적 달성! " + ", ".join(Game.new_achv.map(func(k): return "%s +%d만" % [Game.ACHV[k][0], Game.ACHV[k][2]])), 22, GOLD)
-		text(120, 100, "화면을 눌러 다음 손님 받기" if Game.order_index + 1 < Game.todays_requests().size() else "화면을 눌러 영업 마감", 18, DIM)
+		text(640, 40, "화면을 눌러 다음 손님 받기" if Game.order_index + 1 < Game.todays_requests().size() else "화면을 눌러 영업 마감", 18, DIM)
 
 
 class DayEnd extends Mode:
