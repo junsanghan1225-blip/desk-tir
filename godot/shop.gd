@@ -114,7 +114,7 @@ func down(x: float, y: float, right: bool) -> void:
 				return
 			if right:
 				var added := Game.add_to_cart(shown[i])
-				toast = "%s 담음" % DB.spec(shown[i])["name"] if added else "업그레이드가 필요해요"
+				toast = "%s 담음" % DB.spec(shown[i])["name"] if added else "잠겨 있어요 → 눌러서 해금"
 				sfx("cart" if added else "error")
 			else:
 				m.modes["product"].open(shown[i])
@@ -200,7 +200,7 @@ func draw_card(i: int, id: String) -> void:
 		tag(img[0] + 6, img[3] - 20, "담음 %d" % Game.cart[id], CYAN)
 	elif Game.stock.get(id, 0) > 0:
 		tag(img[0] + 6, img[3] - 20, "창고 %d" % Game.stock[id], Color8(150, 140, 190))
-	info(r, p["name"], "%d만" % p["price"] if not locked else "", short_spec(id) if not locked else "업그레이드 필요", "", DIM if locked else INK)
+	info(r, p["name"], "%d만" % p["price"] if not locked else "", short_spec(id) if not locked else "해금 %d만" % DB.UPGRADES[p["line"]]["price"], "", DIM if locked else INK)
 
 
 ## 카드 아래 두 줄: [이름 ······ 가격] / [설명 ······ 할인]. 글자 크기 22~26으로 통일, 서로 안 겹치게 폭을 나눔

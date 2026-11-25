@@ -241,12 +241,10 @@ class DayEnd extends Mode:
 				var up: Dictionary = DB.UPGRADES[ids[i]]
 				if Game.upgrades.has(ids[i]):
 					toast = "이미 들여놨어요"
-				elif Game.level() < up["level"]:
-					toast = "가게 레벨 %d부터 살 수 있어요" % up["level"]
 				elif not Game.buy_upgrade(ids[i]):
 					toast = "돈이 부족해요"
 				else:
-					toast = "%s 완료! 내일부터 쇼핑몰에 새 상품이 들어와요" % up["name"]
+					toast = "%s 해금! 쇼핑몰에 새 상품이 들어와요" % up["name"]
 					sfx("buy")
 					Game.save("day_end")
 
@@ -283,16 +281,16 @@ class DayEnd extends Mode:
 		text(160, 285, "오늘 마진 %+d만 원   ·   가게 돈 %d만 원" % [total, Game.money], 22, CYAN)
 		var dd := Game.daily()
 		text(700, 222, ("✓ 오늘의 목표 달성 +%d만" % dd[1]) if Game.stats.has("daily%d" % Game.day) else "✗ 오늘의 목표: " + dd[0], 22, GREEN if Game.stats.has("daily%d" % Game.day) else QUIET)
-		text(120, 222, "가게 업그레이드", 18, PINK)
+		text(120, 222, "모은 돈으로 해금", 18, PINK)
 		var ids := DB.UPGRADES.keys()
 		for i in ids.size():
 			var up: Dictionary = DB.UPGRADES[ids[i]]
 			var r := up_rect(i)
 			var owned: bool = Game.upgrades.has(ids[i])
-			var locked: bool = Game.level() < up["level"]
+			var locked := false   # 레벨 제한 없음: 모은 가게 돈으로 해금
 			panel(r, owned)
 			text(r[0] + 14, r[3] - 22, up["name"], 17, DIM if locked else INK)
-			text(r[0] + 14, r[3] - 48, "보유 중" if owned else ("레벨 %d 필요" % up["level"] if locked else "%d만 원 · 눌러서 구매" % up["price"]), 14, GOLD)
+			text(r[0] + 14, r[3] - 48, "해금 완료" if owned else "%d만 원 · 눌러서 해금" % up["price"], 14, GOLD)
 			text(r[0] + 14, r[3] - 74, up["desc"].left(22), 12, QUIET)
 		if toast != "":
 			text(120, 60, toast, 16, PINK)
@@ -346,12 +344,18 @@ class Product extends Mode:
 		elif inside(x, y, BTN_PLUS):
 			qty = min(9, qty + 1)
 		elif inside(x, y, BTN_ADD):
-			if Game.add_to_cart(id, qty):
+			var line: String = DB.spec(id).get("line", "")
+			if line != "" and not Game.upgrades.has(line):   # 잠긴 상품: 모은 가게 돈으로 그 라인을 바로 해금
+				var up: Dictionary = DB.UPGRADES[line]
+				if Game.buy_upgrade(line):
+					toast = "%s 해금! 이제 담을 수 있어요 (-%d만)" % [up["name"], up["price"]]
+					sfx("buy")
+				else:
+					toast = "가게 돈이 모자라요 (해금 %d만 · 지금 %d만)" % [up["price"], Game.money]
+					sfx("error")
+			elif Game.add_to_cart(id, qty):
 				sfx("cart")
 				m.pop()
-			else:
-				toast = "가게 업그레이드가 필요해요 (영업 마감 화면에서 구매)"
-				sfx("error")
 		elif inside(x, y, BTN_SELL):
 			toast = "반품했어요 (산 값의 절반 환불)" if Game.sell_back(id) else "창고에 없어요"
 
@@ -380,10 +384,16 @@ class Product extends Mode:
 		text(722, 173, qty, 22)
 		button(BTN_PLUS, "+", VIOLET)
 		var locked := not Game.unlocked(p)
-		button(BTN_ADD, "장바구니 담기  %d만" % (p["price"] * qty), DIM if locked else PINK)
+		if locked:   # 잠김: 가게 돈으로 해금하는 버튼으로 바뀜
+			var up: Dictionary = DB.UPGRADES[p["line"]]
+			button(BTN_ADD, "해금하기  %d만" % up["price"], GOLD if Game.money >= up["price"] else DIM)
+			var ly := 196.0   # 무엇이 같이 풀리는지 (이미지 아래 빈칸에, 상자 안으로 줄바꿈)
+			for ln in wrap_text("%s: %s" % [up["name"], up["desc"]], 400):
+				text(210, ly, ln, 22, GOLD)
+				ly -= 28
+		else:
+			button(BTN_ADD, "장바구니 담기  %d만" % (p["price"] * qty), PINK)
 		button(BTN_CLOSE, "X", DIM)
-		if locked:
-			text(840, 120, "업그레이드 필요", 14, PINK)
 		if toast != "":
 			text(210, 120, toast, 15, PINK)
 

@@ -255,7 +255,7 @@ static func level() -> int:
 
 static func buy_upgrade(uid: String) -> bool:
 	var up: Dictionary = DB.UPGRADES[uid]
-	if upgrades.has(uid) or up["price"] > money or level() < up["level"]:
+	if upgrades.has(uid) or up["price"] > money:   # 레벨 제한 없이 모은 가게 돈으로 해금
 		return false
 	money -= up["price"]
 	upgrades[uid] = true

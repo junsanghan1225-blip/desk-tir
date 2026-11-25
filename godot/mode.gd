@@ -333,7 +333,11 @@ func top_bar(current: String) -> void:
 	frame("ui_panel", [-12, BAR, 1292, H + 12])
 	text(16, H - 24, "%d일차 · %s ▾" % [Game.day, req["customer"]], 22, CYAN)   # 누르면 의뢰 메모   # 손님이 한 말은 ll(일시정지)에서 다시 봄
 	var left := Game.money_left()
-	text(16, H - 56, "남은 예산 %d만 / %d만" % [left, req["budget"]], 22, INK if left >= 0 else PINK)
+	text(16, H - 56, "손님 예산 %d/%d만" % [left, req["budget"]], 22, INK if left >= 0 else PINK)   # 손님 돈 (이번 주문)
+	var mx := 40.0 + text_w("손님 예산 %d/%d만" % [left, req["budget"]], 22)   # 가게 돈 (모아서 해금에 씀): 금화 + 금색
+	circle(mx, H - 56, 9, GOLD)
+	circle(mx, H - 56, 5, Color8(200, 150, 40))
+	text(mx + 16, H - 56, "가게 %d만" % Game.money, 22, GOLD)
 	var wire := Rules.wiring_score(Game.cables, Game.placed)
 	for i in TABS.size():
 		if tab_hidden(i):

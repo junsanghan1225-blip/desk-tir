@@ -137,9 +137,8 @@ func _initialize() -> void:
 	ok(Game.checkout().is_empty(), "돈이 모자라면 결제 안 됨")
 	Game.cart.clear()
 	ok(Game.sell_back("monitor") and Game.money == 187, "반품 반값")
-	ok(not Game.buy_upgrade("gamer"), "레벨 2부터")
 	Game.stars_total = 3
-	ok(Game.level() == 2 and Game.buy_upgrade("gamer") and Game.add_to_cart("mic"), "레벨업 → 게이밍 라인")
+	ok(Game.buy_upgrade("gamer") and Game.add_to_cart("mic"), "가게 돈으로 게이밍 라인 해금")
 	Game.stars_total = 0
 	Game.cart.clear()
 	Game.placed = [{"id": "lamp_warm", "layer": "desk", "x": 306, "y": 210}]
