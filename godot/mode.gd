@@ -334,3 +334,11 @@ func tabs(x: float, y: float) -> bool:
 
 func grid() -> void:
 	box([0, 0, 1280, H], BG)
+
+
+## 딱지: 어두운 바탕 + 색 테두리 + 색 글씨 (진한 색 채우기 위 검은 글씨는 뭉개져 보여서)
+func chip(x: float, y: float, s: String, c: Color) -> void:
+	var r := [x, y - 18, x + text_w(s, 22) + 24, y + 18]
+	box(r, Color(0.08, 0.06, 0.16, 0.9))
+	outline(r, c, 2.0)
+	text(x + 12, y, s, 22, c)

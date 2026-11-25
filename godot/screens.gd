@@ -109,14 +109,12 @@ class Request extends Mode:
 			text(420, 290, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
 		if req.has("used"):   # 중고 정책
 			var ok_used: bool = req["used"] == "ok"
-			frame("ui_button", [420, 228, 420 + text_w("중고도 괜찮아요" if ok_used else "새 제품만", 22) + 24, 264], GREEN if ok_used else PINK)
-			text(432, 246, "중고도 괜찮아요" if ok_used else "새 제품만", 22, Color8(20, 14, 40))
+			chip(420, 246, "중고도 괜찮아요" if ok_used else "새 제품만", GREEN if ok_used else PINK)
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
 		var kind := Rules.kind_of(req)
 		var badge: Array = {"repair": ["수리 의뢰", PINK], "pc": ["PC 조립 의뢰", CYAN], "desk": ["데스크테리어 의뢰", GOLD], "full": ["PC + 데스크 의뢰", GREEN]}[kind]
-		frame("ui_button", [76, 112, 76 + text_w(badge[0], 22) + 24, 150], badge[1])
-		text(88, 131, badge[0], 22, Color8(20, 14, 40))
+		chip(76, 131, badge[0], badge[1])
 		if kind == "pc":
 			text(420, 200, "PC를 새로 맞춰요: 성능 · 조립 마감 · 모니터가 점수예요.", 18, QUIET)
 			text(420, 170, "분위기 소품은 점수에 안 들어가요.", 18, QUIET)
@@ -387,23 +385,24 @@ class Receipt extends Mode:
 			m.pop()
 
 	func draw() -> void:
-		var ink := Color8(30, 24, 50)
-		var quiet := Color8(110, 100, 140)
+		var ink := INK   # 흰 종이 + 검은 외곽선 글씨는 뭉개져서, 다른 창과 같은 어두운 바탕으로
+		var quiet := QUIET
 		dim()
-		box(BOX, Color8(245, 242, 255))
+		panel(BOX, true)
 		text(430, 600, "데스크몰 영수증", 24, ink)
 		text(430, 570, "%d일차 · %s 주문용" % [Game.day, Game.request()["customer"]], 14, quiet)
 		var ids: Array = bought["items"].keys()
-		for i in min(ids.size(), 12):
+		for i in min(ids.size(), 10):
 			var p := DB.spec(ids[i])
 			var n: int = bought["items"][ids[i]]
 			text(430, 530 - i * 30, "%s × %d" % [p["name"], n], 16, ink)
-			text(770, 530 - i * 30, "%d만" % (p["price"] * n), 16, ink)
-		if ids.size() > 12:
-			text(430, 230, "외 %d개" % (ids.size() - 12), 14, quiet)
+			text(770, 530 - i * 30, "%d만" % (p["price"] * n), 22, GOLD)
+		if ids.size() > 10:
+			text(430, 230, "외 %d개" % (ids.size() - 10), 22, quiet)
 		box([430, 206, 850, 208], quiet)
 		text(430, 186, "결제 금액  %d만 원" % bought["total"], 20, ink)
-		text(430, 160, "남은 가게 돈  %d만 원  ·  창고로 배송 완료" % Game.money, 14, quiet)
+		text(430, 158, "남은 가게 돈  %d만 원" % Game.money, 22, quiet)
+		text(670, 186, "창고로 배송 완료", 22, CYAN)
 		button(BTN_OK, "확인", PINK)
 
 
