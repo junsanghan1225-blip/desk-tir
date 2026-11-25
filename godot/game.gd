@@ -105,6 +105,10 @@ static func reset_order() -> void:
 	placed = []
 	pc = repair_pc()
 	cables = []
+	if order_index < todays_requests().size() and Rules.kind_of(request()) == "desk":   # 데스크테리어: 손님이 쓰던 모니터 · 키보드가 이미 책상에 (선도 꽂혀 있음)
+		placed = [{"id": "monitor_22", "layer": "desk", "x": 600, "y": 210, "z": 0, "own": true},
+			{"id": "keyboard", "layer": "desk", "x": 617, "y": 210, "z": 283, "own": true}]
+		cables = [{"dev": placed[0], "type": "HDMI", "port": 0}, {"dev": placed[1], "type": "USB", "port": 0}]
 
 
 ## 수리 의뢰면 손님이 맡긴 고장 난 PC, 아니면 빈 케이스
@@ -273,7 +277,7 @@ static func give_back(id: String) -> void:
 static func spent() -> int:
 	var total := 0
 	for p in placed:
-		total += price_of(p["id"])
+		total += 0 if p.get("own", false) else price_of(p["id"])   # 손님이 원래 쓰던 물건은 공짜
 	for t in pc.parts:   # 중고는 산 값(손님 부품은 0원), 새것은 정가
 		total += pc.used[t]["paid"] if pc.used.has(t) else price_of(pc.parts[t])
 	for i in 4:

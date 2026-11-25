@@ -86,6 +86,8 @@ func run() -> void:
 
 	tap(shop.tab_rect(1))
 	on("desk")
+	Game.placed.clear()   # 손님 모니터 · 키보드는 치우고 빈 책상에서 배치 테스트
+	Game.cables.clear()
 	Game.request()["budget"] = 120   # 배치 테스트용: 5개 다 놓을 수 있게 (실제 데스크 예산은 30~60만)
 	var desk = main.modes["desk"]
 	drag(desk.row_rect(desk.rows().find("monitor")), [500, 250, 500, 250])

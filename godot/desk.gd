@@ -231,6 +231,10 @@ func down(x: float, y: float, right: bool) -> void:
 				return
 	var p = hit(x, y)
 	if right:
+		if p != null and p.get("own", false):
+			toast = "손님이 쓰던 물건이라 창고엔 못 넣어요 (옮기기만)"
+			sfx("error")
+			return
 		if p != null:
 			for q in Rules.mounts_on(Game.placed, p) + [p]:   # 모니터를 빼면 위에 끼운 것도 같이 창고로
 				Game.placed.erase(q)
