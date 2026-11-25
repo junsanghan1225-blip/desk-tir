@@ -40,8 +40,33 @@ const svg = ([b, hi, lo, front, side]) => {
   s += `<circle cx="186" cy="44" r="2.5" fill="#0a0814"/><circle cx="186" cy="52" r="2.5" fill="#0a0814"/>`;
   return s;
 };
+// ---- 정면(앞면) 100x210: 책상 위에서 보이는 모습. 전원 버튼 (50, 20) · 앞 팬 자리 3개 (50, 70/115/160)
+const FW = 100;
+const frontSvg = ([b, hi, lo, front, side], id) => {
+  let s = `<defs><linearGradient id="rgb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff4d8d"/><stop offset=".5" stop-color="#7b5cff"/><stop offset="1" stop-color="#2ee6d6"/></linearGradient></defs>`;
+  s += `<rect x="8" y="202" width="22" height="8" rx="2" fill="#0a0814"/><rect x="70" y="202" width="22" height="8" rx="2" fill="#0a0814"/>`;
+  s += `<rect x="0" y="0" width="${FW}" height="204" rx="5" fill="${lo}"/><rect x="3" y="2" width="${FW - 6}" height="199" rx="4" fill="${b}"/><rect x="3" y="2" width="${FW - 6}" height="3" fill="${hi}"/>`;
+  const panel = [10, 44, 80, 150];   // 앞판 가운데
+  if (front === 'mesh') s += `<rect x="${panel[0]}" y="${panel[1]}" width="${panel[2]}" height="${panel[3]}" fill="#0a0910"/>` + [...Array(19)].map((_, r) => [...Array(9)].map((_, c) => `<circle cx="${14 + c * 9 + (r % 2) * 4}" cy="${48 + r * 7.8}" r="2.6" fill="#22202e"/>`).join('')).join('');
+  if (front === 'rgb') s += `<rect x="${panel[0]}" y="${panel[1]}" width="${panel[2]}" height="${panel[3]}" fill="#0b0818"/><rect x="${panel[0]}" y="${panel[1]}" width="${panel[2]}" height="${panel[3]}" fill="#7b5cff" opacity=".12"/><rect x="6" y="40" width="4" height="158" fill="url(#rgb)"/><rect x="90" y="40" width="4" height="158" fill="url(#rgb)"/>`;
+  if (front === 'glassfront') s += `<rect x="${panel[0]}" y="${panel[1]}" width="${panel[2]}" height="${panel[3]}" fill="#16122c"/><rect x="${panel[0]}" y="${panel[1]}" width="${panel[2]}" height="${panel[3]}" fill="#9fe9ff" opacity=".12"/><path d="M14 190 L40 48" stroke="#fff" stroke-width="3" opacity=".18"/>`;
+  if (front === 'wood') s += `<rect x="${panel[0]}" y="${panel[1]}" width="${panel[2]}" height="${panel[3]}" fill="#8b5e3c"/>` + [...Array(8)].map((_, i) => `<rect x="${12 + i * 10}" y="46" width="5" height="146" fill="#a8774f"/>`).join('');
+  if (front === 'plain' && side === 'vent') s += `<rect x="14" y="46" width="72" height="10" rx="1" fill="${lo}"/><rect x="16" y="50" width="20" height="2" fill="${hi}"/><circle cx="78" cy="51" r="2" fill="${hi}"/>` + [...Array(6)].map((_, r) => [...Array(7)].map((_, c) => `<rect x="${17 + c * 10}" y="${150 + r * 8}" width="6" height="4" rx="1" fill="${lo}"/>`).join('')).join('');   // 사무용: 광드라이브 자리 + 아래 통풍구
+  else if (front === 'plain') s += `<rect x="${panel[0]}" y="${panel[1]}" width="${panel[2]}" height="${panel[3]}" fill="${hi}" opacity=".15"/><rect x="${FW / 2 - 1}" y="60" width="2" height="120" fill="${lo}" opacity=".6"/><rect x="38" y="186" width="24" height="3" fill="${lo}"/>`;
+  // 위쪽 버튼 · 단자
+  s += `<rect x="10" y="10" width="80" height="28" rx="3" fill="${lo}" opacity=".55"/>`;
+  s += `<circle cx="50" cy="20" r="8" fill="#0a0814"/><circle cx="50" cy="20" r="6" fill="${hi}"/><circle cx="50" cy="20" r="3.5" fill="#0a0814"/>`;
+  s += `<rect x="16" y="15" width="16" height="6" rx="1" fill="#0a0814"/><rect x="18" y="17" width="12" height="2" fill="#1f5bd1"/><rect x="16" y="26" width="16" height="6" rx="1" fill="#0a0814"/><rect x="18" y="28" width="12" height="2" fill="#1f5bd1"/>`;
+  s += `<circle cx="74" cy="18" r="3" fill="#0a0814"/><circle cx="74" cy="18" r="1.4" fill="#56b08a"/><circle cx="84" cy="18" r="3" fill="#0a0814"/><circle cx="84" cy="18" r="1.4" fill="#ff8fb4"/>`;
+  s += `<rect x="66" y="27" width="22" height="4" rx="2" fill="#0a0814"/>`;   // HDD LED 자리
+  return s;
+};
+
 (async () => {
   for (const [id, pal] of Object.entries(CASES)) {
+    const fb = `<svg xmlns="http://www.w3.org/2000/svg" width="${FW}" height="${H}" viewBox="0 0 ${FW} ${H}">${frontSvg(pal, id)}</svg>`;
+    const fs = await sharp(Buffer.from(fb)).resize(FW / 2, H / 2, { kernel: 'nearest' }).png().toBuffer();
+    await sharp(fs).resize(FW, H, { kernel: 'nearest' }).png().toFile(path.join(OUT, `front_${id}.png`));
     const body = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg(pal)}</svg>`;
     const small = await sharp(Buffer.from(body)).resize(W / 2, H / 2, { kernel: 'nearest' }).png().toBuffer();
     await sharp(small).resize(W, H, { kernel: 'nearest' }).png().toFile(path.join(OUT, `side_${id}.png`));

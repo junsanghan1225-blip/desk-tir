@@ -6,8 +6,8 @@ const SHOP_W := 270
 const ROW_H := 31
 const ROW_TOP := 600
 const ROOM := [270, 0, 1280, 650]
-const PC_RECT := [1076, 210, 1272, 420]   # 책상 오른쪽 PC (유리 옆판이 보이는 옆모습)
-const BTN_POWER := [1238, 384, 1264, 410]
+const PC_RECT := [1160, 210, 1260, 420]   # 책상 오른쪽 PC (앞면이 보임. 옆모습은 조립 탭의 "완성 모습")
+const BTN_POWER := [1198, 388, 1222, 412]
 const CASE_BODY := {"case1": Color8(42, 35, 80), "case2": Color8(232, 230, 242), "case3": Color8(20, 16, 42), "case4": Color8(232, 230, 242), "case5": Color8(42, 35, 80)}
 ## 모니터 그림 속 화면 위치 [x1, y1, x2, y2, 그림 너비, 그림 높이] (위에서부터, 원래 그림 기준)
 const SCREEN := {"monitor_22": [6, 6, 184, 110, 190, 172], "monitor_144": [6, 6, 202, 120, 208, 182], "monitor_240": [6, 6, 210, 124, 216, 190], "monitor_qhd165": [6, 6, 228, 134, 234, 196], "monitor_4k": [6, 6, 270, 156, 276, 222], "monitor_oled": [6, 6, 228, 134, 234, 212], "monitor_pivot": [6, 6, 104, 196, 110, 258], "monitor_portable": [6, 6, 134, 84, 140, 114], "monitor": [6, 6, 202, 116, 208, 176], "monitor_27": [6, 6, 202, 116, 208, 176], "monitor_white": [6, 6, 202, 116, 208, 176], "monitor_curve": [10, 16, 308, 112, 318, 176]}
@@ -414,49 +414,63 @@ func draw_pc() -> void:
 	var pc := Game.pc
 	var r := PC_RECT
 	if not pc.has("CASE"):
-		put("case_empty", r)
-		text(r[0] + 30, r[3] + 18, "노트북 사용 중" if Game.computer() != pc else "PC 조립 필요", 16, CYAN)
+		put("case_empty", [r[0] - 30, r[1], r[2], r[3] + 50])
+		text(r[0] - 20, r[3] + 66, "노트북 사용 중" if Game.computer() != pc else "PC 조립 필요", 16, CYAN)
 		return
 	var cid: String = pc.parts["CASE"]
 	var t := Time.get_ticks_msec() / 1000.0
 	var on: bool = Game.power
-	# 유리창(그림 좌표 x 10~154, y 12~196) → 게임 좌표
-	var g := [r[0] + 10, r[3] - 196, r[0] + 154, r[3] - 12]
+	put("front_" + cid if ResourceLoader.exists("res://resource/front_%s.png" % cid) else "front_case1", r)
+	if on and cid in ["case3", "case4", "case7"]:   # 앞판 너머로 비치는 RGB 팬
+		for i in 3:
+			var c := Vector2((r[0] + r[2]) / 2.0, r[3] - 70 - i * 45)
+			m.draw_arc(Vector2(c.x, H - c.y), 24, 0, TAU, 32, Color.from_hsv(fmod(t * 0.15 + i * 0.12, 1.0), 0.75, 1.0, 0.75 if cid == "case4" else 0.4), 4)
+	if on and cid == "case3":
+		box([r[0] + 10, r[1] + 54, r[2] - 10, r[3] - 44], Color.from_hsv(fmod(t * 0.08, 1.0), 0.7, 1.0, 0.08))
+	var failing: bool = Time.get_ticks_msec() - fail_t < 1500
+	var c2 := center(BTN_POWER)
+	var led: Color = CYAN if on else (PINK if failing and int(t * 6) % 2 else (Color(GOLD, 0.5 + 0.5 * sin(t * 4)) if pc.boots() else Color8(70, 64, 96)))
+	m.draw_arc(Vector2(c2.x, H - c2.y), 6, 0, TAU, 16, led, 2)
+	if on:
+		box([r[0] + 67, r[3] - 31, r[0] + 87, r[3] - 28], CYAN if fmod(t * 7, 2.0) < 1 else Color8(30, 60, 70))   # HDD 불빛
+
+
+## 옆모습 (조립 탭 "완성 모습"): 케이스 그림의 유리창 너머로 실제 조립한 부품 + 파워 덮개 + 앞 팬. r = 196:210 비율
+func draw_side(r: Array, on: bool) -> void:
+	var pc := Game.pc
+	var cid: String = pc.parts["CASE"]
+	var t := Time.get_ticks_msec() / 1000.0
+	var sc: float = (r[2] - r[0]) / 196.0
+	var g := [r[0] + 10 * sc, r[3] - 196 * sc, r[0] + 154 * sc, r[3] - 12 * sc]   # 유리창 (그림 x 10~154, y 12~196)
+	var sh: float = 50 * sc
 	box(g, Color8(8, 6, 18))
 	var b = m.modes["build"]
 	var ca: Array = b.CASE_AREA
-	var k: float = (g[3] - g[1] - 50.0) / (ca[3] - 200.0)   # 파워 칸(아래)을 뺀 부분을 덮개 위 공간에 꽉 (파워는 덮개 속, 오른쪽 넘친 곳은 앞판에 가려짐)
+	var k: float = (g[3] - g[1] - sh) / (ca[3] - 200.0)   # 파워 칸을 뺀 부분을 덮개 위 공간에 꽉
 	m.draw_set_transform(Vector2(g[0] - ca[0] * k, (H - g[3]) - (H - ca[3]) * k), 0.0, Vector2(k, k))
 	if pc.has("MB"):
 		b.draw_board()
 		b.draw_parts()
 		b.draw_cables()
 	m.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var front_fans: bool = cid in ["case3", "case4", "case7"]
-	for i in 3:   # 앞쪽 흡기 팬 3개 (켜지면 링이 빛남)
-		if not front_fans:
-			break
-		var c := Vector2(g[2] - 12, g[3] - 34 - i * 40)
-		circle(c.x, c.y, 15, Color8(20, 16, 34))
-		var ring := Color.from_hsv(fmod(t * 0.15 + i * 0.12, 1.0), 0.75, 1.0) if on else Color8(70, 64, 96)
-		m.draw_arc(Vector2(c.x, H - c.y), 13, 0, TAU, 24, ring, 3)
-		if on:
-			for q in 4:
-				var a2 := t * 12.0 + q * TAU / 4
-				line(c, c + Vector2(cos(a2), sin(a2)) * 10, Color(0.6, 0.6, 0.75, 0.6), 3)
-	var shroud := [g[0], g[1], g[2], g[1] + 50]   # 파워 덮개 (아래 공간을 가려 깔끔하게)
+	if cid in ["case3", "case4", "case7"]:
+		for i in 3:   # 앞쪽 흡기 팬
+			var c := Vector2(g[2] - 12 * sc, g[3] - 34 * sc - i * 40 * sc)
+			circle(c.x, c.y, 15 * sc, Color8(20, 16, 34))
+			m.draw_arc(Vector2(c.x, H - c.y), 13 * sc, 0, TAU, 32, Color.from_hsv(fmod(t * 0.15 + i * 0.12, 1.0), 0.75, 1.0) if on else Color8(70, 64, 96), 3 * sc)
+			if on:
+				for q in 4:
+					var a2 := t * 12.0 + q * TAU / 4
+					line(c, c + Vector2(cos(a2), sin(a2)) * 10 * sc, Color(0.6, 0.6, 0.75, 0.6), 3 * sc)
+	var shroud := [g[0], g[1], g[2], g[1] + sh]   # 파워 덮개
 	box(shroud, Color8(214, 212, 228) if cid in ["case2", "case4"] else Color8(26, 22, 44))
-	box([shroud[0], shroud[3] - 3, shroud[2], shroud[3]], Color.from_hsv(fmod(t * 0.1, 1.0), 0.7, 1.0, 0.9) if on and cid in ["case3", "case7"] else Color8(60, 54, 90))
-	if on:   # 켜지면 안쪽이 은은하게 물듦
+	box([shroud[0], shroud[3] - 3 * sc, shroud[2], shroud[3]], Color.from_hsv(fmod(t * 0.1, 1.0), 0.7, 1.0, 0.9) if on and cid in ["case3", "case7"] else Color8(60, 54, 90))
+	if on:
 		box(g, Color.from_hsv(fmod(t * 0.08, 1.0), 0.6, 1.0, 0.08))
 	put("side_" + cid if ResourceLoader.exists("res://resource/side_%s.png" % cid) else "side_case1", r)
-	poly([Vector2(g[0] + 8, g[3] - 6), Vector2(g[0] + 30, g[3] - 6), Vector2(g[0] + 80, g[1] + 6), Vector2(g[0] + 58, g[1] + 6)], Color(1, 1, 1, 0.06))   # 유리 반사
-	var failing: bool = Time.get_ticks_msec() - fail_t < 1500
-	var c2 := center(BTN_POWER)
-	var led: Color = CYAN if on else (PINK if failing and int(t * 6) % 2 else (Color(GOLD, 0.5 + 0.5 * sin(t * 4)) if pc.boots() else Color8(70, 64, 96)))
-	m.draw_arc(Vector2(c2.x, H - c2.y), 6, 0, TAU, 16, led, 2)
-	if on:
-		box([c2.x - 2, c2.y - 22, c2.x + 2, c2.y - 18], CYAN if fmod(t * 7, 2.0) < 1 else Color8(30, 60, 70))   # HDD 불빛
+	poly([Vector2(g[0] + 8 * sc, g[3] - 6 * sc), Vector2(g[0] + 30 * sc, g[3] - 6 * sc), Vector2(g[0] + 80 * sc, g[1] + 6 * sc), Vector2(g[0] + 58 * sc, g[1] + 6 * sc)], Color(1, 1, 1, 0.06))   # 유리 반사
+	var pb := Vector2(r[0] + 175 * sc, r[3] - 23 * sc)
+	m.draw_arc(Vector2(pb.x, H - pb.y), 6 * sc, 0, TAU, 16, CYAN if on else Color8(70, 64, 96), 2 * sc)
 
 
 ## 모니터 화면: 꺼짐 = 검정 / 켜짐 + DP 연결 = 부팅 로고 → 바탕화면 · 작업표시줄 · 창 / 켜졌는데 선 없음 = 신호 없음

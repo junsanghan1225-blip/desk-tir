@@ -14,6 +14,7 @@ const CASE_AREA := [290, 70, 900, 636]
 const PSU_BAY := [306, 84, 520, 196]
 const BTN_POST := [930, 70, 1096, 116]
 const BTN_DIAG := [1104, 70, 1270, 116]
+const BTN_SHOW := [690, 6, 900, 60]   # 완성 모습 (옆판 유리 너머로 본 PC)
 const BTN_BENCH := [930, 6, 1270, 62]
 const PER := 14
 const BTN_PREV := [14, 70, 64, 100]
@@ -29,6 +30,7 @@ var post: Array = []   # 마지막 전원 테스트 [단계, 메시지]
 var page := 0
 var tool := ""         # "" = 손(끌어 꽂기) · "driver" · "tie"
 var spin := {}         # 나사 키 -> 돌리기 시작한 시각 (돌아가는 연출)
+var showcase := false  # 완성 모습 보는 중
 
 
 func enter() -> void:
@@ -37,6 +39,7 @@ func enter() -> void:
 	toast = ""
 	post = []
 	tool = ""
+	showcase = false
 
 
 # ---------- 좌표 ----------
@@ -222,7 +225,14 @@ func placed_at(x: float, y: float) -> Array:
 
 func down(x: float, y: float, right: bool) -> void:
 	var pc := Game.pc
+	if showcase:   # 아무 데나 누르면 닫힘
+		showcase = false
+		return
 	if tabs(x, y):
+		return
+	if pc.has("CASE") and inside(x, y, BTN_SHOW):
+		showcase = true
+		sfx("boot_ok" if pc.boots() else "click")
 		return
 	if inside(x, y, BTN_BENCH):
 		sfx("click")
@@ -638,6 +648,14 @@ func draw() -> void:
 	draw_drag()
 	draw_hover()
 	draw_tool_cursor()
+	if Game.pc.has("CASE"):
+		button(BTN_SHOW, "완성 모습", CYAN if Game.pc.boots() else VIOLET)
+	if showcase:
+		box([0, 0, 1280, H], BG)
+		grid()
+		var on: bool = Game.pc.boots()
+		m.modes["desk"].draw_side([382, 50, 898, 603], on)
+		text(382, 624, ("완성! 전원이 켜진 모습" if on else "아직 안 켜져요 (전원 테스트로 확인)") + "  ·  누르면 닫기", 22, GREEN if on else GOLD)
 	top_bar("build")
 	text(INV_W + 20, 30, "끌어다 꽂기 · 두 번 누르면 빼기", 13, QUIET)
 	if toast != "":
