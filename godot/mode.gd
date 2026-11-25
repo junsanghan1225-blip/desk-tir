@@ -255,7 +255,7 @@ func draw_app(s: Array, r: Dictionary, t: float, show_fps := true) -> void:
 				for i in int(p * 8):   # 빌드 터미널 줄
 					box([s[0] + 10, s[3] - 14 - i * sh * 0.07, s[0] + 10 + sw * (0.3 + 0.08 * (i % 4)), s[3] - 9 - i * sh * 0.07], GREEN if i % 3 else CYAN)
 			box([s[0] + 10, s[1] + 10, s[2] - 10, s[1] + 26], Color8(30, 22, 60))   # 진행 막대
-			box([s[0] + 12, s[1] + 12, s[0] + 12 + (sw - 24) * p, s[1] + 24], GREEN if r["ok"] else GOLD)
+			box([s[0] + 12, s[1] + 12, s[0] + 12 + (sw - 24) * p, s[1] + 24], GREEN if p >= 1.0 else GOLD)
 			if show_fps and sh > 120:
 				var lbl := ("완료! " if p >= 1.0 else "%d%%  " % roundi(p * 100)) + Bench.value_text(r)
 				text(s[0] + 12, s[1] + 46, lbl, 22, GREEN if p >= 1.0 and r["ok"] else INK)

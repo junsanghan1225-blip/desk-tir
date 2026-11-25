@@ -676,6 +676,8 @@ class Trial extends Mode:
 		if not boot or r.get("shutdown", false):
 			return ["sad", "어… 화면이 안 나와요?"]
 		var bad: bool = r.get("ram_low", false) and r["kind"] == "game"
+		if r["ratio"] >= 1.0 and not r["ok"] and not bad:   # 성능은 되는데 소음 기준을 넘음
+			return ["neutral", "빠른데… 좀 시끄럽네요."]
 		match r["kind"]:
 			"game":
 				if r["ok"] and not bad: return ["happy", "와, 엄청 부드러워요!"] if r["ratio"] >= 1.3 else ["happy", "딱 원하던 느낌이에요."]
@@ -691,19 +693,29 @@ class Trial extends Mode:
 		var req := Game.request()
 		text(40, 670, "%s 님이 써 보는 중" % req["customer"], 33, PINK)
 		text(40, 628, Bench.describe(req.get("use", {"kind": "office"})), 22, CYAN)
-		frame("ui_panel", [SCREEN[0] - 14, SCREEN[1] - 14, SCREEN[2] + 14, SCREEN[3] + 14])
 		if not boot or r.get("shutdown", false):
+			frame("ui_panel", [SCREEN[0] - 14, SCREEN[1] - 14, SCREEN[2] + 14, SCREEN[3] + 14])
 			box(SCREEN, Color8(6, 5, 12))
-		else:
+		elif r["kind"] == "office":
+			frame("ui_panel", [SCREEN[0] - 14, SCREEN[1] - 14, SCREEN[2] + 14, SCREEN[3] + 14])
 			draw_app(SCREEN, r, t())
+		else:   # 나란히: 손님이 원한 성능 vs 지금 PC → 부드러움 · 속도 차이가 바로 보임
+			var want := r.duplicate()
+			want.merge({"value": r["target"], "ratio": 1.0, "ok": true, "ram_low": false, "throttle": false}, true)
+			var sides := [[[380, 240, 800, 560], want, "손님이 원한 " + Bench.value_text(want), QUIET], [[820, 240, 1240, 560], r, "지금 " + Bench.value_text(r), GREEN if r["ratio"] >= 1.0 else PINK]]
+			for sd in sides:
+				var sc: Array = sd[0]
+				frame("ui_panel", [sc[0] - 10, sc[1] - 10, sc[2] + 10, sc[3] + 10], Color.WHITE if sd[1] == r else Color8(110, 100, 160))
+				draw_app(sc, sd[1], t(), false)
+				text_c([sc[0], sc[1] - 64, sc[2], sc[1] - 16], sd[2], 33, sd[3])
 		var rx := reaction()
 		var shown: bool = t() > 2.5
-		panel([40, 300, 340, 600], true)
-		put("face_%s_%s" % [req["face"], rx[0] if shown else "neutral"], [60, 320, 320, 580])
+		panel([40, 270, 340, 570], true)
+		put("face_%s_%s" % [req["face"], rx[0] if shown else "neutral"], [60, 290, 320, 550])
 		if shown:
-			panel([40, 150, 340, 280], true)
-			var y := 240.0
+			panel([40, 130, 340, 250], true)
+			var y := 212.0
 			for ln in wrap_text(rx[1], 270):
 				text(56, y, ln, 22, INK)
 				y -= 30
-			text_c([0, 40, 1280, 110], "누르면 결과 보기", 22, QUIET)
+			text_c([380, 60, 1240, 110], "누르면 결과 보기", 22, QUIET)
