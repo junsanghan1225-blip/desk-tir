@@ -265,7 +265,7 @@ func down(x: float, y: float, right: bool) -> void:
 				held = ["cable", c]
 				toast = ""
 			else:
-				toast = "지금은 이 선을 꽂을 데가 없어요"
+				toast = why_no_cable(c)
 			post = []
 			return
 	var ids := inv_ids()
@@ -305,6 +305,24 @@ func down(x: float, y: float, right: bool) -> void:
 				Game.give_back(id)
 		post = []
 		toast = "%s을(를) 뺐어요" % DB.PARTS[pid]["name"]
+
+
+## 선을 꽂을 수 없는 이유를 구체적으로
+func why_no_cable(c: String) -> String:
+	if not Game.pc.has("MB"):
+		return "메인보드를 먼저 장착해요"
+	if c == "cpu8":
+		return "CPU를 먼저 꽂아요"
+	if c.begins_with("pcie"):
+		var i := int(c.right(1))
+		if not Game.pc.has("GPU"):
+			return "그래픽카드를 먼저 꽂아요"
+		if Game.pc.pcie_needed() == 0:
+			return "이 그래픽카드는 보조전원이 필요 없어요 (슬롯 전기로 충분)"
+		if i >= Game.pc.pcie_needed():
+			return "이 그래픽카드는 8핀 %d개만 써요" % Game.pc.pcie_needed()
+		return "이 파워엔 그래픽카드 선이 %d개뿐이에요" % Game.pc.spec("PSU")["pcie"]
+	return "지금은 이 선을 꽂을 데가 없어요"
 
 
 func up(x: float, y: float) -> void:
@@ -422,7 +440,7 @@ func draw_parts() -> void:
 		var on: bool = pc.cables.has(c)
 		box(r, Color8(60, 50, 100) if on else DARK)
 		outline(r, CYAN if c in pc.cable_targets() and not on else DIM)
-		text(r[0] + 4, (r[1] + r[3]) / 2.0, CABLE_NAMES[c], 11, INK if on else QUIET)
+		text(r[0] + 4, (r[1] + r[3]) / 2.0, CABLE_NAMES[c], 11, INK if on else QUIET if c in pc.cable_targets() else Color(1, 1, 1, 0.25))   # 지금 필요 없는 선은 흐리게
 
 
 func cable_color(c: String) -> Color:
