@@ -123,8 +123,23 @@ func panel(r: Array, hot := false) -> void:
 
 ## 두께 있는 버튼: 글자는 윗면 가운데
 func button(r: Array, label: String, c := CYAN, size := 22) -> void:
-	frame("ui_button", r, c)
-	text_c(r, label, size, Color.WHITE)
+	var q := press_frame(r, c)
+	text_c(q, label, size, Color.WHITE)
+
+
+## 버튼 몸통: 아래 그림자 · 위 하이라이트(입체), 마우스를 올리면 밝게, 누르는 동안 그림자 쪽으로 쑥 들어감. 눌린 자리(글자 위치)를 돌려줌
+func press_frame(r: Array, c: Color) -> Array:
+	var hot := inside(m.mouse.x, m.mouse.y, r)
+	var down: bool = hot and m.held_down
+	var d := -3.0 if down else 0.0
+	if not down:
+		box([r[0] + 3, r[1] - 4, r[2] + 3, r[3] - 4], Color(0, 0, 0, 0.45))   # 바닥 그림자
+	var q := [r[0], r[1] + d, r[2], r[3] + d]
+	frame("ui_button", q, c.darkened(0.15) if down else c.lightened(0.12) if hot else c)
+	box([q[0] + 8, q[3] - 9, q[2] - 8, q[3] - 6], Color(1, 1, 1, 0.10 if down else 0.22))   # 윗면 빛
+	if hot and not down:
+		outline(grow(q, 1), Color(1, 1, 1, 0.35), 1)
+	return q
 
 
 func text_w(s: String, size: int) -> float:
@@ -317,8 +332,8 @@ func top_bar(current: String) -> void:
 	for i in TABS.size():
 		var r := tab_rect(i)
 		var on: bool = TABS[i][0] == current
-		frame("ui_button", r, PINK if on else Color8(80, 66, 140))
-		text_c(r, TABS[i][1], 22, Color.WHITE if on else QUIET)
+		var q := press_frame(r, PINK if on else Color8(80, 66, 140))
+		text_c(q, TABS[i][1], 22, Color.WHITE if on else QUIET)
 		if TABS[i][0] == "wire" and (wire[1] > 0 or wire[2] > 0):
 			box([r[2] - 22, r[3] - 22, r[2] - 10, r[3] - 10], PINK)  # 미연결 · 꼬임이 있으면 빨간 점
 

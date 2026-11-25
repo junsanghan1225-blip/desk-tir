@@ -11,6 +11,7 @@ var font: Font = load("res://resource/font.ttf")
 var modes := {}
 var stack: Array = []
 var mouse := Vector2.ZERO   # 게임 좌표 (y 위쪽)
+var held_down := false     # 왼쪽 버튼(손가락)을 누르고 있는지 → 버튼이 눌려 들어간 모습
 const BTN_MUTE := [1212, 648, 1274, 714]   # 위쪽 바 오른쪽 끝 (폰엔 M · ESC 키가 없어서)
 const BTN_PAUSE := [1144, 648, 1206, 714]
 const PHOTOS := "user://photos"
@@ -163,6 +164,8 @@ func _input(ev: InputEvent) -> void:
 		var p: Vector2 = make_input_local(ev).position
 		mouse = Vector2(p.x, H - p.y)
 	if ev is InputEventMouseButton:
+		if ev.button_index == MOUSE_BUTTON_LEFT:
+			held_down = ev.pressed
 		if ev.pressed and Rules.inside(mouse.x, mouse.y, BTN_MUTE):
 			toggle_mute()
 		elif ev.pressed and stack.size() == 1 and top() in [modes["shop"], modes["desk"], modes["build"], modes["wire"]] and Rules.inside(mouse.x, mouse.y, [0, 648, 440, 720]):
