@@ -69,8 +69,30 @@ static func reset_order() -> void:
 	power = false
 	cart = {}
 	placed = []
-	pc = PCBuild.new()
+	pc = repair_pc()
 	cables = []
+
+
+## 수리 의뢰면 손님이 맡긴 고장 난 PC, 아니면 빈 케이스
+static func repair_pc() -> PCBuild:
+	var rep: Dictionary = request().get("repair", {})
+	if rep.is_empty():
+		return PCBuild.new()
+	var b := PCBuild.full(rep["pc"])
+	for f in rep["break"]:
+		match f:
+			"paste": b.paste = false
+			_: b.cables.erase(f)   # 선 빠짐 (cpu8 · 24pin · pcie0 …)
+	return b
+
+
+## 손님이 가져온 부품 id -> 개수 (값을 안 받음)
+static func lent() -> Dictionary:
+	var out := {}
+	if request().has("repair"):
+		for id in PCBuild.full(request()["repair"]["pc"]).ids():
+			out[id] = out.get(id, 0) + 1
+	return out
 
 
 static func unlocked(thing: Dictionary) -> bool:
@@ -148,8 +170,12 @@ static func spent() -> int:
 	var total := 0
 	for p in placed:
 		total += price_of(p["id"])
+	var free := lent()
 	for id in pc.ids():
-		total += price_of(id)
+		if free.get(id, 0) > 0:
+			free[id] -= 1
+		else:
+			total += price_of(id)
 	return total
 
 
@@ -166,6 +192,12 @@ static func settle(result: Dictionary) -> Array:
 	stars_total += result["stars"]
 	history[request()["customer"]] = result["stars"]
 	ledger.append({"customer": request()["customer"], "stars": result["stars"], "pay": pay, "tip": tip, "cost": spent()})
+	var left := lent()   # 교체하고 남은 손님 헌 부품은 손님이 도로 가져감
+	for id in pc.ids():
+		if left.get(id, 0) > 0:
+			left[id] -= 1
+	for id in left:
+		stock[id] = max(0, stock.get(id, 0) - left[id])
 	return [pay, tip]
 
 

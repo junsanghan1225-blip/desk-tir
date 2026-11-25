@@ -147,6 +147,28 @@ func _initialize() -> void:
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
 	ok("학점" in Game.lines(regular)[0], "단골 대사")
 
+	# --- 수리 의뢰: 고장 난 채로 와서, 원인을 고치면 별 3개 ---
+	var fixes := {"웹소설 작가": func(b: PCBuild): b.paste = true,
+		"손녀 바보 할머니": func(b: PCBuild): b.place("ram1", 1),
+		"프로게이머 지망생": func(b: PCBuild): b.parts["COOLER"] = "cool2"}
+	for i in DB.REQUESTS.size():
+		var q: Dictionary = DB.REQUESTS[i]
+		if not q.has("repair"):
+			continue
+		Game.day = q["day"]
+		Game.order_index = Game.todays_requests().find(q)
+		Game.reset_order()
+		ok(Game.spent() == 0 and Rules.score(q, [], Game.pc, [])["stars"] == 0, "수리 전엔 증상: " + q["customer"])
+		fixes[q["customer"]].call(Game.pc)
+		var rs := Rules.score(q, [], Game.pc, [])
+		ok(rs["stars"] == 3 and Game.spent() <= q["budget"], "수리 후 %s %s 비용 %d" % [q["customer"], rs, Game.spent()])
+	Game.stock = {"ram2": 0}
+	Game.give_back("ram2")   # 손님 RAM을 빼 둔 채 정산하면 손님이 가져감
+	Game.pc.ram[0] = ""
+	Game.settle({"stars": 3})
+	ok(Game.stock["ram2"] == 0, "손님 헌 부품 반환")
+	Game.new_game()
+
 	# --- 저장 ---
 	Game.pc = PCBuild.full()
 	Game.placed = []

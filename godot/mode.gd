@@ -193,6 +193,8 @@ func gauge(cx: float, cy: float, rad: float, frac: float, tf: float, good_high: 
 	text(tp.x - text_w(target_label, 22) / 2.0, tp.y, target_label, 22, GOLD)
 	line(Vector2(cx, cy), at_angle(cx, cy, rad - 18, clampf(frac, 0, 1)), Color.WHITE, 6)
 	circle(cx, cy, 12, Color.WHITE)
+	var bw: float = text_w(big, 44) + 20
+	box([cx - bw / 2.0, cy - 76, cx + bw / 2.0, cy - 24], PANEL)   # 바늘이 숫자를 가리지 않게
 	text(cx - text_w(big, 44) / 2.0, cy - 50, big, 44, Color.WHITE)
 	text(cx - text_w(unit, 22) / 2.0, cy - 88, unit, 22, QUIET)
 

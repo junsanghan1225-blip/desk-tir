@@ -332,13 +332,15 @@ static func wiring_score(cables: Array, placed: Array) -> Array:
 
 # ---------- 채점 ----------
 ## 손님 만족도: 테마 25 + 필수/금지 25 + PC 성능 20 + 시너지 15 + 배선 15. 예산은 점수가 아니라 가게 마진.
-const MAX := {"테마 일치": 25, "필수 · 금지": 25, "PC 성능": 20, "조합 시너지": 15, "배선": 15}
+const MAX := {"테마 일치": 25, "필수 · 금지": 25, "PC 성능": 20, "조합 시너지": 15, "배선": 15, "증상 해결": 50, "성능": 50}
 const LINES := {
 	"테마 일치": "음… 제가 말한 분위기랑은 좀 달라요.",
 	"필수 · 금지": "부탁드린 게 빠졌거나, 싫다는 게 들어갔어요.",
 	"PC 성능": "켜지긴 하는데 좀 느리네요…",
 	"조합 시너지": "하나하나는 좋은데, 어울림이 아쉬워요.",
 	"배선": "선이 너무 엉켜 있어요… 정리 좀 해 주세요.",
+	"증상 해결": "어… 아직 그대로인데요?",
+	"성능": "고쳐지긴 했는데 좀 아쉬워요.",
 }
 
 
@@ -404,6 +406,12 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 	var syn := synergies(placed, pc)
 	var wire := wiring_score(cables, placed)
 
+	if req.has("repair"):   # 수리: 증상이 사라졌는지(성능 테스트 통과) + 성능만 본다
+		var b := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
+		var rp := {"증상 해결": 50.0 if b["ok"] else 0.0, "성능": pc_s * 2.5}
+		var rt := int(round(rp["증상 해결"] + rp["성능"]))
+		return {"parts": rp, "total": rt, "stars": 3 if rt >= 90 else 2 if rt >= 75 else 1 if rt >= 60 else 0,
+			"synergies": [], "boot": boot, "line": _reaction(rp, boot, 0)}
 	var parts := {"테마 일치": theme_s, "필수 · 금지": req_s, "PC 성능": pc_s, "조합 시너지": min(15.0, 8.0 * syn.size()), "배선": wire[0] * 1.5}
 	var total := 0.0
 	for k in parts:

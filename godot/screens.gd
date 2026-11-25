@@ -65,7 +65,7 @@ class Request extends Mode:
 		sfx("door")
 
 	func down(_x: float, _y: float, _right: bool) -> void:
-		m.go("shop")
+		m.go("build" if Game.request().has("repair") else "shop")   # 수리는 맡긴 PC부터 열어 봄
 
 	func mood() -> String:
 		var req := Game.request()
@@ -87,11 +87,17 @@ class Request extends Mode:
 		var lines := Game.lines()
 		for i in lines.size():
 			text(460, 550 - i * 56, "\"%s\"" % lines[i] if i == 0 else lines[i], 24)
-		text(460, 380, "예산은 %d만 원 정도 생각하고 있어요." % req["budget"], 20, GOLD)
+		text(460, 380, ("수리비는 %d만 원 드릴게요." if req.has("repair") else "예산은 %d만 원 정도 생각하고 있어요.") % req["budget"], 20, GOLD)
 		if req.has("use"):
 			text(420, 290, "용도 메모: " + Bench.describe(req["use"]), 22, CYAN)
-		text(420, 200, "무엇을 원하는지 말 속에서 찾아보세요.", 18, QUIET)
-		text(420, 120, "화면을 눌러 주문 받기 → 쇼핑으로", 18, DIM)
+		if req.has("repair"):
+			frame("ui_button", [212, 202, 360, 240], PINK)
+			text(228, 221, "수리 의뢰", 15, Color.WHITE)
+			text(420, 200, "맡긴 PC를 켜 보고 성능 테스트로 원인을 찾아요.", 18, QUIET)
+			text(420, 170, "손님 부품은 공짜, 새로 산 부품만 비용이에요.", 18, QUIET)
+		else:
+			text(420, 200, "무엇을 원하는지 말 속에서 찾아보세요.", 18, QUIET)
+		text(420, 120, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") else "쇼핑으로"), 18, DIM)
 
 
 class Result extends Mode:
@@ -525,7 +531,7 @@ class BenchView extends Mode:
 	func open() -> void:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
 		r = Bench.run(Bench.parts_of(Game.pc), use)
-		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not r.get("shutdown", false) else {}
+		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] else {}
 		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
 		t0 = Time.get_ticks_msec()
 		m.push("bench")
@@ -596,7 +602,14 @@ class BenchView extends Mode:
 		text(70, 646, "성능 테스트", 33, PINK)
 		text(70, 606, "손님 요구: " + Bench.describe(use), 22, CYAN)
 		button(BTN_CLOSE, "닫기", VIOLET)
-		if r.get("shutdown", false) or r["value"] == 0.0 and r["kind"] != "office":
+		if r.get("shutdown", false):   # 과열로 꺼짐: 빨간 온도계 하나로 바로 보이게
+			thermo(230, 150, 340, r["cpu_temp"] * k(), "CPU")
+			text(GRAPH[0], 460, "✗ 테스트 중 꺼졌어요", 33, PINK)
+			text(GRAPH[0], 410, "CPU %d°C: 쿨러가 열을 못 따라가요" % r["cpu_temp"], 22, INK)
+			if not fixit.is_empty():
+				text(GRAPH[0], 360, "추천: 쿨러 → %s (%d만)" % [DB.PARTS[fixit["id"]]["name"], fixit["cost"]], 22, GOLD)
+			return
+		if r["value"] == 0.0 and r["kind"] != "office":
 			var y := 520.0
 			for ln in wrap_text(r["notes"][0] if not r["notes"].is_empty() else "", 1100):
 				text(70, y, ln, 33, PINK)
@@ -637,7 +650,7 @@ class BenchView extends Mode:
 			text(GRAPH[0], 180, "테스트 중" + ".".repeat(int((Time.get_ticks_msec() - t0) / 250) % 4), 33, QUIET)
 			return
 		# 4) 판정 + 쉬운 말 + 가장 싼 해결책
-		text(70, 262, "✓ 목표 달성!" if r["ok"] else "✗ 너무 시끄러워요" if r["ratio"] >= 1.0 else "✗ 목표 미달", 33, GREEN if r["ok"] else PINK)
+		text(70, 262, "✓ 목표 달성!" if r["ok"] else "✗ 자꾸 끊겨요" if r.get("ram_low", false) and r["kind"] == "game" else "✗ 너무 시끄러워요" if r["ratio"] >= 1.0 else "✗ 목표 미달", 33, GREEN if r["ok"] else PINK)
 		var ny: float = 430.0 if r["kind"] == "office" else 160.0   # 한 줄만: 고칠 방법, 없으면 원인
 		var tip := ""
 		if not fixit.is_empty():

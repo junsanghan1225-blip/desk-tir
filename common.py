@@ -15,7 +15,7 @@ def load_json(name):
 
 ITEMS = {it['id']: it for it in load_json('items.json')}
 PARTS = {p['id']: p for p in load_json('parts.json')}
-REQUESTS = load_json('requests.json')
+REQUESTS = [r for r in load_json('requests.json') if 'repair' not in r]   # 수리 의뢰는 Godot 판에만
 UPGRADES = {u['id']: u for u in load_json('upgrades.json')}
 DAYS = {d['day']: d for d in load_json('days.json')}
 

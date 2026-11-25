@@ -108,7 +108,9 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	if use.has("quiet") and r["noise"] > use["quiet"]:
 		pts -= min(10.0, (r["noise"] - use["quiet"]) * 2.0)
 		r["notes"].append("소음 %ddB: 손님 기준 %ddB보다 시끄러워요 → 조용한 쿨러 · 작은 그래픽카드" % [r["noise"], use["quiet"]])
-	r["ok"] = r["ratio"] >= 1.0 and (not use.has("quiet") or r["noise"] <= use["quiet"])
+	if r["kind"] == "game" and gb < 16:   # 평균 FPS가 높아도 주기적으로 멈칫하면 손님은 못 참음
+		pts = minf(pts, 10.0)
+	r["ok"] = r["ratio"] >= 1.0 and (not use.has("quiet") or r["noise"] <= use["quiet"]) and not (r["kind"] == "game" and gb < 16)
 	if r["kind"] != "office" and r["ratio"] >= 1.6:
 		r["notes"].append("목표보다 훨씬 좋아요. 더 싼 부품으로도 충분해요 (마진↑)")
 	r["points"] = max(0.0, pts)

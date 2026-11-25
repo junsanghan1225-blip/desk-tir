@@ -462,6 +462,6 @@ func draw() -> void:
 	draw_drag()
 	draw_hover()
 	top_bar("build")
-	text(INV_W + 20, 30, "재고에서 끌어다 꽂기 · 두 번 누르기(우클릭): 빼서 재고로 (위에 꽂힌 것도 같이)", 13, QUIET)
+	text(INV_W + 20, 30, "끌어다 꽂기 · 두 번 누르면 빼기", 13, QUIET)
 	if toast != "":
 		text(INV_W + 20, 54, toast, 16, PINK)
