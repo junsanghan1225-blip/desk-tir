@@ -400,6 +400,8 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 
 	var post := pc.post()
 	var boot: String = "ok" if post[0] == 4 else post[1]
+	if boot == "ok" and "GPU" in pc.loose():   # 고정 나사 없이 배송하면 덜컹
+		boot = "배송 중에 그래픽카드가 빠졌어요 (고정 나사)"
 	var pc_s: float = 0.0
 	if boot == "ok":   # 손님 용도(FPS · 렌더 · 빌드 · 조용함) 목표 달성률
 		pc_s = Bench.run(Bench.parts_of(pc), req["use"])["points"] if req.has("use") else max(0.0, 20.0 - 8 * max(0, req["perf"] - pc.stars()))

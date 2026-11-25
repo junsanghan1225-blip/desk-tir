@@ -19,12 +19,16 @@ const PER := 14
 const BTN_PREV := [14, 70, 64, 100]
 const BTN_NEXT := [206, 70, 256, 100]
 const PASTE_ROW := [10, 570, 260, 600]   # 서멀 구리스: 항상 있는 도구
+const BTN_DRIVER := [10, 6, 132, 62]    # 도구: 드라이버(나사 조이기 · 풀기)
+const BTN_TIE := [138, 6, 260, 62]       # 도구: 케이블 타이(전원선 묶기)
 const MARGIN := {"CASE": 0, "MB": 0, "CPU": 20, "COOLER": 10, "SSD": 16, "GPU": 16, "PSU": 16}
 
 var held: Array = []   # ["part", id] | ["cable", 이름] | ["paste"]
 var toast := ""
 var post: Array = []   # 마지막 전원 테스트 [단계, 메시지]
 var page := 0
+var tool := ""         # "" = 손(끌어 꽂기) · "driver" · "tie"
+var spin := {}         # 나사 키 -> 돌리기 시작한 시각 (돌아가는 연출)
 
 
 func enter() -> void:
@@ -32,6 +36,7 @@ func enter() -> void:
 	held = []
 	toast = ""
 	post = []
+	tool = ""
 
 
 # ---------- 좌표 ----------
@@ -116,6 +121,64 @@ func target_for(pid: String, x: float, y: float) -> int:
 	return -1 if inside(x, y, grow(zone(t), MARGIN[t])) else -2
 
 
+## 나사 위치 [자리, 번호, Vector2]
+func screw_points() -> Array:
+	var out := []
+	for slot in Game.pc.screws:
+		var r: Array = zone(slot)
+		var pts: Array
+		match slot:
+			"MB", "COOLER", "PSU":
+				var k := 14.0 if slot != "COOLER" else 8.0
+				pts = [Vector2(r[0] + k, r[3] - k), Vector2(r[2] - k, r[3] - k), Vector2(r[0] + k, r[1] + k), Vector2(r[2] - k, r[1] + k)]
+				if slot == "MB":   # 아래쪽 나사는 그래픽카드에 안 가리게 위로
+					pts[2] = Vector2(r[0] + k, r[1] + 90)
+					pts[3] = Vector2(r[2] - k, r[1] + 90)
+				if slot == "PSU":
+					pts = [pts[0], pts[2]]
+			"GPU": pts = [Vector2(r[0] - 16, (r[1] + r[3]) / 2.0)]   # 브래킷 나사
+			"SSD": pts = [Vector2(r[2] + 8, (r[1] + r[3]) / 2.0)]
+		for i in pts.size():
+			out.append([slot, i, pts[i]])
+	return out
+
+
+## 전원선 묶는 자리 (오른쪽 선 통로)
+func tie_spot(c: String) -> Array:
+	var lane: float = mb_rect()[2] + 22 + CABLE_NAMES.keys().find(c) * 9
+	var y: float = (cable_start(c).y + center(socket_rect(c)).y) / 2.0
+	return [lane - 14, y - 14, lane + 14, y + 14]
+
+
+func use_tool(x: float, y: float) -> bool:
+	var pc := Game.pc
+	if tool == "driver":
+		var near := screw_points().filter(func(q): return Vector2(x, y).distance_to(q[2]) < 24)
+		near.sort_custom(func(a, b): return Vector2(x, y).distance_to(a[2]) < Vector2(x, y).distance_to(b[2]))
+		for s in near.slice(0, 1):   # 가장 가까운 나사 하나
+			var on: bool = pc.turn(s[0], s[1])
+			spin["%s%d" % [s[0], s[1]]] = Time.get_ticks_msec()
+			sfx("screw" if ResourceLoader.exists("res://resource/sfx/screw.wav") else "place")
+			toast = ("%s 나사 조임 (%d/%d)" if on else "%s 나사 풀림 (%d/%d)") % [TYPE_NAMES[s[0]], pc.tight(s[0]), PCBuild.SCREWS[s[0]]]
+			post = []
+			return true
+		toast = "나사(동그라미)를 눌러 조여요"
+		return true
+	if tool == "tie":
+		for c in pc.cables:
+			if c != "front" and inside(x, y, grow(tie_spot(c), 8)):
+				if pc.ties.has(c):
+					pc.ties.erase(c)
+				else:
+					pc.ties[c] = true
+				sfx("plug")
+				toast = "선 정리 완료! 바람이 잘 통해요" if pc.tidy() else "%s 묶음" % CABLE_NAMES[c]
+				return true
+		toast = "오른쪽 선 통로의 전원선을 눌러 묶어요"
+		return true
+	return false
+
+
 # ---------- 재고 ----------
 func inv_all() -> Array:
 	var out := []
@@ -153,6 +216,14 @@ func down(x: float, y: float, right: bool) -> void:
 	if inside(x, y, BTN_BENCH):
 		sfx("click")
 		m.modes["bench"].open()
+		return
+	for tb in [[BTN_DRIVER, "driver"], [BTN_TIE, "tie"]]:
+		if inside(x, y, tb[0]):
+			tool = "" if tool == tb[1] else tb[1]
+			toast = {"driver": "드라이버: 나사를 눌러 조이기 · 다시 누르면 풀기", "tie": "케이블 타이: 전원선을 눌러 묶기", "": ""}[tool]
+			sfx("click")
+			return
+	if tool != "" and inside(x, y, CASE_AREA) and use_tool(x, y):
 		return
 	if inside(x, y, BTN_DIAG):
 		sfx("click")
@@ -198,6 +269,10 @@ func down(x: float, y: float, right: bool) -> void:
 			return
 	var hit := placed_at(x, y)
 	if right and not hit.is_empty():   # 빼기는 두 번 누르기만 (실수로 조립이 풀리지 않게)
+		if pc.tight(hit[0]) > 0:
+			toast = "나사 %d개를 먼저 풀어요 (드라이버)" % pc.tight(hit[0])
+			sfx("error")
+			return
 		var pid: String = pc.ram[hit[1]] if hit[0] == "RAM" else pc.parts[hit[0]]
 		for id in pc.remove(hit[0], hit[1]):
 			Game.give_back(id)
@@ -361,6 +436,48 @@ func draw_hover() -> void:
 			return
 
 
+func draw_screws() -> void:
+	var pc := Game.pc
+	var now := Time.get_ticks_msec()
+	for s in screw_points():
+		var p: Vector2 = s[2]
+		var on: bool = pc.screws[s[0]][s[1]]
+		var k: float = clampf((now - spin.get("%s%d" % [s[0], s[1]], 0)) / 300.0, 0.0, 1.0)
+		var a: float = (1.0 - k) * TAU * (1 if on else -1) + 0.6   # 돌아가는 십자 홈
+		if not on:
+			circle(p.x, p.y, 10, Color8(20, 16, 30))   # 빈 구멍
+			p += Vector2(5, 5)                          # 나사가 살짝 떠 있음
+		circle(p.x, p.y, 9, Color8(210, 210, 220) if on else Color8(150, 150, 165))
+		var d := Vector2(cos(a), sin(a)) * 6
+		var e := Vector2(-d.y, d.x)
+		line(p - d, p + d, Color8(60, 60, 70), 2)
+		line(p - e, p + e, Color8(60, 60, 70), 2)
+		if tool == "driver" and not on:
+			outline([p.x - 15, p.y - 15, p.x + 15, p.y + 15], GOLD if fmod(now / 400.0, 2.0) < 1 else PINK, 2)
+	if tool == "tie":
+		for c in pc.cables:
+			if c != "front":
+				var r := tie_spot(c)
+				if pc.ties.has(c):
+					box([r[0] - 2, r[1] + 9, r[2] + 2, r[3] - 9], Color8(235, 235, 240))
+				else:
+					outline(r, GOLD, 2)
+	else:
+		for c in pc.ties:
+			var r := tie_spot(c)
+			box([r[0] - 2, r[1] + 9, r[2] + 2, r[3] - 9], Color8(235, 235, 240))
+
+
+func draw_tool_cursor() -> void:
+	var x := m.mouse.x
+	var y := m.mouse.y
+	if tool == "driver":   # 손잡이 + 축
+		line(Vector2(x, y), Vector2(x + 26, y + 26), Color8(200, 200, 210), 4)
+		line(Vector2(x + 26, y + 26), Vector2(x + 50, y + 50), PINK, 12)
+	elif tool == "tie":
+		polyline([Vector2(x, y), Vector2(x + 20, y + 8), Vector2(x + 34, y + 30)], Color8(40, 40, 46), 6)
+
+
 func draw_drag() -> void:
 	if held.is_empty():
 		return
@@ -400,18 +517,19 @@ func draw_side() -> void:
 	var steps := [["케이스", pc.has("CASE")], ["메인보드", pc.has("MB")], ["CPU (레버 닫기)", pc.has("CPU") and not pc.lever_open],
 		["서멀 구리스", pc.paste], ["쿨러", pc.has("COOLER")], ["RAM", pc.ram.any(func(r): return r != "")], ["M.2 SSD", pc.has("SSD")],
 		["그래픽카드", pc.has("GPU")], ["파워", pc.has("PSU")],
-		["전원선", pc.has("PSU") and pc.cable_targets().all(func(c): return c == "front" or pc.cables.has(c))], ["전원 버튼선", pc.cables.has("front")]]
+		["전원선", pc.has("PSU") and pc.cable_targets().all(func(c): return c == "front" or pc.cables.has(c))], ["전원 버튼선", pc.cables.has("front")],
+		["나사 조이기", not pc.screws.is_empty() and pc.loose().is_empty()]]
 	for i in steps.size():
-		text(x0, 584 - i * 21, ("●  " if steps[i][1] else "○  ") + steps[i][0], 15, GREEN if steps[i][1] else QUIET)
+		text(x0 + (i / 6) * 176, 578 - (i % 6) * 30, ("● " if steps[i][1] else "○ ") + steps[i][0].replace(" (레버 닫기)", ""), 15, GREEN if steps[i][1] else QUIET)
 	var b := Bench.run(Bench.parts_of(pc), Game.request().get("use", {}))
-	text(x0, 344, "예상 " + Bench.short(b), 22, GREEN if b["ok"] else GOLD)
-	text(x0, 316, "전력 %dW / %sW" % [pc.watt(), pc.capacity() if pc.capacity() else "?"], 16, PINK if pc.capacity() and pc.watt() > pc.capacity() else INK)
+	text(x0, 376, "예상 " + Bench.short(b), 22, GREEN if b["ok"] else GOLD)
+	text(x0, 346, "전력 %dW / %sW" % [pc.watt(), pc.capacity() if pc.capacity() else "?"], 16, PINK if pc.capacity() and pc.watt() > pc.capacity() else INK)
 	var extra := []
 	if pc.dual_channel():
 		extra.append("듀얼 채널 +1")
 	if pc.throttled():
 		extra.append("쿨러 부족 -3")
-	text(x0, 288, "  ·  ".join(extra), 14, GOLD)
+	text(x0, 316, "  ·  ".join(extra), 14, GOLD)
 	text(x0, 238, "디버그 LED", 15, QUIET)
 	var stage: int = post[0] if not post.is_empty() else -9
 	for i in 4:
@@ -435,6 +553,8 @@ func draw_side() -> void:
 func draw_inventory() -> void:
 	panel([-12, -12, INV_W, 650])
 	text(14, ROW_TOP + 22, "부품 재고  (끌어서 장착)", 18)
+	button(BTN_DRIVER, "드라이버", GOLD if tool == "driver" else VIOLET)
+	button(BTN_TIE, "타이", GOLD if tool == "tie" else VIOLET)
 	frame("ui_slot", PASTE_ROW)
 	circle(26, 585, 9, Color8(200, 200, 210))
 	text(46, 585, "서멀 구리스 (CPU 위로)", 16)
@@ -463,10 +583,12 @@ func draw() -> void:
 		draw_board()
 		draw_parts()
 		draw_cables()
+		draw_screws()
 	draw_inventory()
 	draw_side()
 	draw_drag()
 	draw_hover()
+	draw_tool_cursor()
 	top_bar("build")
 	text(INV_W + 20, 30, "끌어다 꽂기 · 두 번 누르면 빼기", 13, QUIET)
 	if toast != "":

@@ -32,6 +32,9 @@ func _initialize() -> void:
 	b.place("ram1", 0); b.place("gpu1")
 	ok(b.post()[0] == 3 and "SSD" in b.post()[1], "SSD 없음")
 	b.place("ssd1")
+	ok(b.post()[0] == 3 and "나사" in b.post()[1], "SSD 나사 안 조임")
+	for t in b.screws:
+		b.screws[t].fill(true)
 	ok(b.boots() and b.throttled() and b.perf() == 4 + 1 + 3 - 3, "부팅 · 쓰로틀링 · 성능 %d" % b.perf())
 	var out := b.remove("MB")
 	out.sort()
@@ -156,6 +159,7 @@ func _initialize() -> void:
 			b.remove("COOLER")
 			b.apply_paste()
 			b.place("cool2")
+			b.screws["COOLER"].fill(true)
 			b.faults.erase("xmp_off")}
 	for i in DB.REQUESTS.size():
 		var q: Dictionary = DB.REQUESTS[i]

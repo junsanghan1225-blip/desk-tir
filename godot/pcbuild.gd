@@ -13,6 +13,9 @@ var ram := ["", "", "", ""]    # 슬롯 0~3, 빈 칸은 ""
 var cables := {}               # 꽂힌 선: 이름 -> true ('24pin', 'cpu8', 'pcie0', 'pcie1', 'front')
 var lever_open := false
 var paste := false
+var screws := {}               # 자리 -> [조였나, …] (끼우면 헐거운 상태로 시작, 드라이버로 하나씩 조임)
+var ties := {}                 # 케이블 타이로 묶은 전원선: 이름 -> true
+const SCREWS := {"MB": 4, "COOLER": 4, "GPU": 1, "SSD": 1, "PSU": 2}
 var faults := {}               # 수리 의뢰 고장: 이름 -> true (FAULTS). 손님 PC에만 있다
 
 ## 실제 수리점에서 흔한 고장. 숫자 = 찾기 어려움(난이도 점수)
@@ -93,11 +96,38 @@ func check(pid: String, ram_slot := -1) -> String:
 func place(pid: String, ram_slot := -1) -> String:
 	var reason := check(pid, ram_slot)
 	if reason == "":
-		if DB.PARTS[pid]["type"] == "RAM":
+		var t: String = DB.PARTS[pid]["type"]
+		if t == "RAM":
 			ram[ram_slot] = pid
 		else:
-			parts[DB.PARTS[pid]["type"]] = pid
+			parts[t] = pid
+		if SCREWS.has(t):
+			var s := []
+			s.resize(SCREWS[t])
+			s.fill(false)
+			screws[t] = s
 	return reason
+
+
+## 나사 조이기 / 풀기 (드라이버). 조였으면 true
+func turn(slot: String, i: int) -> bool:
+	screws[slot][i] = not screws[slot][i]
+	return screws[slot][i]
+
+
+## 나사가 덜 조여진 자리
+func loose() -> Array:
+	return screws.keys().filter(func(k): return not screws[k].all(func(v): return v))
+
+
+func tight(slot: String) -> int:
+	return screws.get(slot, []).count(true)
+
+
+## 꽂힌 전원선을 모두 케이블 타이로 묶었는지 (바람길이 트여 조금 시원해짐)
+func tidy() -> bool:
+	var power := cables.keys().filter(func(c): return c != "front")
+	return not power.is_empty() and power.all(func(c): return ties.has(c))
 
 
 ## 부품을 뺀다. 그 위에 올라가 있던 부품 · 전원선도 같이 빠진다. 빠진 부품 id 목록을 돌려준다.
@@ -112,6 +142,7 @@ func remove(slot: String, ram_slot := -1) -> Array:
 		return out
 	out.append(parts[slot])
 	parts.erase(slot)
+	screws.erase(slot)
 	if slot == "COOLER" and faults.erase("paste_dry"):   # 쿨러를 떼면 굳은 구리스가 보이고, 닦아 내면 새로 발라야 함
 		paste = false
 	if slot == "CPU":
@@ -129,6 +160,7 @@ func remove(slot: String, ram_slot := -1) -> Array:
 	for c in cables.keys():
 		if c not in ok:
 			cables.erase(c)
+			ties.erase(c)
 	return out
 
 
@@ -230,6 +262,8 @@ func post() -> Array:
 		if faults.has("boot_order"):
 			return [3, "'부팅 장치를 찾을 수 없음' 글자만 떠요"]
 		return [3, "BOOT 불이 켜졌어요 (부팅 장치 없음 · SSD)"]
+	if "SSD" in loose():
+		return [3, "BOOT 불이 켜졌어요 (SSD가 들떠 있어요 · 나사)"]
 	return [4, "부팅 성공!" + (" 단, 쿨러가 약해서 성능이 떨어져요" if throttled() else "")]
 
 
@@ -251,7 +285,7 @@ static func level_of(fs: Array) -> int:
 
 
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "faults": faults.keys()}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "faults": faults.keys(), "screws": screws, "ties": ties.keys()}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -264,6 +298,15 @@ static func from_dict(d: Dictionary) -> PCBuild:
 	b.paste = d["paste"]
 	for f in d.get("faults", []):
 		b.faults[f] = true
+	for t in b.parts:   # 예전 저장: 다 조인 것으로
+		if SCREWS.has(t):
+			b.screws[t] = d.get("screws", {}).get(t, [])
+			if b.screws[t].size() != SCREWS[t]:
+				b.screws[t] = []
+				b.screws[t].resize(SCREWS[t])
+				b.screws[t].fill(true)
+	for c in d.get("ties", []):
+		b.ties[c] = true
 	return b
 
 
@@ -286,4 +329,6 @@ static func full(o := {}) -> PCBuild:
 		b.place(d[k])
 	for c in b.cable_targets():
 		b.plug(c)
+	for t in b.screws:
+		b.screws[t].fill(true)
 	return b

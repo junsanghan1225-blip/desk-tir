@@ -678,7 +678,7 @@ class Trial extends Mode:
 
 	func enter() -> void:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
-		boot = Game.pc.picture()
+		boot = Game.pc.picture() and "GPU" not in Game.pc.loose()
 		r = Bench.run(Bench.parts_of(Game.pc), use)
 		t0 = Time.get_ticks_msec()
 

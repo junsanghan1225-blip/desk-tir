@@ -11,7 +11,7 @@ const KIND_NAMES := {"office": "문서 · 화상회의", "code": "코딩(빌드)
 
 ## 조립 상태 → 계산에 쓰는 부품 묶음 {CPU, GPU, COOLER, CASE: id, RAM: [id...]}
 static func parts_of(pc: PCBuild) -> Dictionary:
-	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults}
+	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy()}
 	for t in ["CPU", "GPU", "COOLER", "CASE", "MB"]:
 		d[t] = pc.parts.get(t, "")
 	return d
@@ -45,7 +45,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	for id in d["RAM"]:
 		gb += _s(id, "gb", 8)
 	var dual: bool = d["RAM"].size() >= 2 and d["RAM"][0] == d["RAM"][1]
-	var af: int = _s(d["CASE"], "airflow", 2)
+	var af: int = _s(d["CASE"], "airflow", 2) + (1 if d.get("tidy", false) else 0)   # 선 정리 = 바람길
 	var cpu_w: int = _s(d["CPU"], "watt")
 	var tdp: int = _s(d["COOLER"], "tdp", 95)
 	var gpu_w: int = _s(d["GPU"], "watt")
@@ -54,6 +54,10 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	var f: Dictionary = d.get("faults", {})
 	r["cpu_temp"] += (25 if f.has("paste_dry") else 0) + (10 if f.has("dust") else 0) + (70 if f.has("cpu_fan") else 0)
 	r["gpu_temp"] += 10 if f.has("dust") else 0
+	var lz: Array = d.get("loose", [])
+	if "COOLER" in lz:   # 쿨러가 CPU에 꽉 안 붙음
+		r["cpu_temp"] += 30
+		r["notes"].append("쿨러 나사가 헐거워서 CPU가 뜨거워요 → 드라이버로 조이기")
 	r["noise"] = roundi(16 + _s(d["COOLER"], "noise", 12) + gpu_w / 40.0 + af + (7 if f.has("dust") else 0) + (4 if f.has("bloat") else 0))
 	var cpu_thr := 0.75 if r["cpu_temp"] >= 90 else 1.0
 	var gpu_thr := 0.85 if r["gpu_temp"] >= 85 else 1.0
@@ -69,6 +73,9 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	r["throttle"] = cpu_thr < 1
 	r["ram_low"] = gb < 16
 	r["gb"] = gb
+	if "MB" in lz or "PSU" in lz:
+		r["noise"] += 4
+		r["notes"].append("본체에서 달그락 소리가 나요 → 나사 조이기")
 	var soft: float = (0.9 if f.has("xmp_off") else 1.0) * (0.35 if f.has("bloat") else 1.0)   # 숨은 고장: 숫자만 조금 모자람
 	var mt: float = _s(d["CPU"], "mt") * cpu_thr * soft
 	match r["kind"]:
