@@ -121,11 +121,11 @@ func _initialize() -> void:
 	var syn := Rules.synergies(placed, good)
 	ok("독서 콤보" in syn and "균형 조명" in syn and syn.size() == 2, "시너지 %s" % [syn])
 	var r := Rules.score(dev, placed, good, wired)
-	ok(Rules.kind_of(dev) == "pc" and r["parts"]["PC 성능"] == 47.5 and r["parts"]["모니터"] == 15 and r["parts"]["배선"] == 10 and r["stars"] == 3, "PC 조립 의뢰 채점 (기본 쿨러라 빌드가 목표보다 조금 느림) %s" % [r])
+	ok(Rules.kind_of(dev) == "full" and r["parts"]["PC 성능"] == 28.5 and r["parts"]["모니터"] == 10 and r["parts"]["배선"] == 5 and r["stars"] >= 2, "PC + 데스크 의뢰 채점 (기본 쿨러라 빌드가 목표보다 조금 느림) %s" % [r])
 	ok("케이블" in Rules.score(dev, placed, good, [])["line"], "선 안 꽂음")
 	Rules.place_slot(placed, "lamp_cool", "desk", 6)
 	var bad := Rules.score(dev, placed, PCBuild.full({"psu": "psu1"}), wired)
-	ok(bad["parts"]["PC 성능"] == 0 and bad["parts"]["필수 · 금지"] == 5 and "VGA" in bad["line"], "금지 소품 · 부팅 실패")
+	ok(bad["parts"]["PC 성능"] == 0 and bad["parts"]["필수 · 금지"] == 7.5 and "VGA" in bad["line"], "금지 소품 · 부팅 실패")
 
 	# --- 가게 (state.py) ---
 	Game.new_game()

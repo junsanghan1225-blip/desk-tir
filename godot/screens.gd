@@ -81,7 +81,7 @@ class Request extends Mode:
 
 	func down(_x: float, _y: float, _right: bool) -> void:
 		var kind := Rules.kind_of(Game.request())
-		m.modes["shop"].cat = "parts" if kind == "pc" else "screen"
+		m.modes["shop"].cat = "parts" if kind in ["pc", "full"] else "screen"
 		m.go("build" if kind == "repair" else "shop")   # 수리는 맡긴 PC부터 열어 봄
 
 	func mood() -> String:
@@ -110,12 +110,15 @@ class Request extends Mode:
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
 		var kind := Rules.kind_of(req)
-		var badge: Array = {"repair": ["수리 의뢰", PINK], "pc": ["PC 조립 의뢰", CYAN], "desk": ["데스크테리어 의뢰", GOLD]}[kind]
+		var badge: Array = {"repair": ["수리 의뢰", PINK], "pc": ["PC 조립 의뢰", CYAN], "desk": ["데스크테리어 의뢰", GOLD], "full": ["PC + 데스크 의뢰", GREEN]}[kind]
 		frame("ui_button", [76, 112, 76 + text_w(badge[0], 22) + 24, 150], badge[1])
 		text(88, 131, badge[0], 22, Color8(20, 14, 40))
 		if kind == "pc":
 			text(420, 200, "PC를 새로 맞춰요: 성능 · 조립 마감 · 모니터가 점수예요.", 18, QUIET)
 			text(420, 170, "분위기 소품은 점수에 안 들어가요.", 18, QUIET)
+		elif kind == "full":
+			text(420, 200, "PC도 맞추고 책상도 꾸며요: 성능 · 분위기 · 소품 · 모니터 모두 점수예요.", 18, QUIET)
+			text(420, 170, "예산 안에서 PC와 소품에 돈을 잘 나눠야 해요.", 18, QUIET)
 		elif kind == "desk":
 			text(420, 200, "책상을 꾸며요: 분위기 · 꼭 필요한 소품 · 조합 · 배선이 점수예요.", 18, QUIET)
 			text(420, 170, "PC는 손님이 쓰던 걸 그대로 써요 (조립 안 해도 돼요).", 18, QUIET)

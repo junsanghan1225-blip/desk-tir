@@ -420,6 +420,8 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 			var have := 0
 			for i in r["any"]:
 				have += ids.count(i)
+			if "monitor" in r["any"]:   # '모니터'는 어떤 모니터든
+				have = ids.filter(is_monitor).size()
 			met += min(1.0, float(have) / r["count"])
 		req_s = 25.0 * met / req["required"].size()
 	for f in req["forbidden"]:
@@ -440,10 +442,13 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		var b := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
 		var rp := {"증상 해결": 50.0 if b["ok"] and pc.faults.is_empty() and pc.picture() else 0.0, "성능": pc_s * 2.5}
 		return _total(rp, {"증상 해결": 50, "성능": 50}, [], boot, 0)
-	if kind_of(req) == "pc":   # PC 조립 의뢰: 성능 · 조립 마감 · 모니터가 중요, 분위기는 안 봄
+	if kind_of(req) in ["pc", "full"]:   # PC 조립(성능 위주) · PC + 데스크(둘 다 반반)
 		var fin := (0.7 if pc.loose().is_empty() and pc.has("CASE") else 0.0) + (0.3 if pc.tidy() else 0.0)
-		var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0}
+		var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0,
+			"테마 일치": theme_s / 25.0, "조합 시너지": minf(1.0, syn.size() / 2.0)}
 		var w := {"PC 성능": 50, "조립 마감": 15, "모니터": 15, "배선": 10, "필수 · 금지": 10}
+		if kind_of(req) == "full":
+			w = {"PC 성능": 30, "조립 마감": 10, "모니터": 10, "테마 일치": 20, "필수 · 금지": 15, "조합 시너지": 10, "배선": 5}
 		var pp := {}
 		for k in w:
 			pp[k] = fr[k] * w[k]
@@ -463,7 +468,7 @@ static func _total(parts: Dictionary, mx: Dictionary, syn: Array, boot: String, 
 		"synergies": syn, "boot": boot, "line": _reaction(parts, mx, boot, unplugged)}
 
 
-## 의뢰 종류: repair(수리) · pc(PC 조립) · desk(데스크테리어)
+## 의뢰 종류: repair(수리) · pc(PC 조립) · desk(데스크테리어) · full(PC 조립 + 데스크테리어)
 static func kind_of(req: Dictionary) -> String:
 	return "repair" if req.has("repair") else req.get("type", "desk")
 
