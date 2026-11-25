@@ -317,7 +317,15 @@ func up(x: float, y: float) -> void:
 			if t.has(k):
 				selected[k] = t[k]
 		Game.placed.append(selected)
-		toast = ""
+		var req := Game.request()   # 짐작 확인: 손님이 찾던 거면 바로 알려 줌
+		if id in req.get("forbidden", []):
+			toast = "앗, 손님이 이건 싫어할 것 같아요…"
+			sfx("error")
+		elif req.get("required", []).any(func(r): return id in r["any"] or ("monitor" in r["any"] and Rules.is_monitor(id))):
+			toast = "✓ 손님이 찾던 거예요! (%s)" % DB.ITEMS[id]["name"]
+			sfx("star")
+		else:
+			toast = ""
 	elif t.has("why"):
 		toast = t["why"]
 	elif top_view and DB.ITEMS[id]["layer"] == "wall":

@@ -114,8 +114,8 @@ class Request extends Mode:
 		if need != "":
 			text(420, y, "꼭 필요: " + need, 22, GOLD)
 			y -= 40
-		if not req["forbidden"].is_empty():
-			text(420, y, "싫어함: " + ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])), 22, PINK)
+		if Game.dislike_text(req) != "":
+			text(420, y, Game.dislike_text(req), 22, PINK)
 			y -= 40
 		if req.has("used"):   # 중고 정책
 			var ok_used: bool = req["used"] == "ok"
@@ -524,8 +524,8 @@ class Pause extends Mode:
 				y = row(y, "용도", Bench.describe(req["use"]), GOLD)
 			if Game.need_text(req) != "":
 				y = row(y, "꼭 필요", Game.need_text(req), GOLD)
-			if not req["forbidden"].is_empty():
-				y = row(y, "싫어함", ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])), PINK)
+			if Game.dislike_text(req) != "":
+				y = row(y, "싫어함", Game.dislike_text(req), PINK)
 			if req.has("used"):
 				y = row(y, "부품", "중고도 괜찮아요" if req["used"] == "ok" else "새 제품만!", GREEN if req["used"] == "ok" else PINK)
 			y = row(y, "예산", "%d만 원  (남은 %d만)" % [req["budget"], Game.money_left()], INK if Game.money_left() >= 0 else PINK)

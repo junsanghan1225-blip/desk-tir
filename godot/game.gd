@@ -460,6 +460,42 @@ static func delete_save() -> void:
 		DirAccess.remove_absolute(SAVE_PATH)
 
 
-## 꼭 필요한 소품을 한 줄로: "스피커 1개 · 책 1개" (여러 개 중 아무거나면 "/"로)
+const CAT_LABEL := {"screen": "화면", "input": "키보드 · 마우스", "light": "조명", "audio": "오디오", "plant": "식물", "decor": "소품", "wall": "벽 장식"}
+
+
+static func _name(i: String) -> String:
+	return "모니터" if i == "monitor" else DB.ITEMS[i]["name"]
+
+
+## 첫 글자만 보이고 나머지는 ○ (띄어쓰기는 그대로): "북쉘프 스피커" → "북○○ ○○○"
+static func mask(s: String) -> String:
+	var out := s.left(1)
+	for ch in s.substr(1):
+		out += ch if ch == " " else "○"
+	return out
+
+
+## 꼭 필요한 소품: 처음엔 종류 + 첫 글자만 → 책상에 맞는 걸 놓으면 ✓ 이름 공개 (손님 말로 짐작하는 재미)
 static func need_text(req: Dictionary) -> String:
-	return " · ".join(req.get("required", []).map(func(r): return "%s %d개" % ["/".join(r["any"].map(func(i): return "모니터" if i == "monitor" else DB.ITEMS[i]["name"])), r["count"]]))
+	var ids := placed.map(func(p): return p["id"])
+	var parts := []
+	for r in req.get("required", []):
+		var hit: Array = ids.filter(func(i): return i in r["any"] or ("monitor" in r["any"] and Rules.is_monitor(i)))
+		var first: String = r["any"][0]
+		var cat: String = CAT_LABEL.get(DB.ITEMS[first]["cat"], "소품") if first != "monitor" else "화면"
+		if hit.size() >= r["count"]:
+			parts.append("✓ " + _name(hit[0]))
+		else:
+			parts.append("? %s: %s%s%s" % [cat, mask(_name(first)), " 같은 것" if r["any"].size() > 1 else "", " %d개" % r["count"] if r["count"] > 1 else ""])
+	return " · ".join(parts)
+
+
+## 싫어하는 것: 처음엔 종류만, 책상에 놓아 버리면 그 이름이 드러남
+static func dislike_text(req: Dictionary) -> String:
+	var bad: Array = placed.map(func(p): return p["id"]).filter(func(i): return i in req.get("forbidden", []))
+	if not bad.is_empty():
+		return "✗ " + ", ".join(bad.map(func(i): return _name(i))) + " (싫어해요!)"
+	var cats := {}
+	for i in req.get("forbidden", []):
+		cats[CAT_LABEL.get(DB.ITEMS[i]["cat"], "소품")] = true
+	return "" if cats.is_empty() else "싫어하는 %s 종류가 있대요" % " · ".join(cats.keys())
