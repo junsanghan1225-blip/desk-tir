@@ -311,13 +311,19 @@ func icon_of(id: String) -> String:
 
 # ---------- 주문 작업 화면 공통: 상단 바 + 탭 ----------
 func tab_rect(i: int) -> Array:
-	var x := 452 + i * 168
+	var pos := i - (1 if i > 2 and tab_hidden(2) else 0)   # 숨긴 조립 탭 자리는 당겨서 빈칸 없이
+	var x := 452 + pos * 168
 	return [x, 648, x + 160, 714]
+
+
+## 데스크테리어는 손님 PC를 그대로 쓰니 '조립' 탭이 없음
+func tab_hidden(i: int) -> bool:
+	return TABS[i][0] == "build" and Rules.kind_of(Game.request()) == "desk"
 
 
 func tab_at(x: float, y: float) -> String:
 	for i in TABS.size():
-		if inside(x, y, tab_rect(i)):
+		if not tab_hidden(i) and inside(x, y, tab_rect(i)):
 			return TABS[i][0]
 	return ""
 
@@ -330,6 +336,8 @@ func top_bar(current: String) -> void:
 	text(16, H - 56, "남은 예산 %d만 / %d만" % [left, req["budget"]], 22, INK if left >= 0 else PINK)
 	var wire := Rules.wiring_score(Game.cables, Game.placed)
 	for i in TABS.size():
+		if tab_hidden(i):
+			continue
 		var r := tab_rect(i)
 		var on: bool = TABS[i][0] == current
 		var q := press_frame(r, PINK if on else Color8(80, 66, 140))

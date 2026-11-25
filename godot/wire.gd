@@ -139,8 +139,8 @@ func draw() -> void:
 		line(Vector2(gx, 0), Vector2(gx, 650), Color8(30, 22, 60), 1)
 	top_bar("wire")
 	text(40, 610, "배선 정리  ·  책상 뒤", 24, PINK)
-	text(40, 578, "기기를 끌어 포트에 꽂기 · 모니터는 HDMI · DP 아무 데나 · 선이 엇갈리면 꼬임 감점", 16, QUIET)
-	text(40, 40, "두 번 누르기(우클릭): 선 뽑기", 16, QUIET)
+	text(40, 578, "기기를 끌어 포트에 꽂기 · 모니터는 HDMI · DP 아무 데나", 16, QUIET)
+	text(40, 40, "두 번 누르기(우클릭): 선 뽑기 · 선이 엇갈리면 꼬임 감점", 16, QUIET)
 	var devs := devices()
 	for p in devs:
 		var pos := Rules.plug_pos(p, Game.placed)
@@ -153,7 +153,7 @@ func draw() -> void:
 		for k in mini(2, nm.size()):
 			text(pos.x - 52, DEV_Y - 24 - k * 24, nm[k], 13)
 		if it.get("dongle", false):
-			text(pos.x - 18, pos.y + 4, "무선", 13, col)
+			text(pos.x - 18, pos.y - 8, "무선", 13, col)
 		else:
 			circle(pos.x, pos.y, 9, col)
 	if devs.is_empty():

@@ -106,7 +106,7 @@ func run() -> void:
 	await shot("7b_desk_top")
 	tap(desk.BTN_VIEW)
 
-	tap(desk.tab_rect(2))
+	main.go("build")   # 첫 손님은 데스크테리어라 조립 탭이 없음 → 조립 화면 테스트는 바로 이동
 	on("build")
 	var b = main.modes["build"]
 	var part := func(id: String, to: Array): drag(b.inv_row(b.inv_ids().find(id)), to)
