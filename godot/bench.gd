@@ -62,7 +62,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	var gb := 0
 	for id in d["RAM"]:
 		gb += _s(id, "gb", 8)
-	var dual: bool = d["RAM"].size() >= 2 and d["RAM"][0] == d["RAM"][1]
+	var dual: bool = d["RAM"].size() >= 2 and d["RAM"][0] == d["RAM"][1] and not d.get("faults", {}).has("ram_channel")   # 같은 RAM 2개를 A2 · B2에 = 듀얼 채널
 	var mhz: int = d["RAM"].map(func(i): return _s(i, "mhz", 3200)).min() if not d["RAM"].is_empty() else 3200   # 섞어 꽂으면 느린 쪽에 맞춰짐
 	var ram_speed: float = 1.0 + (mhz - 3200) / 3200.0 * 0.12   # RAM이 빠르면 CPU가 덜 기다림
 	var af: int = _s(d["CASE"], "airflow", 2) + (1 if d.get("tidy", false) else 0)   # 선 정리 = 바람길
@@ -87,8 +87,10 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	if gpu_thr < 1:
 		r["notes"].append("그래픽카드가 %d°C로 뜨거워요 → 바람이 잘 통하는 케이스" % r["gpu_temp"])
 	var psu_cap: float = _s(d.get("PSU", ""), "capacity", 9999) * _s(d.get("PSU", ""), "real", 1.0) * (0.55 + 0.45 * cd.get("PSU", 100) / 100.0)   # 낡은 파워 · 인증 없는 '뻥파워'는 표시 용량을 못 냄
-	if cpu_w + gpu_w + 60 > psu_cap:
-		r["notes"].push_front("부하가 걸리자 파워가 버티지 못하고 꺼졌어요")
+	var spike: float = gpu_w * (1.4 if gpu_w >= 250 else 1.15)   # 고성능 그래픽카드는 순간적으로 전력이 확 튐 (스파이크)
+	r["watt"] = cpu_w + gpu_w + 60
+	if cpu_w + gpu_w + 60 > psu_cap or cpu_w + spike + 60 > psu_cap:
+		r["notes"].push_front("부하가 걸리자 파워가 버티지 못하고 꺼졌어요" if cpu_w + gpu_w + 60 > psu_cap else "게임 중 순간 전력(스파이크)이 튀어서 파워가 꺼졌어요 → 여유 있는 파워 (평소 전력 +30%)")
 		r["shutdown"] = true
 		r["points"] = 0.0
 		return r
@@ -114,7 +116,9 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 			var ram_f := 0.75 if gb < 16 else 1.0
 			var enc: bool = _s(d["GPU"], "enc", false)   # 그래픽카드 인코더로 방송하면 CPU 부담이 적음
 			var cpu_fps: float = _s(d["CPU"], "game") * w * cpu_thr * soft * ram_f * ram_speed * (1.05 if dual else 1.0) * ((0.93 if enc else 0.8) if use.get("stream", false) else 1.0)
-			var gpu_fps: float = d.get("IGPU", _s(d["GPU"], "fps")) * (0.88 if cd.get("GPU", 100) < 60 else 1.0) * w * RES[use["res"]] * gpu_thr * (0.85 if use["res"] == "4K" and _s(d["GPU"], "vram") < 12 else 1.0)
+			var vram_need: int = {"1080p": 6, "1440p": 8, "4K": 12}[use["res"]] + (2 if use["genre"] == "open" else 0)   # 해상도 · 오픈월드일수록 텍스처가 큼
+			var vram_short: bool = not d.has("IGPU") and _s(d["GPU"], "vram", 8) < vram_need
+			var gpu_fps: float = d.get("IGPU", _s(d["GPU"], "fps")) * (0.88 if cd.get("GPU", 100) < 60 else 1.0) * w * RES[use["res"]] * gpu_thr * (0.85 if vram_short else 1.0)
 			r["cpu_fps"] = roundi(cpu_fps)
 			r["gpu_fps"] = roundi(gpu_fps)
 			r["value"] = min(cpu_fps, gpu_fps)
@@ -128,6 +132,16 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 				r["notes"].push_front("그래픽카드가 힘들어해요 (CPU는 %dfps까지 여유)" % roundi(other))
 			if gb < 16:
 				r["notes"].append("RAM이 %dGB뿐이라 화면이 끊겨요 → 16GB 이상" % gb)
+			# 1% 최저 프레임: 평균이 높아도 가끔 뚝 떨어지면 손님은 '끊긴다'고 느낌
+			var sata: bool = _s(d.get("SSD", ""), "read", 3500) < 1000
+			var low: float = (0.8 if r["limit"] != "CPU" else 0.7) * (0.6 if gb < 16 else 1.0) * (1.0 if dual else 0.9) * (0.88 if sata and use["genre"] == "open" else 1.0) * (0.7 if vram_short else 1.0) * (0.9 if cpu_thr < 1 else 1.0)
+			r["low1"] = roundi(r["value"] * low)
+			if vram_short:
+				r["notes"].append("그래픽 메모리 %dGB < 필요 %dGB → 텍스처가 늦게 떠서 끊겨요" % [_s(d["GPU"], "vram", 0), vram_need])
+			if not dual:
+				r["notes"].append("RAM이 싱글 채널이라 최저 프레임이 낮아요 → 같은 RAM 2개를 A2 · B2에")
+			if sata and use["genre"] == "open":
+				r["notes"].append("SATA SSD라 맵 불러올 때 멈칫해요 → NVMe(M.2) SSD")
 			if use.get("stream", false):
 				r["notes"].append("그래픽카드 인코더로 방송해서 CPU 부담이 적어요" if enc else "방송 인코딩을 CPU가 해서 20% 써요 → 인코더 있는 그래픽카드")
 		"render":
@@ -152,6 +166,8 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 		r["notes"].append("소음 %ddB: 손님 기준 %ddB보다 시끄러워요 → 조용한 쿨러 · 작은 그래픽카드" % [r["noise"], use["quiet"]])
 	if r["kind"] == "game" and gb < 16:   # 평균 FPS가 높아도 주기적으로 멈칫하면 손님은 못 참음
 		pts = minf(pts, 10.0)
+	if r["kind"] == "game" and r.get("low1", 9999) < r["target"] * 0.5:   # 최저 프레임이 목표의 절반도 안 되면 감점
+		pts -= 3.0
 	var extra_ok := true   # 손님 추가 조건: Wi-Fi · 저장공간 · 그래픽 메모리
 	if use.get("wifi", false) and not (d.get("laptop", false) or _s(d.get("MB", ""), "wifi", false)):
 		extra_ok = false
@@ -180,6 +196,8 @@ static func series(r: Dictionary, n: int) -> Array:
 			v *= lerpf(1.0 / 0.75, 1.0, minf(1.0, k / (n * 0.3)))
 		if r.get("ram_low", false) and r["kind"] == "game" and k % 9 == 4:
 			v *= 0.35
+		elif r.get("low1", 0) > 0 and k % 11 == 7:   # 1% 최저: 가끔 이만큼 떨어짐
+			v = r["low1"]
 		out.append(v)
 	return out
 

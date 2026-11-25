@@ -676,6 +676,9 @@ class BenchView extends Mode:
 		circle(line_pts[-1].x, line_pts[-1].y, 7, Color.WHITE)
 		var why := "↓ 뚝 끊김 = RAM 부족" if r.get("ram_low", false) else "↘ 점점 느려짐 = 과열" if r.get("throttle", false) else ""
 		text(g[0] + 12, g[1] + 22, why, 22, PINK)
+		if r.has("low1"):   # 평균만 보면 모르는 '가끔 끊김'
+			var bad: bool = r["low1"] < r["target"] * 0.5
+			text(g[0] + 12, g[3] - 22, "평균 %d · 1%% 최저 %dfps" % [roundi(r["value"]), r["low1"]], 22, PINK if bad else QUIET)
 
 	func draw() -> void:
 		dim()
@@ -808,6 +811,8 @@ class Trial extends Mode:
 		var bad: bool = r.get("ram_low", false) and r["kind"] == "game"
 		if r["kind"] == "game" and hz > 0 and hz < r["target"] and r["ratio"] >= 1.0:
 			return ["neutral", "PC는 빠르다는데… 모니터가 %dHz라 부드럽진 않네요." % hz]
+		if r["kind"] == "game" and r.get("low1", 9999) < r["target"] * 0.5 and r["ratio"] >= 1.0:
+			return ["neutral", "평균은 빠른데… 가끔 뚝뚝 끊겨요."]
 		if r["ratio"] >= 1.0 and not r["ok"] and not bad:   # 성능은 되는데 소음 기준을 넘음
 			return ["neutral", "빠른데… 좀 시끄럽네요."]
 		match r["kind"]:
@@ -900,7 +905,7 @@ class Trial extends Mode:
 				draw_app(sc, sd[1], run_t, false)
 				text_c([sc[0], sc[1] - 64, sc[2], sc[1] - 16], sd[2], 33 if text_w(sd[2], 33) < sc[2] - sc[0] else 22, sd[3])
 		if run_t >= 0 and boot and r.has("noise"):   # 실시간 측정값
-			var live := "CPU %d°C  ·  그래픽 %d°C  ·  소음 %ddB  ·  모니터 %s" % [r["cpu_temp"], r["gpu_temp"], r["noise"], "%dHz" % hz if hz else "없음"]
+			var live := "CPU %d°C  ·  그래픽 %d°C  ·  소음 %ddB  ·  %dW  ·  모니터 %s" % [r["cpu_temp"], r["gpu_temp"], r["noise"], r.get("watt", 0), "%dHz" % hz if hz else "없음"]
 			text_c([380, 116, 1240, 156], live, 22, INK)
 		var rx := reaction()
 		var shown: bool = run_t > 2.5 or (not boot and tt > 2.0)
