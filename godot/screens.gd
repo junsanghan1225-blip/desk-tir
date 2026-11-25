@@ -345,10 +345,15 @@ class Product extends Mode:
 		fit(icon_of(id), 405, 420, 340, 280)
 		text(640, 560, p["name"], 28)
 		text(640, 520, "%d만 원" % p["price"], 26, GOLD)
-		text(640, 482, p["desc"], 15, Color8(200, 192, 240))
-		var lines := spec_lines()
-		for i in lines.size():
-			text(640, 440 - i * 30, lines[i], 16)
+		var y := 482.0   # 설명 · 사양을 상자 폭(440)에 맞춰 줄바꿈하고 줄 수만큼 아래로 밀기
+		for l in wrap_text(p["desc"], 440):
+			text(640, y, l, 22, Color8(200, 192, 240))
+			y -= 28
+		y -= 12
+		for s in spec_lines():
+			for l in wrap_text(s, 440):
+				text(640, y, l, 22)
+				y -= 28
 		var have: int = Game.stock.get(id, 0)
 		text(210, 230, "창고 보유 %d개  ·  장바구니 %d개" % [have, Game.cart.get(id, 0)], 15, CYAN)
 		if have > 0:

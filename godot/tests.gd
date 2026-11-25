@@ -181,8 +181,8 @@ func _initialize() -> void:
 	Game.new_game()
 	Game.money = 999
 	var os := Game.offers()
-	ok(os.size() == 6 and Game.offers() == os, "오늘 매물 6개 (날짜로 고정)")
-	ok(Game.buy_offer(os[0]) and Game.used.size() == 1 and Game.offers().size() == 5 and Game.money == 999 - os[0]["price"], "중고 구매")
+	ok(os.size() == 3 and Game.offers() == os, "오늘 매물 3개 (날짜로 고정)")
+	ok(Game.buy_offer(os[0]) and Game.used.size() == 1 and Game.offers().size() == 2 and Game.money == 999 - os[0]["price"], "중고 구매")
 	var lie_seen := false
 	for dd in range(1, 40):   # 판매자 말과 실제 상태가 다른 매물이 있어야 '모르면 손해'
 		Game.day = dd

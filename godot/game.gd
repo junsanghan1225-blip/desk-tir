@@ -151,12 +151,12 @@ static func difficulty(req: Dictionary) -> int:
 	return clampi(s, 1, 3)
 
 
-## 오늘의 중고 장터 매물 6개 (날짜로 정해짐). 가끔은 아예 고장 난 물건(dead)도 섞여 있다. 판매자 말(claim)로 값이 정해지고, 진짜 상태(cond)는 꽂고 테스트해야 안다.
+## 오늘의 중고 장터 매물 3개 (날짜로 정해짐). 가끔은 아예 고장 난 물건(dead)도 섞여 있다. 판매자 말(claim)로 값이 정해지고, 진짜 상태(cond)는 꽂고 테스트해야 안다.
 static func offers() -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = day * 7919 + 13
 	var out := []
-	for k in 6:
+	for k in 3:   # 하루 매물은 3개만 (너무 많으면 새 제품이 묻힘)
 		var t: String = ["GPU", "GPU", "CPU", "CPU", "RAM", "PSU", "COOLER", "SSD", "MB", "CASE"][rng.randi() % 10]
 		var ids := DB.PARTS.keys().filter(func(p): return DB.PARTS[p]["type"] == t)
 		ids.sort()

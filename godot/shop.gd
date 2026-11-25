@@ -2,7 +2,7 @@ extends Mode
 ## 쇼핑 탭 (데스크몰): 카테고리 → 상품 카드 → 누르면 상세 → 장바구니 → 결제 → 영수증. 두 번 누르기 = 바로 담기.
 ## 폰 기준: 글씨 22px 이상, 누르는 곳 높이 54px 이상.
 
-const CATS := [["parts", "PC 부품"], ["used", "중고"], ["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽"]]
+const CATS := [["parts", "PC 부품"], ["screen", "화면"], ["input", "키보드"], ["light", "조명"], ["audio", "오디오"], ["plant", "식물"], ["decor", "소품"], ["wall", "벽"]]
 const PART_TYPES := [["CASE", "케이스"], ["MB", "보드"], ["CPU", "CPU"], ["COOLER", "쿨러"], ["SSD", "SSD"], ["GPU", "그래픽"], ["RAM", "RAM"], ["PSU", "파워"]]
 const PER := 6
 const CART := [956, 76, 1276, 632]
@@ -28,18 +28,16 @@ func _key(id: String) -> int:
 
 func products() -> Array:
 	var ids: Array
-	if cat == "used":   # 오늘의 중고 매물 전부
-		return range(Game.offers().size()).map(func(k): return "o%d" % k)
 	if cat == "parts":
 		ids = DB.PARTS.keys().filter(func(p): return DB.PARTS[p]["type"] == part_type)
 	else:
 		ids = DB.ITEMS.keys().filter(func(i): return DB.ITEMS[i]["cat"] == cat)
 	ids.sort_custom(func(a, b): return _key(a) < _key(b))
-	if cat == "parts":   # 오늘의 중고 매물을 맨 앞에
+	if cat == "parts":   # 오늘의 중고 매물은 같은 종류 새 제품 뒤에 섞어서
 		var os := Game.offers()
 		for k in os.size():
 			if DB.PARTS[os[k]["id"]]["type"] == part_type:
-				ids.push_front("o%d" % k)
+				ids.push_back("o%d" % k)
 	return ids
 
 
@@ -67,7 +65,7 @@ func card_rect(i: int) -> Array:
 
 
 func cat_rect(i: int) -> Array:
-	return [12 + i * 101 + (14 if i >= 2 else 0), 572, 108 + i * 101 + (14 if i >= 2 else 0), 632]   # PC(부품 · 중고) | 꾸미기
+	return [12 + i * 101 + (14 if i >= 1 else 0), 572, 108 + i * 101 + (14 if i >= 1 else 0), 632]   # PC 부품 | 꾸미기
 
 
 func sub_rect(i: int) -> Array:
@@ -254,7 +252,7 @@ func draw() -> void:
 	grid()
 	for i in CATS.size():   # 고른 탭은 밝게 채우고, 나머지는 어둡게 (PC 쪽은 시안, 꾸미기는 분홍 계열)
 		var on: bool = CATS[i][0] == cat
-		var col: Color = CYAN if i < 2 else PINK
+		var col: Color = CYAN if i < 1 else PINK
 		var r := cat_rect(i)
 		frame("ui_slot", r, Color8(110, 96, 170))
 		if on:   # 고른 탭: 색 테두리 + 흰 글씨 + 밑줄 (채우기는 글씨가 묻혀서 안 씀)
