@@ -67,6 +67,30 @@ const S = {
   close_cap_bulge: [56, 120, `<rect x="2" y="16" width="52" height="98" fill="#22213a"/><rect x="2" y="16" width="8" height="98" fill="#2e2c4c"/><rect x="40" y="16" width="10" height="98" fill="#bfb6e8"/>
     <ellipse cx="28" cy="114" rx="26" ry="6" fill="#1a1930"/><path d="M2 18 Q28 -10 54 18 Q28 28 2 18 Z" fill="#c7cad6"/><path d="M10 14 Q22 2 34 6" stroke="#eef0f6" stroke-width="3" fill="none"/>
     <path d="M18 8 Q28 4 40 10 Q34 18 24 16 Z" fill="#7a4a22"/><path d="M40 12 Q48 30 44 40" stroke="#6a3e1c" stroke-width="4" fill="none"/>`],
+
+  // ===== 보드 위쪽 (2쪽) =====
+  // CPU 8핀 보조전원(EPS): 보드 왼쪽 위, VRM 방열판 옆
+  close_eps_bg: [602, 244, board(602, 244, 11, `<rect x="20" y="20" width="250" height="70" rx="4" fill="#2c2b36"/>${R(16, i => `<rect x="${26 + i * 15}" y="24" width="8" height="62" fill="#3c3b48"/>`)}
+    <rect x="300" y="110" width="116" height="62" rx="2" fill="#141319" stroke="#454452" stroke-width="3"/>${R(8, i => `<rect x="${312 + (i % 4) * 26}" y="${122 + Math.floor(i / 4) * 26}" width="16" height="14" rx="${i % 2 ? 2 : 6}" fill="#0b0a10"/>`)}
+    ${silk(300, 196, 'CPU_PWR1 (ATX12V 8PIN)')}${silk(24, 112, 'VRM')}`)],
+  close_eps_plug: [120, 72, `<rect x="0" y="0" width="120" height="72" rx="3" fill="#121117"/><rect x="0" y="0" width="120" height="7" fill="#2c2b36"/>
+    <rect x="46" y="-0" width="28" height="12" fill="#26252f"/>${R(8, i => `<rect x="${12 + (i % 4) * 26}" y="${20 + Math.floor(i / 4) * 24}" width="16" height="14" fill="#1f1e27"/>`)}`],
+  // 프런트 패널 핀 (F_PANEL): 2x5 핀 + 실크 글씨
+  close_fp_bg: [602, 244, board(602, 244, 5, `<rect x="200" y="80" width="170" height="70" rx="2" fill="#1a1922" stroke="#454452" stroke-width="2"/>
+    ${R(10, i => i === 9 ? '' : `<rect x="${214 + (i % 5) * 32}" y="${92 + Math.floor(i / 5) * 32}" width="12" height="12" fill="#e0b043"/>`)}
+    ${silk(200, 72, 'PLED+ PLED-  PWR_SW', 12)}${silk(200, 172, 'HDD+  HDD-   RESET', 12)}${silk(200, 214, 'F_PANEL', 14)}`)],
+  close_fp_plug: [70, 36, `<rect x="0" y="0" width="70" height="36" rx="2" fill="#121117"/><rect x="0" y="0" width="70" height="5" fill="#2c2b36"/>
+    <text x="35" y="25" text-anchor="middle" font-family="monospace" font-weight="700" font-size="11" fill="#e8e6f0">POWER SW</text>`],
+  // RAM 슬롯 배치 (위에서): A1 A2 B1 B2
+  close_dimm_bg: [602, 244, board(602, 244, 9, R(4, i => `<rect x="${150 + i * 80}" y="20" width="22" height="200" rx="2" fill="#0b0a10" stroke="#2c2b36" stroke-width="2"/>
+    <rect x="${148 + i * 80}" y="14" width="26" height="10" fill="#d6d4de"/><rect x="${148 + i * 80}" y="216" width="26" height="10" fill="#d6d4de"/>`) +
+    silk(146, 240, 'A1      A2      B1      B2', 13) + silk(470, 60, '2 DIMMs:', 13) + silk(470, 80, 'A2 + B2', 13) + silk(470, 100, 'FIRST', 13))],
+  close_dimm_stick: [30, 196, `<rect x="0" y="0" width="30" height="196" rx="2" fill="#2b2a34"/><rect x="0" y="0" width="30" height="196" rx="2" fill="none" stroke="#4a4858" stroke-width="3"/>
+    <rect x="12" y="10" width="6" height="176" fill="#c2364f"/>`],
+  // CMOS 배터리 (CR2032)
+  close_cmos_bg: [602, 244, board(602, 244, 13, `<circle cx="200" cy="122" r="74" fill="#1a1922" stroke="#454452" stroke-width="3"/><rect x="186" y="40" width="28" height="18" fill="#8a8f9c"/>${silk(140, 222, 'BAT1  CR2032')}`)],
+  close_cmos: [124, 124, `<circle cx="62" cy="62" r="60" fill="#b9bcc8"/><circle cx="62" cy="62" r="52" fill="#cfd2dc"/><circle cx="50" cy="48" r="20" fill="#e6e8ef" opacity=".7"/>
+    <text x="62" y="58" text-anchor="middle" font-family="monospace" font-weight="700" font-size="15" fill="#5a5d6a">CR2032</text><text x="62" y="80" text-anchor="middle" font-family="monospace" font-weight="700" font-size="15" fill="#5a5d6a">3V  +</text>`],
 };
 (async () => {
   for (const [name, [w, h, body]] of Object.entries(S)) {

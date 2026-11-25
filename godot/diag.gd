@@ -2,7 +2,9 @@ extends Mode
 ## 진단: 맡긴 PC를 여러 각도에서 살펴보고 원인을 찾아 그 자리에서 고친다.
 ## 정면(전원 눌러 관찰) · 뒷면(파워 스위치 · 모니터 선) · 속 확대(RAM 걸쇠 · 팬 선 · 전원선 · 먼지) · BIOS · 윈도우(작업 관리자)
 
-const VIEWS := ["정면", "뒷면", "속 확대", "BIOS", "윈도우"]
+const VIEWS := ["정면", "뒷면", "속 확대", "BIOS", "윈도우", "보드 위"]
+const VIEW_POS := [0, 1, 2, 4, 5, 3]   # 탭 순서: 정면 · 뒷면 · 속 확대 · 보드 위 · BIOS · 윈도우
+const TILES2 := [[20, 330, 630, 626], [650, 330, 1260, 626], [20, 20, 630, 316], [650, 20, 1260, 316]]   # 보드 위: 8핀 · 프런트 패널 · RAM 배치 · CMOS
 const BTN_BACK := [12, 648, 172, 714]
 const TILES := [[20, 330, 630, 626], [650, 330, 1260, 626], [20, 20, 630, 316], [650, 20, 950, 316], [970, 20, 1260, 316]]
 const POWER_BTN := Vector2(565, 560)
@@ -41,8 +43,8 @@ func enter() -> void:
 
 
 func view_rect(i: int) -> Array:
-	var x := 184 + i * 188
-	return [x, 648, x + 180, 714]
+	var x: int = 184 + VIEW_POS[i] * 160
+	return [x, 648, x + 152, 714]
 
 
 func t() -> float:
@@ -108,11 +110,24 @@ func down(x: float, y: float, _right: bool) -> void:
 						fixed(acts[i][0], acts[i][1])
 					else:
 						toast = acts[i][2]
+		5:
+			var acts := [["eps_power", "CPU 8핀 보조전원을 딸깍 꽂았어요", "CPU 8핀은 잘 꽂혀 있어요"],
+				["front_panel", "전원 버튼 선(POWER SW)을 PWR_SW 핀에 꽂았어요", "전원 버튼 선은 제자리에 있어요"],
+				["ram_channel", "RAM을 A2 · B2로 옮겼어요 → 듀얼 채널", "RAM 자리는 괜찮아요 (A2 · B2)"],
+				["cmos_battery", "새 CR2032로 갈았어요. 날짜 · BIOS 설정이 이제 안 날아가요", "배터리 전압 3.0V, 멀쩡해요"]]
+			for i in 4:
+				if inside(x, y, TILES2[i]):
+					if faults().has(acts[i][0]):
+						fixed(acts[i][0], acts[i][1])
+					else:
+						toast = acts[i][2]
 		3:
 			if not screen_ok():
 				return
 			if inside(x, y, [700, 334, 1000, 382]):
-				if faults().has("xmp_off"):
+				if faults().has("cmos_battery") and not faults().has("xmp_off"):
+					toast = "켜도 껐다 켜면 또 초기화돼요. 보드의 배터리를 확인해 봐요"
+				elif faults().has("xmp_off"):
 					fixed("xmp_off", "XMP를 켰어요. RAM이 제 속도로 돌아요")
 				else:
 					toast = "XMP는 이미 켜져 있어요"
@@ -348,16 +363,19 @@ func draw_back() -> void:
 func draw_close() -> void:   # 그림: tools/close_sprites.js (실제 매크로 사진 구도)
 	var pc := Game.pc
 	var names := ["RAM 슬롯", "CPU 팬 단자", "그래픽카드 8핀 전원", "방열판", "보드 콘덴서"]
+	var slots := ["RAM", "COOLER", "GPU", "COOLER", "MB"]
 	for i in 5:
 		var r: Array = TILES[i]
 		frame("ui_slot", r)
 		text(r[0] + 16, r[3] - 26, names[i], 22, CYAN)
+		used_tag(r, slots[i])
 	# RAM (옆에서): 덜 꽂히면 통째로 들뜨고 금색 단자가 보이고 걸쇠가 벌어짐
 	put("close_ram_bg", [24, 334, 626, 578])
 	var lift := 24.0 if faults().has("ram_seat") else 0.0
 	if pc.ram.any(func(s): return s != ""):
 		put("close_ram", [85, 424 + lift, 565, 544 + lift])
 	put("close_ram_slot", [65, 404, 585, 438])
+	specks([85, 424 + lift, 565, 544 + lift], wear("RAM"), 1)
 	if lift > 0:
 		put("close_latch_open", [65, 400, 25, 440])   # 왼쪽은 좌우 뒤집기
 		put("close_latch_open", [585, 400, 625, 440])
@@ -384,15 +402,86 @@ func draw_close() -> void:   # 그림: tools/close_sprites.js (실제 매크로 
 		var x := 270.0 + k * 15
 		polyline([Vector2(x, 236 + gap), Vector2(x, 262 + gap), Vector2(310 + k * 5, 306)], Color8(230, 190, 60) if k < 3 else Color8(26, 26, 30), 5)   # 위로 모여 슬리브로 (제목 줄 오른쪽 빈자리까지)
 	put("close_gpu_plug", [262, 174 + gap, 390, 238 + gap])
+	specks([34, 130, 616, 160], wear("GPU"), 2)   # 헌 그래픽카드: 윗면에 먼지
 	# 방열판: 먼지가 핀 사이 · 팬날에 뭉침
 	put("close_fins", [654, 24, 946, 268])
-	if faults().has("dust"):
-		put("close_dust", [654, 24, 946, 268])
+	var dust := 1.0 if faults().has("dust") else wear("COOLER")   # 새 쿨러는 깨끗, 헌 건 쓴 만큼 먼지
+	if dust > 0:
+		m.draw_texture_rect(DB.tex("close_dust"), _rect([654, 24, 946, 268]), false, Color(1, 1, 1, dust))
 	# 콘덴서: 부푼 건 윗면이 볼록 + 갈색 진액
 	put("close_cap_bg", [974, 24, 1256, 268])
 	for k in 3:
 		var x := 998.0 + k * 70
 		put("close_cap_bulge" if k == 1 and faults().has("cap_bulge") else "close_cap", [x, 78, x + 56, 198])
+
+
+## 헌 부품일수록 0 → 1 (새 부품 = 0: 먼지 없음)
+func wear(slot: String) -> float:
+	return clampf((90.0 - Game.pc.cond_of(slot)) / 60.0, 0.0, 1.0) if Game.pc.has(slot) or slot == "RAM" else 0.0
+
+
+## 먼지 점: 쓴 만큼 많이 (자리는 고정이라 깜빡이지 않음)
+func specks(r: Array, w: float, seed: int) -> void:
+	if w <= 0:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed * 7919
+	for k in int(w * 60):
+		var p := Vector2(rng.randf_range(r[0], r[2]), rng.randf_range(r[1], r[3]))
+		circle(p.x, p.y, rng.randf_range(2, 5), Color(0.62, 0.6, 0.56, 0.75))
+
+
+## 칸 제목 오른쪽에 '중고' 딱지 (손님 헌 부품 · 산 중고)
+func used_tag(r: Array, slot: String) -> void:
+	var key := "RAM0" if slot == "RAM" else slot
+	if Game.pc.used.has(key):
+		var e: Dictionary = Game.pc.used[key]
+		var s := "헌 부품" if e.get("paid", 0) == 0 else "중고"
+		chip(r[2] - text_w(s, 22) - 40, r[3] - 26, s, GOLD)
+
+
+func xmp_lost() -> bool:   # CMOS 배터리가 죽으면 켤 때마다 BIOS 설정(XMP 포함)이 날아감
+	return faults().has("xmp_off") or faults().has("cmos_battery")
+
+
+## 보드 위쪽 확대: 8핀 보조전원 · 프런트 패널 핀 · RAM 배치 · CMOS 배터리 (그림: tools/close_sprites.js)
+func draw_board() -> void:
+	var names := ["CPU 8핀 보조전원", "프런트 패널 (전원 버튼 선)", "RAM 자리 (A1 · A2 · B1 · B2)", "CMOS 배터리"]
+	var slots := ["PSU", "CASE", "RAM", "MB"]
+	for i in 4:
+		var r: Array = TILES2[i]
+		frame("ui_slot", r)
+		text(r[0] + 16, r[3] - 26, names[i], 22, CYAN)
+		used_tag(r, slots[i])
+	# 8핀: 빠지면 플러그가 옆에 걸쳐 있음
+	put("close_eps_bg", [24, 334, 626, 578])
+	var eps: Array = [496, 350, 616, 422] if faults().has("eps_power") else [322, 400, 442, 472]
+	for k in 8:
+		var x: float = eps[0] + 14 + (k % 4) * 26 + (k / 4) * 9   # 노랑(12V) 줄 · 검정(GND) 줄이 나란히
+		polyline([Vector2(x, eps[3] - 4), Vector2(x, eps[3] + 30), Vector2(x - 120, 574)], Color8(230, 190, 60) if k < 4 else Color8(70, 68, 80), 5)
+	put("close_eps_plug", eps)
+	# 프런트 패널: POWER SW 선이 빠지면 핀 옆에 떨어져 있음
+	put("close_fp_bg", [654, 334, 1256, 578])
+	var fp: Array = [1110, 360, 1180, 396] if faults().has("front_panel") else [951, 462, 1021, 498]
+	polyline([Vector2((fp[0] + fp[2]) / 2.0, fp[3] - 2), Vector2((fp[0] + fp[2]) / 2.0 + 30, 560), Vector2(1240, 572)], Color8(200, 200, 210), 4)
+	put("close_fp_plug", fp)
+	# RAM 배치 (위에서): 2개를 A1 · B1에 꽂으면 싱글 채널
+	put("close_dimm_bg", [24, 24, 626, 268])
+	var at: Array = [0, 2] if faults().has("ram_channel") else [1, 3]
+	var n := Game.pc.ram.filter(func(s): return s != "").size()
+	for k in mini(n, 2):
+		var x: float = 24 + 146 + at[k] * 80
+		put("close_dimm_stick", [x, 46, x + 30, 242])
+	specks([24, 24, 626, 268], wear("MB"), 3)
+	specks([24, 334, 626, 578], wear("MB"), 4)
+	# CMOS 배터리 + 테스터 전압
+	put("close_cmos_bg", [654, 24, 1256, 268])
+	put("close_cmos", [792, 84, 916, 208])
+	var dead: bool = faults().has("cmos_battery")
+	box([1010, 120, 1200, 190], Color8(30, 34, 28))
+	outline([1010, 120, 1200, 190], Color8(90, 96, 80), 3)
+	text_c([1010, 120, 1200, 190], "2.1V" if dead else "3.0V", 33, PINK if dead else GREEN)
+	text(1010, 210, "테스터", 22, QUIET)
 
 
 # ---------- 인두 작업 ----------
@@ -522,15 +611,16 @@ func draw_bios() -> void:
 	var pc := Game.pc
 	box([20, 20, 1260, 626], Color8(16, 30, 110))
 	text(60, 590, "BIOS 설정", 33, Color.WHITE)
+	text(760, 590, "2009-01-01  00:00 ⚠" if faults().has("cmos_battery") else "2026-11-26  14:20", 22, GOLD if faults().has("cmos_battery") else Color8(200, 210, 255))   # 배터리가 죽으면 날짜가 초기화
 	var gb := 0
 	for s in pc.ram:
 		gb += DB.PARTS[s].get("gb", 0) if s != "" else 0
 	var tmp := idle_temp()
 	var rows := [["CPU 온도 (쉬는 중)", "%d°C" % tmp, PINK if tmp >= 60 else Color.WHITE],
 		["CPU 팬 속도", "0 RPM  ⚠" if faults().has("cpu_fan") else "%d RPM" % (2400 if faults().has("dust") else 1100), PINK if faults().has("cpu_fan") else Color.WHITE],
-		["메모리", "%dGB · %s" % [gb, "2133MHz" if faults().has("xmp_off") else "3200MHz"], Color.WHITE],
-		["XMP (RAM 제 속도)", "끔" if faults().has("xmp_off") else "켬", GOLD if faults().has("xmp_off") else GREEN],
-		["", "", Color.WHITE],
+		["메모리", "%dGB · %s" % [gb, "2133MHz" if xmp_lost() else "3200MHz"], Color.WHITE],
+		["XMP (RAM 제 속도)", "끔" if xmp_lost() else "켬", GOLD if xmp_lost() else GREEN],
+		["메모리 채널", "싱글 (A1 · B1)" if faults().has("ram_channel") else "듀얼", GOLD if faults().has("ram_channel") else Color.WHITE],
 		["부팅 1순위", "USB 장치" if faults().has("boot_order") else "M.2 SSD", GOLD if faults().has("boot_order") else Color.WHITE]]
 	for i in rows.size():
 		text(80, 520 - i * 54, rows[i][0], 22, Color8(200, 210, 255))
@@ -577,6 +667,7 @@ func draw() -> void:
 		2: draw_close()
 		3: draw_bios()
 		4: draw_windows()
+		5: draw_board()
 	frame("ui_panel", [-12, BAR, 1292, H + 12])
 	button(BTN_BACK, "◀ 조립", VIOLET)
 	for i in VIEWS.size():

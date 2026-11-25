@@ -163,7 +163,10 @@ func _initialize() -> void:
 			b.apply_paste()
 			b.place("cool2")
 			b.screws["COOLER"].fill(true)
-			b.faults.erase("xmp_off")}
+			b.faults.erase("xmp_off")
+			b.faults.erase("ram_channel"),
+		"첫 조립한 공대생": func(b: PCBuild): b.faults.clear(),
+		"세무사 사무실 실장님": func(b: PCBuild): b.faults.erase("cmos_battery")}
 	for i in DB.REQUESTS.size():
 		var q: Dictionary = DB.REQUESTS[i]
 		if not q.has("repair"):
@@ -175,8 +178,8 @@ func _initialize() -> void:
 		fixes[q["customer"]].call(Game.pc)
 		var rs := Rules.score(q, [], Game.pc, [])
 		ok(rs["stars"] == 3 and Game.spent() <= q["budget"], "수리 후 %s %s 비용 %d" % [q["customer"], rs, Game.spent()])
-	var old: Dictionary = Game.pc.remove("RAM", 1)[0]   # 손님 헌 RAM은 상태째로 나옴 → 중고 창고에 남아 다음에 씀
-	ok(old["id"] == "ram2" and old["paid"] == 0 and old["cond"] < 100, "손님 헌 부품 %s" % [old])
+	var old: Dictionary = Game.pc.remove("RAM", 0)[0]   # 손님 헌 RAM은 상태째로 나옴 → 중고 창고에 남아 다음에 씀
+	ok(old["id"] in ["ram1", "ram2"] and old["paid"] == 0 and old["cond"] < 100, "손님 헌 부품 %s" % [old])
 
 	# --- 중고 · 노후화 ---
 	Game.new_game()

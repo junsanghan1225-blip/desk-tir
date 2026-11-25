@@ -103,7 +103,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	if "MB" in lz or "PSU" in lz:
 		r["noise"] += 4
 		r["notes"].append("본체에서 달그락 소리가 나요 → 나사 조이기")
-	var soft: float = (0.9 if f.has("xmp_off") else 1.0) * (0.35 if f.has("bloat") else 1.0)   # 숨은 고장: 숫자만 조금 모자람
+	var soft: float = (0.9 if f.has("xmp_off") or f.has("cmos_battery") else 1.0) * (0.92 if f.has("ram_channel") else 1.0) * (0.35 if f.has("bloat") else 1.0)   # 숨은 고장: 숫자만 조금 모자람
 	if cpu_w > _s(d.get("MB", ""), "vrm", 999):   # 보드 전원부가 CPU 전력을 못 대 줌
 		cpu_thr *= 0.8
 		r["notes"].append("보드 전원부(VRM)가 약해서 CPU가 제 힘을 못 내요 → 더 좋은 보드")

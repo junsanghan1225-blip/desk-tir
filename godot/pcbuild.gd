@@ -32,6 +32,10 @@ const FAULT_INFO := {
 	"paste_dry": ["굳은 서멀 구리스", "오래 쓰면 뜨거워져 느려짐", "쉬는데도 CPU 60°C 이상", "쿨러를 떼고 닦은 뒤 새로 바르기 (2~3년마다)"],
 	"cap_bulge": ["부푼 콘덴서", "가끔 꺼지다가 아예 안 켜짐 · 탄 냄새", "보드 위 콘덴서 윗면이 볼록 · 갈색 자국", "인두를 300°C 넘게 달궈 녹여 빼고 새 콘덴서를 납땜. 너무 오래 대면 기판이 타요"],
 	"xmp_off": ["XMP 꺼짐", "프레임이 조금씩 모자람", "BIOS 메모리 속도 2133MHz", "BIOS에서 XMP를 켜면 RAM이 제 속도로"],
+	"eps_power": ["CPU 8핀 보조전원 안 꽂힘", "팬은 도는데 화면 없음 · CPU 불", "보드 왼쪽 위 8핀 자리가 비어 있음", "처음 조립할 때 제일 많이 빼먹어요. 8핀을 딸깍 꽂기"],
+	"front_panel": ["전원 버튼 선 빠짐", "버튼을 눌러도 아무 반응 없음 (파워 스위치는 켜져 있음)", "보드 F_PANEL의 PWR_SW 핀이 비어 있음", "케이스 버튼 선(POWER SW)을 PWR_SW 두 핀에 꽂기"],
+	"ram_channel": ["RAM 싱글 채널", "게임이 조금 버벅임 (고장은 아님)", "BIOS 메모리 채널: 싱글, RAM이 A1 · B1에", "2개면 A2 · B2에 꽂아야 듀얼 채널로 빨라요"],
+	"cmos_battery": ["CMOS 배터리 방전", "켤 때마다 날짜가 2009년 · 설정이 날아감", "BIOS 날짜 초기화, 배터리 2.1V", "보드의 동전 배터리(CR2032)를 새것으로 (3~5년마다)"],
 }
 
 ## 실제 수리점에서 흔한 고장. 숫자 = 찾기 어려움(난이도 점수)
@@ -47,6 +51,10 @@ const FAULTS := {
 	"paste_dry": 3,    # 서멀 구리스가 말라 굳음 → 오래 쓰면 뜨거워져 느려짐
 	"xmp_off": 3,      # BIOS에서 RAM 속도(XMP)가 꺼짐 → 프레임이 조금 모자람
 	"cap_bulge": 3,    # 메인보드 콘덴서가 부풂 → 인두로 교체 (납땜)
+	"eps_power": 2,    # CPU 8핀 보조전원을 안 꽂음 → CPU 불, 화면 없음 (첫 조립 단골 실수)
+	"front_panel": 2,  # 케이스 전원 버튼 선이 보드에서 빠짐 → 버튼 무반응
+	"ram_channel": 3,  # RAM 2개를 A1 · B1에 → 싱글 채널, 조금 느림
+	"cmos_battery": 2, # 보드 동전 배터리 방전 → 날짜 · BIOS 설정 초기화
 }
 
 
@@ -295,7 +303,7 @@ func post() -> Array:
 		return [-1, "메인보드가 없어요"]
 	if faults.has("cap_bulge"):
 		return [-1, "전원 버튼을 눌러도 반응이 없어요 (살짝 탄 냄새)"]
-	if faults.has("psu_switch"):   # 증상만 알려 준다 (원인은 진단 화면에서)
+	if faults.has("psu_switch") or faults.has("front_panel"):   # 증상만 알려 준다 (원인은 진단 화면에서)
 		return [-1, "전원 버튼을 눌러도 아무 반응이 없어요"]
 	if not has("PSU") or not cables.has("24pin"):
 		return [-1, "전원이 안 들어와요 (파워 · 24핀 확인)"]
@@ -309,7 +317,7 @@ func post() -> Array:
 		return [0, "CPU 불이 켜졌어요 (소켓 레버가 열려 있어요)"]
 	if not has("COOLER"):
 		return [0, "켜지자마자 과열로 꺼졌어요 (쿨러 없음)"]
-	if dead("CPU"):
+	if dead("CPU") or faults.has("eps_power"):
 		return [0, "CPU 불이 켜진 채로 멈춰요"]
 	if not paste:
 		return [0, "몇 초 뒤 과열로 꺼졌어요 (서멀 구리스 안 바름)"]
