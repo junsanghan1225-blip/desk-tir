@@ -167,9 +167,10 @@ func card_frame(r: Array, hot: bool, tint: Color) -> Array:
 
 
 func tag(x: float, y: float, s: String, c: Color) -> void:
-	var w := text_w(s, 22) + 16
-	box([x, y - 16, x + w, y + 16], c)
-	text(x + 8, y, s, 22, Color8(20, 14, 40))
+	var w := text_w(s, 22) + 14   # 어두운 바탕 + 색 테두리 + 색 글씨 (진한 색 덩어리 대신)
+	box([x, y - 14, x + w, y + 14], Color(0.08, 0.06, 0.16, 0.85))
+	outline([x, y - 14, x + w, y + 14], c, 2.0)
+	text(x + 7, y, s, 22, c)
 
 
 func draw_offer(i: int, key: String) -> void:
@@ -179,7 +180,6 @@ func draw_offer(i: int, key: String) -> void:
 	var img := card_frame(r, pending == o["key"], GOLD)
 	fit(icon_of(o["id"]), (img[0] + img[2]) / 2.0, (img[1] + img[3]) / 2.0, (img[2] - img[0]) * 0.55, (img[3] - img[1]) * 0.8)
 	tag(img[0] + 6, img[3] - 20, "중고", PINK)
-	tag(img[2] - text_w("환불 X", 22) - 22, img[3] - 20, "환불 X", Color8(150, 140, 190))
 	var off := roundi(100 - 100.0 * o["price"] / p["price"])
 	info(r, p["name"], "%d만" % o["price"], o["claim"], "-%d%%" % off, INK)
 
@@ -256,20 +256,19 @@ func draw() -> void:
 		var on: bool = CATS[i][0] == cat
 		var col: Color = CYAN if i < 2 else PINK
 		var r := cat_rect(i)
-		if on:
-			frame("ui_button", r, col)
-			box([r[0] + 6, r[1] - 6, r[2] - 6, r[1] - 2], col)   # 밑줄
-		else:
-			frame("ui_slot", r, Color8(110, 96, 170))
-		text_c(r, CATS[i][1], 22, Color8(20, 14, 40) if on else col.lerp(QUIET, 0.4))
+		frame("ui_slot", r, Color8(110, 96, 170))
+		if on:   # 고른 탭: 색 테두리 + 흰 글씨 + 밑줄 (채우기는 글씨가 묻혀서 안 씀)
+			outline([r[0] + 2, r[1] + 2, r[2] - 2, r[3] - 2], col, 2.0)
+			box([r[0] + 6, r[1] - 6, r[2] - 6, r[1] - 2], col)
+		text_c(r, CATS[i][1], 22, INK if on else col.lerp(QUIET, 0.4))
 	if cat == "parts":
 		for i in PART_TYPES.size():
 			var on: bool = PART_TYPES[i][0] == part_type
+			var sr := sub_rect(i)
+			frame("ui_slot", sr, Color8(90, 80, 140))
 			if on:
-				frame("ui_button", sub_rect(i), GOLD)
-			else:
-				frame("ui_slot", sub_rect(i), Color8(90, 80, 140))
-			text_c(sub_rect(i), PART_TYPES[i][1], 22, Color8(20, 14, 40) if on else QUIET)
+				outline([sr[0] + 2, sr[1] + 2, sr[2] - 2, sr[3] - 2], GOLD, 2.0)
+			text_c(sr, PART_TYPES[i][1], 22, GOLD if on else QUIET)
 	var shown := visible()
 	for i in shown.size():
 		draw_card(i, shown[i])
