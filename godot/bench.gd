@@ -11,7 +11,7 @@ const KIND_NAMES := {"office": "문서 · 화상회의", "code": "코딩(빌드)
 
 ## 조립 상태 → 계산에 쓰는 부품 묶음 {CPU, GPU, COOLER, CASE: id, RAM: [id...]}
 static func parts_of(pc: PCBuild) -> Dictionary:
-	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy()}
+	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy(), "laptop": pc.has_meta("laptop")}
 	for t in ["CPU", "GPU", "COOLER", "CASE", "MB", "PSU", "SSD"]:
 		d[t] = pc.parts.get(t, "")
 	d["dead_cooler"] = pc.dead("COOLER")   # 고장 난 중고 쿨러: 팬이 안 돎
@@ -31,7 +31,18 @@ static func describe(use: Dictionary) -> String:
 		_: s = KIND_NAMES["office"] + " (켜지기만 하면 OK)"
 	if use.has("quiet"):
 		s += " · 조용하게 %ddB 이하" % use["quiet"]
+	if use.get("wifi", false):
+		s += " · 무선 인터넷(Wi-Fi)"
+	if use.has("storage"):
+		s += " · 저장공간 %s 이상" % (("%dTB" % (use["storage"] / 1000)) if use["storage"] >= 1000 else "%dGB" % use["storage"])
+	if use.has("vram"):
+		s += " · 그래픽 메모리 %dGB 이상" % use["vram"]
 	return s
+
+
+## SSD 용량 글자 → GB ("1TB" → 1000)
+static func gb_of(cap: String) -> int:
+	return int(cap.to_int() * (1000 if cap.ends_with("TB") else 1))
 
 
 static func _s(id: String, key: String, def = 0):
@@ -141,7 +152,19 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 		r["notes"].append("소음 %ddB: 손님 기준 %ddB보다 시끄러워요 → 조용한 쿨러 · 작은 그래픽카드" % [r["noise"], use["quiet"]])
 	if r["kind"] == "game" and gb < 16:   # 평균 FPS가 높아도 주기적으로 멈칫하면 손님은 못 참음
 		pts = minf(pts, 10.0)
-	r["ok"] = r["ratio"] >= 1.0 and (not use.has("quiet") or r["noise"] <= use["quiet"]) and not (r["kind"] == "game" and gb < 16)
+	var extra_ok := true   # 손님 추가 조건: Wi-Fi · 저장공간 · 그래픽 메모리
+	if use.get("wifi", false) and not (d.get("laptop", false) or _s(d.get("MB", ""), "wifi", false)):
+		extra_ok = false
+		r["notes"].push_front("무선 인터넷이 안 돼요 → Wi-Fi 있는 보드")
+	if use.has("storage") and gb_of(str(_s(d.get("SSD", ""), "capacity", "0GB"))) < use["storage"]:
+		extra_ok = false
+		r["notes"].push_front("저장공간이 모자라요 → 더 큰 SSD")
+	if use.has("vram") and _s(d["GPU"], "vram", 0) < use["vram"]:
+		extra_ok = false
+		r["notes"].push_front("그래픽 메모리(VRAM)가 %dGB 필요해요 → 메모리 큰 그래픽카드" % use["vram"])
+	if not extra_ok:
+		pts *= 0.5
+	r["ok"] = extra_ok and r["ratio"] >= 1.0 and (not use.has("quiet") or r["noise"] <= use["quiet"]) and not (r["kind"] == "game" and gb < 16)
 	if r["kind"] != "office" and r["ratio"] >= 1.6:
 		r["notes"].append("목표보다 훨씬 좋아요. 더 싼 부품으로도 충분해요 (마진↑)")
 	r["points"] = max(0.0, pts)

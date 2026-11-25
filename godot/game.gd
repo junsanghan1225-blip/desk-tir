@@ -132,6 +132,7 @@ static func computer() -> PCBuild:
 		if spec:
 			if not _laptops.has(p["id"]):
 				var lp := PCBuild.full(spec)
+				lp.set_meta("laptop", true)   # 노트북은 Wi-Fi 기본
 				for c in lp.cables:   # 노트북은 공장에서 깔끔하게 조립된 완제품
 					lp.ties[c] = true
 				_laptops[p["id"]] = lp
