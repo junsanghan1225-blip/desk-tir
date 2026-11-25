@@ -2,7 +2,7 @@ extends Mode
 ## 배선 정리 (책상 뒤 시점): 기기를 끌어 같은 색 포트에 꽂는다. 기기 순서와 포트 순서가 엇갈리면 선이 꼬인다.
 
 const BTN_DONE := [1100, 10, 1270, 50]
-const HINT := {"HDMI": "HDMI 모니터는 HDMI 포트에", "DP": "DP 모니터는 DP 포트에", "USB": "USB 기기는 USB 포트에", "AUDIO": "스피커 · 헤드셋은 오디오 포트에"}
+const HINT := {"HDMI": "모니터는 HDMI · DP 포트에", "DP": "모니터는 HDMI · DP 포트에", "USB": "USB 기기는 USB 포트에", "AUDIO": "스피커 · 헤드셋은 오디오 포트에"}
 const DEV_Y := 480
 
 var wiring = null   # 선을 끌고 있는 기기
@@ -46,7 +46,8 @@ func up(x: float, y: float) -> void:
 		return
 	var need: String = DB.ITEMS[wiring["id"]]["port"]
 	var port = Rules.port_at(x, y, Game.computer())
-	if port != null and port[0] != need:
+	var video := ["HDMI", "DP"]   # 모니터는 보통 HDMI · DP 입력이 둘 다 있음 → 남는 쪽에 꽂으면 됨
+	if port != null and port[0] != need and not (need in video and port[0] in video):
 		toast = HINT[need] + " 꽂아야 해요"
 		sfx("error")
 	elif port != null and Game.cables.any(func(c): return [c["type"], c["port"]] == port):
@@ -138,7 +139,7 @@ func draw() -> void:
 		line(Vector2(gx, 0), Vector2(gx, 650), Color8(30, 22, 60), 1)
 	top_bar("wire")
 	text(40, 610, "배선 정리  ·  책상 뒤", 24, PINK)
-	text(40, 578, "기기를 끌어 같은 색 포트에 꽂기 · 무선은 USB 동글 · 선이 엇갈리면 꼬임 감점", 16, QUIET)
+	text(40, 578, "기기를 끌어 포트에 꽂기 · 모니터는 HDMI · DP 아무 데나 · 선이 엇갈리면 꼬임 감점", 16, QUIET)
 	text(40, 40, "두 번 누르기(우클릭): 선 뽑기", 16, QUIET)
 	var devs := devices()
 	for p in devs:
@@ -177,5 +178,6 @@ func draw() -> void:
 	if ok and not devs.is_empty():
 		text(880, 578, "깔끔해요! 배선 만점", 16, GREEN)
 	if toast != "":
-		text(40, 80, toast, 18, PINK)
+		box([30, 62, 40 + text_w(toast, 22) + 20, 100], Color(0, 0, 0, 0.75))
+		text(40, 81, toast, 22, PINK)
 	button(BTN_DONE, "납품하기", PINK)
