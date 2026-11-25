@@ -417,36 +417,46 @@ func draw_pc() -> void:
 		put("case_empty", r)
 		text(r[0] + 30, r[3] + 18, "노트북 사용 중" if Game.computer() != pc else "PC 조립 필요", 16, CYAN)
 		return
-	var body: Color = CASE_BODY.get(DB.look(pc.parts["CASE"]), Color8(42, 35, 80))
-	box([r[0] + 10, r[1] - 6, r[0] + 36, r[1]], Color8(10, 6, 24))   # 받침발
-	box([r[2] - 36, r[1] - 6, r[2] - 10, r[1]], Color8(10, 6, 24))
-	box(r, body)
-	box([r[2] - 24, r[1], r[2], r[3]], Color8(139, 94, 60) if pc.parts["CASE"] == "case5" else body.darkened(0.25))   # 앞면
-	outline(r, Color8(10, 6, 24), 2)
-	var g := [r[0] + 8, r[1] + 10, r[2] - 32, r[3] - 8]   # 유리
-	box(g, Color8(10, 6, 24))
+	var cid: String = pc.parts["CASE"]
+	var t := Time.get_ticks_msec() / 1000.0
+	var on: bool = Game.power
+	# 유리창(그림 좌표 x 10~154, y 12~196) → 게임 좌표
+	var g := [r[0] + 10, r[3] - 196, r[0] + 154, r[3] - 12]
+	box(g, Color8(8, 6, 18))
 	var b = m.modes["build"]
 	var ca: Array = b.CASE_AREA
-	var k: float = min(float(g[2] - g[0]) / (ca[2] - ca[0]), float(g[3] - g[1]) / (ca[3] - ca[1]))
-	var ox: float = g[0] + ((g[2] - g[0]) - (ca[2] - ca[0]) * k) / 2.0
-	var oy: float = (H - g[3]) + ((g[3] - g[1]) - (ca[3] - ca[1]) * k) / 2.0
-	m.draw_set_transform(Vector2(ox - ca[0] * k, oy - (H - ca[3]) * k), 0.0, Vector2(k, k))   # 조립 화면 좌표 → 유리 안
+	var k: float = (g[3] - g[1] - 50.0) / (ca[3] - 200.0)   # 파워 칸(아래)을 뺀 부분을 덮개 위 공간에 꽉 (파워는 덮개 속, 오른쪽 넘친 곳은 앞판에 가려짐)
+	m.draw_set_transform(Vector2(g[0] - ca[0] * k, (H - g[3]) - (H - ca[3]) * k), 0.0, Vector2(k, k))
 	if pc.has("MB"):
 		b.draw_board()
 		b.draw_parts()
+		b.draw_cables()
 	m.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var t := Time.get_ticks_msec() / 1000.0
-	if Game.power:   # 켜지면 안쪽 RGB가 천천히 색이 돎
-		box(g, Color.from_hsv(fmod(t * 0.08, 1.0), 0.7, 1.0, 0.13))
-	line(Vector2(g[0] + 6, g[3] - 30), Vector2(g[0] + 36, g[3] - 4), Color(1, 1, 1, 0.12), 3)   # 유리 반사
-	outline(g, Color8(60, 50, 100), 2)
+	var front_fans: bool = cid in ["case3", "case4", "case7"]
+	for i in 3:   # 앞쪽 흡기 팬 3개 (켜지면 링이 빛남)
+		if not front_fans:
+			break
+		var c := Vector2(g[2] - 12, g[3] - 34 - i * 40)
+		circle(c.x, c.y, 15, Color8(20, 16, 34))
+		var ring := Color.from_hsv(fmod(t * 0.15 + i * 0.12, 1.0), 0.75, 1.0) if on else Color8(70, 64, 96)
+		m.draw_arc(Vector2(c.x, H - c.y), 13, 0, TAU, 24, ring, 3)
+		if on:
+			for q in 4:
+				var a2 := t * 12.0 + q * TAU / 4
+				line(c, c + Vector2(cos(a2), sin(a2)) * 10, Color(0.6, 0.6, 0.75, 0.6), 3)
+	var shroud := [g[0], g[1], g[2], g[1] + 50]   # 파워 덮개 (아래 공간을 가려 깔끔하게)
+	box(shroud, Color8(214, 212, 228) if cid in ["case2", "case4"] else Color8(26, 22, 44))
+	box([shroud[0], shroud[3] - 3, shroud[2], shroud[3]], Color.from_hsv(fmod(t * 0.1, 1.0), 0.7, 1.0, 0.9) if on and cid in ["case3", "case7"] else Color8(60, 54, 90))
+	if on:   # 켜지면 안쪽이 은은하게 물듦
+		box(g, Color.from_hsv(fmod(t * 0.08, 1.0), 0.6, 1.0, 0.08))
+	put("side_" + cid if ResourceLoader.exists("res://resource/side_%s.png" % cid) else "side_case1", r)
+	poly([Vector2(g[0] + 8, g[3] - 6), Vector2(g[0] + 30, g[3] - 6), Vector2(g[0] + 80, g[1] + 6), Vector2(g[0] + 58, g[1] + 6)], Color(1, 1, 1, 0.06))   # 유리 반사
 	var failing: bool = Time.get_ticks_msec() - fail_t < 1500
-	var c := center(BTN_POWER)
-	circle(c.x, c.y, 12, Color8(10, 6, 24))
-	circle(c.x, c.y, 10, (PINK if int(t * 6) % 2 else DARK) if failing else (CYAN if Game.power else Color8(90, 78, 130)))
-	circle(c.x, c.y, 5, Color8(10, 6, 24))
-	box([c.x - 2, c.y + 1, c.x + 2, c.y + 8], (CYAN if Game.power else Color8(140, 130, 180)))
-	text(r[0], r[3] + 18, "켜짐" if Game.power else ("전원 ↘ 눌러서 켜기" if pc.boots() else "조립 미완성"), 16, CYAN if Game.power or pc.boots() else PINK)
+	var c2 := center(BTN_POWER)
+	var led: Color = CYAN if on else (PINK if failing and int(t * 6) % 2 else (Color(GOLD, 0.5 + 0.5 * sin(t * 4)) if pc.boots() else Color8(70, 64, 96)))
+	m.draw_arc(Vector2(c2.x, H - c2.y), 6, 0, TAU, 16, led, 2)
+	if on:
+		box([c2.x - 2, c2.y - 22, c2.x + 2, c2.y - 18], CYAN if fmod(t * 7, 2.0) < 1 else Color8(30, 60, 70))   # HDD 불빛
 
 
 ## 모니터 화면: 꺼짐 = 검정 / 켜짐 + DP 연결 = 부팅 로고 → 바탕화면 · 작업표시줄 · 창 / 켜졌는데 선 없음 = 신호 없음
