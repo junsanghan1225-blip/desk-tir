@@ -216,6 +216,15 @@ func _initialize() -> void:
 	Game.day = 4   # 목표: 수리 의뢰 별 3개 (카페 수리는 5일차 장부지만 목표 판정만 봄)
 	ok(Game.daily()[2] == "repair3" and Game.daily_done() and Game.claim_daily() == Game.daily()[1] and Game.claim_daily() == 0, "일일 목표 보상은 한 번만")
 
+	# --- 큰 목표 · 손님 이야기 ---
+	ok(Game.visits["동네 카페 사장님"] == [3] and Game.epilogue("동네 카페 사장님").contains("두 배"), "단골 기록 · 좋은 뒷이야기")
+	Game.history["웹소설 작가"] = 0
+	ok(Game.epilogue("웹소설 작가").contains("휴재"), "나쁜 뒷이야기")
+	Game.money = Game.goal() - 1
+	ok(not Game.goal_met(), "목표 미달")
+	for nm in DB.REQUESTS.map(func(q): return q["customer"]):
+		ok(DB.STORY["epilogue"].has(nm), "뒷이야기 있음: " + nm)
+
 	# --- 저장 ---
 	Game.pc = PCBuild.full()
 	Game.placed = []

@@ -58,6 +58,20 @@ class News extends Mode:
 		text(120, 150, "오늘의 목표: %s  (+%d만)" % [Game.daily()[0], Game.daily()[1]], 22, GREEN)
 		text(120, 110, "가게 돈 %d만 원  ·  가게 레벨 %d  ·  오늘 손님 %d명" % [Game.money, Game.level(), Game.todays_requests().size()], 17, QUIET)
 		text(120, 66, "화면을 눌러 가게 열기", 18, DIM)
+		goal_line(self, 30)
+		if Game.day == 1:   # 첫날 아침: 큰 목표 이야기
+			box([120, 337, 1160, 603], Color(0.03, 0.02, 0.08, 0.82))
+			var intro: Array = DB.STORY["intro"]
+			for i in intro.size():
+				text(150, 560 - i * 56, intro[i], 22 if i < intro.size() - 1 else 33, INK if i < intro.size() - 1 else GOLD)
+
+
+	## 큰 목표 진행 막대 (아침 · 마감 화면 공통)
+	static func goal_line(md: Mode, y: float, x := 700.0) -> void:
+		var left: int = Game.last_day() - Game.day
+		md.text(x, y, "가게 지키기  %d / %d만  ·  %s" % [Game.money, Game.goal(), "오늘이 마지막 날!" if left == 0 else "D-%d" % left], 22, GREEN if Game.goal_met() else Mode.GOLD)
+		md.box([x, y - 32, x + 460, y - 24], Mode.DARK)
+		md.box([x, y - 32, x + 460 * minf(1.0, float(Game.money) / Game.goal()), y - 24], Mode.GREEN if Game.goal_met() else Mode.GOLD)
 
 
 class Request extends Mode:
@@ -182,10 +196,8 @@ class DayEnd extends Mode:
 
 	func down(x: float, y: float, _right: bool) -> void:
 		if inside(x, y, BTN_NEXT):
-			if Game.day >= Game.last_day():
-				m.modes["title"].message = "영업 %d일 완료! 최종 가게 돈 %d만 원" % [Game.last_day(), Game.money]
-				Game.delete_save()
-				m.go("title")
+			if Game.day >= Game.last_day():   # 마지막 날: 엔딩
+				m.go("ending")
 			else:
 				Game.day += 1
 				m.go("news")
@@ -207,7 +219,8 @@ class DayEnd extends Mode:
 
 	func draw() -> void:
 		box([0, 0, 1280, H], BG)
-		text(120, 670, "%d일차 영업 마감" % Game.day, 34, PINK)
+		text(120, 684, "%d일차 영업 마감" % Game.day, 34, PINK)
+		News.goal_line(self, 630, 120)
 		var lv := Game.level()
 		text(700, 680, "가게 레벨 %d" % lv, 22, CYAN)
 		frame("ui_slot", [692, 632, 1168, 668])
@@ -250,7 +263,7 @@ class DayEnd extends Mode:
 			text(r[0] + 14, r[3] - 74, up["desc"].left(22), 12, QUIET)
 		if toast != "":
 			text(120, 60, toast, 16, PINK)
-		button(BTN_NEXT, "타이틀로" if Game.day >= Game.last_day() else "다음 날 영업", PINK)
+		button(BTN_NEXT, "엔딩 보기" if Game.day >= Game.last_day() else "다음 날 영업", PINK)
 
 
 class Product extends Mode:
@@ -761,13 +774,13 @@ class Trial extends Mode:
 
 class Dex extends Mode:
 	## 도감: 고친 고장(증상 · 단서 · 고치는 법), 납품에 써 본 부품, 업적
-	const TABS3 := ["고장", "부품", "업적"]
+	const TABS3 := ["고장", "부품", "업적", "손님"]
 	const BTN_BACK := [12, 648, 172, 714]
 	var tab := 0
 	var sel := 0
 
 	func tab_r(i: int) -> Array:
-		return [200 + i * 240, 648, 430 + i * 240, 714]
+		return [190 + i * 232, 648, 412 + i * 232, 714]
 
 	func fault_row(i: int) -> Array:
 		return [20, 572 - i * 56, 440, 622 - i * 56]
@@ -786,7 +799,7 @@ class Dex extends Mode:
 		if inside(x, y, BTN_BACK):
 			m.pop()
 			return
-		for i in 3:
+		for i in 4:
 			if inside(x, y, tab_r(i)):
 				tab = i
 				sel = 0
@@ -808,14 +821,35 @@ class Dex extends Mode:
 		box([0, 0, 1280, H], BG)
 		frame("ui_panel", [-12, BAR, 1292, H + 12])
 		button(BTN_BACK, "◀ 닫기", VIOLET)
-		var labels := ["고장 %d/%d" % [count("f:"), PCBuild.FAULTS.size()], "부품 %d/%d" % [count("p:"), DB.PARTS.size()], "업적 %d/%d" % [Game.achv.size(), Game.ACHV.size()]]
-		for i in 3:
+		var labels := ["고장 %d/%d" % [count("f:"), PCBuild.FAULTS.size()], "부품 %d/%d" % [count("p:"), DB.PARTS.size()], "업적 %d/%d" % [Game.achv.size(), Game.ACHV.size()], "손님 %d" % Game.visits.size()]
+		for i in 4:
 			frame("ui_button", tab_r(i), CYAN if i == tab else Color8(80, 66, 140))
 			text_c(tab_r(i), labels[i], 22, Color.WHITE if i == tab else QUIET)
 		match tab:
 			0: draw_faults()
 			1: draw_parts()
 			2: draw_achv()
+			3: draw_people()
+
+	## 단골 수첩: 손님마다 방문 기록(별)과 지금 기분
+	func draw_people() -> void:
+		var names := Game.visits.keys()
+		if names.is_empty():
+			text(60, 560, "아직 만난 손님이 없어요", 33, QUIET)
+		for i in mini(names.size(), 9):
+			var v: Array = Game.visits[names[i]]
+			var r := [40, 568 - i * 62, 1240, 622 - i * 62]
+			frame("ui_slot", r)
+			fit("face_%s_%s" % [face_of(names[i]), "happy" if v[-1] >= 2 else "sad"], r[0] + 32, r[1] + 27, 48, 48)
+			text(r[0] + 70, r[1] + 27, names[i], 22, INK)
+			text(r[0] + 330, r[1] + 27, "  ".join(v.map(func(s): return "★".repeat(s) + "☆".repeat(3 - s))), 22, GOLD)
+			text(r[0] + 760, r[1] + 27, "또 오고 싶대요" if v[-1] >= 2 else "실망했어요…", 22, GREEN if v[-1] >= 2 else PINK)
+
+	func face_of(name: String) -> String:
+		for q in DB.REQUESTS:
+			if q["customer"] == name:
+				return q["face"]
+		return "student"
 
 	func draw_faults() -> void:
 		var keys := PCBuild.FAULTS.keys()
@@ -868,3 +902,37 @@ class Dex extends Mode:
 			text(r[0] + 70, r[1] + 29, a[0], 22, INK if on else QUIET)
 			text(r[0] + 330, r[1] + 29, a[1], 22, QUIET)
 			text(r[2] - 150, r[1] + 29, "+%d만" % a[2], 22, GOLD if on else DIM)
+
+
+class Ending extends Mode:
+	## 마지막 날 마감 뒤: 가게를 지켰는지 + 손님마다 그 뒤 이야기
+	var t0 := 0
+
+	func enter() -> void:
+		t0 = Time.get_ticks_msec()
+		sfx("star" if Game.goal_met() else "sad")
+
+	func down(_x: float, _y: float, _right: bool) -> void:
+		if Time.get_ticks_msec() - t0 < 1500:
+			return
+		m.modes["title"].message = "엔딩: %s · 단골 %d명 · 고장 도감 %d/%d" % ["가게를 지켰어요" if Game.goal_met() else "가게 문을 닫았어요", happy(), Game.faults_known(), PCBuild.FAULTS.size()]
+		Game.delete_save()
+		m.go("title")
+
+	func happy() -> int:
+		return Game.history.values().filter(func(s): return s >= 2).size()
+
+	func draw() -> void:
+		box([0, 0, 1280, H], BG)
+		var ok := Game.goal_met()
+		text(80, 660, "가게를 지켰어요!" if ok else "가게 문을 닫았어요…", 44, GREEN if ok else PINK)
+		text(80, 610, ("임대료를 내고도 %d만 원이 남았어요. 의뢰소는 내일도 문을 열어요." % (Game.money - Game.goal())) if ok else ("%d만 원이 모자랐어요. 건물주가 열쇠를 가져갔어요." % (Game.goal() - Game.money)), 22, INK)
+		text(80, 560, "그 뒤 손님들은…", 22, GOLD)
+		var names := Game.history.keys()
+		var shown := mini(names.size(), int((Time.get_ticks_msec() - t0) / 400.0))   # 한 줄씩 떠오름
+		for i in shown:
+			var y := 510 - i * 40
+			var good: bool = Game.history[names[i]] >= 2
+			text(80, y, names[i], 22, CYAN if good else QUIET)
+			text(380, y, Game.epilogue(names[i]), 22, INK if good else DIM)
+		text(80, 30, "단골 %d명  ·  고장 도감 %d/%d  ·  업적 %d/%d     화면을 눌러 타이틀로" % [happy(), Game.faults_known(), PCBuild.FAULTS.size(), Game.achv.size(), Game.ACHV.size()], 22, QUIET)

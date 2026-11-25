@@ -7,6 +7,7 @@ static var PARTS := {}
 static var REQUESTS := []
 static var UPGRADES := {}
 static var DAYS := {}
+static var STORY := {}   # 큰 목표 · 시작 이야기 · 손님별 뒷이야기 (Godot 판)
 static var _tex := {}
 
 
@@ -20,6 +21,7 @@ static func _static_init() -> void:
 		UPGRADES[u["id"]] = u
 	for d in _load("days"):
 		DAYS[d["day"]] = d
+	STORY = _load("story")
 
 
 static func _load(name: String):

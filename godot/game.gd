@@ -20,6 +20,7 @@ static var bought := {}        # 오늘 중고 장터에서 산 매물 키 -> tr
 static var dex := {}           # 도감: "p:부품id" · "f:고장" -> true
 static var stats := {}         # 업적용 누적 기록
 static var achv := {}          # 달성한 업적 -> true
+static var visits := {}        # 손님 이름 -> [방문마다 받은 별]
 static var new_achv := []      # 방금 달성한 업적 (결과 화면에 띄움)
 
 ## 업적: id -> [이름, 설명, 보상(만 원), 조건(stats)]
@@ -56,6 +57,7 @@ static func new_game() -> void:
 	dex = {}
 	stats = {}
 	achv = {}
+	visits = {}
 	start_day()
 	reset_order()
 
@@ -260,6 +262,7 @@ static func settle(result: Dictionary) -> Array:
 	money += pay + tip
 	stars_total += result["stars"]
 	history[request()["customer"]] = result["stars"]
+	visits[request()["customer"]] = visits.get(request()["customer"], []) + [result["stars"]]
 	ledger.append({"customer": request()["customer"], "stars": result["stars"], "pay": pay, "tip": tip, "cost": spent()})
 	var b := Bench.run(Bench.parts_of(pc), request().get("use", {"kind": "office"}))
 	var n_used := pc.used.values().filter(func(e): return e["paid"] > 0 or not request().has("repair")).size()
@@ -299,6 +302,20 @@ static func check_achv() -> void:
 			achv[k] = true
 			money += ACHV[k][2]
 			new_achv.append(k)
+
+
+## 큰 목표: 마지막 날 마감까지 가게 돈 GOAL
+static func goal() -> int:
+	return DB.STORY["goal"]
+
+
+static func goal_met() -> bool:
+	return money >= goal()
+
+
+## 손님 뒷이야기: 마지막 방문 별 2개 이상이면 좋은 결말
+static func epilogue(name: String) -> String:
+	return DB.STORY["epilogue"].get(name, ["", ""])[0 if history.get(name, 0) >= 2 else 1]
 
 
 static func daily() -> Array:
@@ -349,7 +366,7 @@ static func save(mode: String) -> void:
 		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(),
 			"cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
 	var d := {"mode": mode, "money": money, "day": day, "stock": stock, "upgrades": upgrades.keys(), "stars_total": stars_total,
-		"history": history, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv}
+		"history": history, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv, "visits": visits}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -383,6 +400,7 @@ static func load_save() -> String:
 	dex = d.get("dex", {})
 	stats = d.get("stats", {})
 	achv = d.get("achv", {})
+	visits = d.get("visits", {})
 	reset_order()
 	if d["order"] != null:
 		cart = d["order"]["cart"]
