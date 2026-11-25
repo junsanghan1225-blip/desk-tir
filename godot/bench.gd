@@ -3,7 +3,7 @@ class_name Bench
 ## FPS = min(CPU 한계, 그래픽카드 한계) → 둘 중 낮은 쪽이 '병목'. 발열 · RAM 부족 · 방송 부하 · 소음도 반영.
 ## 어려운 숫자 대신 쉬운 말(notes)과 '가장 싸게 고치는 방법'(fix)을 같이 돌려준다.
 
-const GENRE := {"aos": 2.0, "fps": 1.0, "open": 0.6}   # 가벼운 게임일수록 프레임이 잘 나옴
+const GENRE := {"aos": 1.4, "fps": 1.0, "open": 0.6}   # 가벼운 게임일수록 프레임이 잘 나옴 (AOS도 실제론 중급 카드 1080p 200 안팎)
 const GENRE_NAMES := {"aos": "AOS 게임", "fps": "FPS 게임", "open": "오픈월드 게임"}
 const RES := {"1080p": 1.0, "1440p": 0.7, "4K": 0.42}   # 해상도가 높을수록 그래픽카드가 힘듦
 const KIND_NAMES := {"office": "문서 · 화상회의", "code": "코딩(빌드)", "render": "영상 · 그림 렌더"}
@@ -136,6 +136,9 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 			var sata: bool = _s(d.get("SSD", ""), "read", 3500) < 1000
 			var low: float = (0.8 if r["limit"] != "CPU" else 0.7) * (0.6 if gb < 16 else 1.0) * (1.0 if dual else 0.9) * (0.88 if sata and use["genre"] == "open" else 1.0) * (0.7 if vram_short else 1.0) * (0.9 if cpu_thr < 1 else 1.0)
 			r["low1"] = roundi(r["value"] * low)
+			r["genre"] = use["genre"]   # 손님 앞 화면을 장르별로 그림
+			r["vram_short"] = vram_short
+			r["stream"] = use.get("stream", false)
 			if vram_short:
 				r["notes"].append("그래픽 메모리 %dGB < 필요 %dGB → 텍스처가 늦게 떠서 끊겨요" % [_s(d["GPU"], "vram", 0), vram_need])
 			if not dual:

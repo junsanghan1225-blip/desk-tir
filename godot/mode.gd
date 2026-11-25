@@ -225,13 +225,14 @@ func gauge(cx: float, cy: float, rad: float, frac: float, tf: float, good_high: 
 
 
 ## 온도계: 0~110°C, 위험(빨강) 85 이상
-func thermo(x: float, y0: float, h: float, temp: float, label: String) -> void:
-	var hot := temp >= 85
+func thermo(x: float, y0: float, h: float, temp: float, label: String, col := CYAN) -> void:
+	var c: Color = PINK if temp >= 85 else GOLD if temp >= 70 else col
 	box([x - 10, y0, x + 10, y0 + h], Color8(30, 22, 60))
-	box([x - 6, y0 + 4, x + 6, y0 + 4 + (h - 8) * clampf(temp / 110.0, 0, 1)], PINK if hot else (GOLD if temp >= 70 else CYAN))
-	circle(x, y0, 16, PINK if hot else (GOLD if temp >= 70 else CYAN))
-	text(x - text_w(label, 22) / 2.0, y0 - 34, label, 22, INK)
-	text(x + 20, y0 + h - 12, "%d°" % temp, 22, PINK if hot else INK)
+	box([x - 6, y0 + 4, x + 6, y0 + 4 + (h - 8) * clampf(temp / 110.0, 0, 1)], c)
+	circle(x, y0, 16, c)
+	text(x - text_w(label, 22) / 2.0, y0 - 34, label, 22, INK)   # 이름: 아래 (세 칸 같은 높이)
+	var v := "%d°C" % temp
+	text(x - text_w(v, 22) / 2.0, y0 + h + 22, v, 22, PINK if temp >= 85 else INK)   # 값: 위 가운데
 
 
 # ---------- 모니터 속 앱: 손님 용도대로 돌아감 (게임은 계산된 FPS만큼 부드럽거나 끊김) ----------
@@ -241,36 +242,7 @@ func draw_app(s: Array, r: Dictionary, t: float, show_fps := true) -> void:
 	box(s, Color8(10, 8, 24))
 	match r.get("kind", "office"):
 		"game":
-			var ratio: float = r["value"] / maxf(r["target"], 1.0)
-			var shown_fps: float = 60.0 if ratio >= 1.0 else clampf(60.0 * ratio * ratio, 6.0, 60.0)   # 목표 미달 → 눈에 띄게 끊김
-			var tt: float = floor(t * shown_fps) / shown_fps
-			if r.get("ram_low", false) and fmod(t, 2.2) < 0.35:   # RAM 부족: 주기적으로 멈칫
-				tt = floor((t - fmod(t, 2.2)) * shown_fps) / shown_fps
-			box([s[0], s[1] + sh * 0.25, s[2], s[3]], Color8(26, 16, 56))
-			for i in 9:   # 먼 빌딩
-				var bx: float = s[0] + fposmod(i * sw / 7.0 - tt * sw * 0.08, sw + sw / 7.0) - sw / 14.0
-				var bh: float = sh * (0.25 + 0.2 * fposmod(i * 0.37, 1.0))
-				box([maxf(s[0], bx), s[1] + sh * 0.2, minf(s[2], bx + sw / 9.0), s[1] + sh * 0.2 + bh], Color8(44, 30, 90))
-			for i in 7:   # 가까운 빌딩 + 창문
-				var bx: float = s[0] + fposmod(i * sw / 5.0 - tt * sw * 0.22, sw + sw / 5.0) - sw / 10.0
-				var bh: float = sh * (0.18 + 0.25 * fposmod(i * 0.61, 1.0))
-				var rr := [maxf(s[0], bx), s[1] + sh * 0.2, minf(s[2], bx + sw / 7.0), s[1] + sh * 0.2 + bh]
-				if rr[2] > rr[0]:
-					box(rr, Color8(60, 40, 120))
-					if rr[2] - rr[0] > 8:
-						box([rr[0] + 3, rr[3] - sh * 0.06, rr[0] + 6, rr[3] - sh * 0.04], GOLD)
-			box([s[0], s[1], s[2], s[1] + sh * 0.2], Color8(20, 14, 40))   # 바닥
-			box([s[0], s[1] + sh * 0.2 - 2, s[2], s[1] + sh * 0.2], PINK)
-			var py: float = s[1] + sh * 0.2 + absf(sin(tt * 4.0)) * sh * 0.22   # 달리며 점프하는 캐릭터
-			box([s[0] + sw * 0.2, py, s[0] + sw * 0.2 + sw * 0.04, py + sh * 0.1], CYAN)
-			for i in 3:   # 다가오는 장애물
-				var ox: float = s[0] + fposmod(sw * (0.5 + i * 0.45) - tt * sw * 0.45, sw * 1.3)
-				if ox < s[2] - sw * 0.03:
-					box([ox, s[1] + sh * 0.2, ox + sw * 0.03, s[1] + sh * 0.28], PINK)
-			if show_fps:
-				var lbl := "%d FPS" % roundi(r["value"])
-				box([s[2] - text_w(lbl, 22) - 16, s[3] - 34, s[2] - 4, s[3] - 4], Color(0, 0, 0, 0.6))
-				text(s[2] - text_w(lbl, 22) - 10, s[3] - 19, lbl, 22, GREEN if ratio >= 1.0 else PINK)
+			draw_game(s, r, t, show_fps)
 		"render", "code":
 			var dur: float = r["value"] * (0.45 if r["kind"] == "render" else 0.06)   # 1분 = 0.45초, 1초 = 0.06초로 압축
 			var p: float = clampf(t / maxf(dur, 0.1), 0.0, 1.0)
@@ -386,3 +358,123 @@ func hover_tip(x: float, y: float, s: String) -> void:
 	box([x, y - 18, x + w, y + 18], Color(0.05, 0.03, 0.12, 0.95))
 	outline([x, y - 18, x + w, y + 18], CYAN, 2)
 	text(x + 10, y, s, 22, INK)
+
+
+## ---------- 손님 게임 화면 (장르마다 다르게 · 사양이 모자라면 실제로 끊김) ----------
+## 화면이 바뀌는 횟수 = 실제 FPS 느낌: 목표 이상이면 부드럽게, 모자랄수록 뚝뚝. 1% 최저가 낮으면 주기적으로 멈칫.
+func game_clock(r: Dictionary, t: float) -> Array:   # [보이는 시각, 지금 멈칫 중인지]
+	var ratio: float = r["value"] / maxf(r["target"], 1.0)
+	var vis: float = 60.0 if ratio >= 1.0 else clampf(60.0 * ratio * ratio, 5.0, 50.0)
+	var period := 1.7
+	var stall := 0.0
+	if r.get("ram_low", false):
+		stall = 0.45
+		period = 2.2
+	elif r.get("low1", 9999) < r["target"] * 0.6:
+		stall = lerpf(0.12, 0.35, 1.0 - clampf(r.get("low1", 0) / (r["target"] * 0.6), 0.0, 1.0))
+	var ph := fmod(t, period)
+	var hitch := stall > 0 and ph < stall
+	var base := t - ph if hitch else t
+	return [floor(base * vis) / vis, hitch]
+
+
+func draw_game(s: Array, r: Dictionary, t: float, show_fps: bool) -> void:
+	var gc := game_clock(r, t)
+	var tt: float = gc[0]
+	match r.get("genre", "fps"):
+		"aos": game_aos(s, tt)
+		"open": game_open(s, tt, r.get("vram_short", false))
+		_: game_fps(s, tt)
+	if r.get("stream", false):   # 방송 겸용: LIVE 표시 + 채팅
+		box([s[0] + 8, s[3] - 30, s[0] + 74, s[3] - 8], Color8(220, 40, 60))
+		text(s[0] + 14, s[3] - 19, "LIVE", 22, Color.WHITE)
+		for k in 3:
+			box([s[2] - 120, s[1] + 40 + k * 18, s[2] - 30 + (k * 23) % 40, s[1] + 50 + k * 18], Color(1, 1, 1, 0.35))
+	if gc[1]:   # 멈칫한 순간: 화면이 살짝 찢어짐
+		box([s[0], s[1] + (s[3] - s[1]) * 0.45, s[2], s[1] + (s[3] - s[1]) * 0.47], Color(1, 1, 1, 0.25))
+	if show_fps:   # 오른쪽 위 FPS 표시 (멈칫하면 1% 최저로 뚝)
+		var now: float = r.get("low1", r["value"] * 0.5) if gc[1] else r["value"] * (1.0 + 0.04 * sin(t * 7.0))
+		var lbl := "%d FPS" % roundi(now)
+		box([s[2] - text_w(lbl, 22) - 16, s[3] - 34, s[2] - 4, s[3] - 4], Color(0, 0, 0, 0.6))
+		text(s[2] - text_w(lbl, 22) - 10, s[3] - 19, lbl, 22, GREEN if now >= r["target"] else GOLD if now >= r["target"] * 0.6 else PINK)
+
+
+## FPS: 1인칭 복도 · 바닥 줄이 다가옴 · 적 · 조준점 · 총이 흔들리고 가끔 섬광
+func game_fps(s: Array, tt: float) -> void:
+	var sw: float = s[2] - s[0]
+	var sh: float = s[3] - s[1]
+	var c := Vector2(s[0] + sw / 2.0, s[1] + sh * 0.55)
+	box(s, Color8(24, 20, 40))
+	poly([Vector2(s[0], s[1]), Vector2(s[2], s[1]), c + Vector2(sw * 0.12, -sh * 0.08), c + Vector2(-sw * 0.12, -sh * 0.08)], Color8(40, 34, 60))   # 바닥
+	poly([Vector2(s[0], s[3]), Vector2(s[2], s[3]), c + Vector2(sw * 0.12, sh * 0.12), c + Vector2(-sw * 0.12, sh * 0.12)], Color8(30, 26, 48))   # 천장
+	poly([Vector2(s[0], s[1]), Vector2(s[0], s[3]), c + Vector2(-sw * 0.12, sh * 0.12), c + Vector2(-sw * 0.12, -sh * 0.08)], Color8(52, 40, 86))   # 왼벽
+	poly([Vector2(s[2], s[1]), Vector2(s[2], s[3]), c + Vector2(sw * 0.12, sh * 0.12), c + Vector2(sw * 0.12, -sh * 0.08)], Color8(46, 36, 78))   # 오른벽
+	for k in 6:   # 다가오는 바닥 줄 (원근)
+		var d := fposmod(k / 6.0 + tt * 0.6, 1.0)
+		var y: float = lerpf(c.y - sh * 0.08, s[1], d * d)
+		var hw: float = lerpf(sw * 0.12, sw * 0.5, d * d)
+		line(Vector2(c.x - hw, y), Vector2(c.x + hw, y), Color8(90, 70, 150), 2)
+	var ex: float = c.x + sin(tt * 1.3) * sw * 0.08   # 적
+	box([ex - 8, c.y - sh * 0.06, ex + 8, c.y + sh * 0.06], PINK)
+	circle(ex, c.y + sh * 0.08, 7, PINK)
+	line(c + Vector2(-12, 0), c + Vector2(12, 0), Color.WHITE, 2)   # 조준점
+	line(c + Vector2(0, -12), c + Vector2(0, 12), Color.WHITE, 2)
+	var bob := sin(tt * 9.0) * 4.0
+	poly([Vector2(s[2] - sw * 0.28, s[1]), Vector2(s[2] - sw * 0.08, s[1]), Vector2(s[2] - sw * 0.16, s[1] + sh * 0.28 + bob), Vector2(s[2] - sw * 0.22, s[1] + sh * 0.26 + bob)], Color8(70, 70, 84))   # 총
+	if fmod(tt, 0.9) < 0.08:   # 총구 섬광
+		circle(s[2] - sw * 0.19, s[1] + sh * 0.3 + bob, 12, GOLD)
+
+
+## AOS: 위에서 본 맵 · 대각선 라인 · 미니언이 줄지어 감 · 탑 · 영웅 체력바 · 스킬 원
+func game_aos(s: Array, tt: float) -> void:
+	var sw: float = s[2] - s[0]
+	var sh: float = s[3] - s[1]
+	box(s, Color8(30, 70, 50))
+	for k in 12:   # 풀숲
+		circle(s[0] + 16 + fposmod(k * 97.0, sw - 32), s[1] + 16 + fposmod(k * 61.0, sh - 32), 14, Color8(24, 56, 40))
+	var a := Vector2(s[0] + sw * 0.08, s[1] + sh * 0.1)
+	var b := Vector2(s[2] - sw * 0.08, s[3] - sh * 0.1)
+	line(a, b, Color8(120, 100, 70), sh * 0.12)   # 라인
+	for e in [[a.lerp(b, 0.2), CYAN], [a.lerp(b, 0.8), PINK]]:   # 탑
+		box([e[0].x - 10, e[0].y - 10, e[0].x + 10, e[0].y + 22], e[1])
+	for k in 5:   # 미니언 (양쪽에서)
+		var p := a.lerp(b, fposmod(0.25 + k * 0.05 + tt * 0.08, 0.5))
+		circle(p.x, p.y, 5, CYAN)
+		var q := b.lerp(a, fposmod(0.25 + k * 0.05 + tt * 0.08, 0.5))
+		circle(q.x, q.y, 5, PINK)
+	var h := a.lerp(b, 0.45 + 0.05 * sin(tt * 1.5)) + Vector2(0, 26)
+	circle(h.x, h.y, 11, GOLD)   # 내 영웅
+	box([h.x - 16, h.y + 16, h.x + 16, h.y + 20], Color8(40, 20, 20))
+	box([h.x - 16, h.y + 16, h.x - 16 + 32 * (0.6 + 0.3 * sin(tt)), h.y + 20], GREEN)
+	if fmod(tt, 1.4) < 0.4:   # 스킬
+		var rr := fmod(tt, 1.4) / 0.4
+		m.draw_arc(Vector2(h.x, H - h.y), 10 + rr * 40, 0, TAU, 24, Color(0.4, 0.9, 1.0, 1.0 - rr), 3)
+
+
+## 오픈월드: 하늘 · 산(먼 것 천천히) · 나무가 스쳐 감 · 길 원근 · 캐릭터 뒷모습. 그래픽 메모리가 모자라면 나무가 회색 덩어리로 늦게 뜸
+func game_open(s: Array, tt: float, pop: bool) -> void:
+	var sw: float = s[2] - s[0]
+	var sh: float = s[3] - s[1]
+	box([s[0], s[1] + sh * 0.4, s[2], s[3]], Color8(90, 120, 200))   # 하늘
+	box([s[0], s[1] + sh * 0.7, s[2], s[3]], Color8(70, 100, 190))
+	circle(s[2] - sw * 0.2, s[3] - sh * 0.2, 18, Color8(255, 230, 160))
+	for k in 5:   # 먼 산
+		var mx: float = s[0] + fposmod(k * sw * 0.3 - tt * sw * 0.02, sw * 1.5) - sw * 0.2
+		poly([Vector2(mx, s[1] + sh * 0.4), Vector2(mx + sw * 0.35, s[1] + sh * 0.4), Vector2(mx + sw * 0.17, s[1] + sh * 0.68)], Color8(70, 80, 130))
+	box([s[0], s[1], s[2], s[1] + sh * 0.4], Color8(60, 120, 70))   # 들판
+	var c := Vector2(s[0] + sw / 2.0, s[1] + sh * 0.4)
+	poly([Vector2(c.x - sw * 0.03, c.y), Vector2(c.x + sw * 0.03, c.y), Vector2(c.x + sw * 0.3, s[1]), Vector2(c.x - sw * 0.3, s[1])], Color8(140, 120, 90))   # 길
+	for k in 6:   # 나무: 멀리서 다가와 옆으로 스침
+		var d := fposmod(k / 6.0 + tt * 0.35, 1.0)
+		var side := -1.0 if k % 2 else 1.0
+		var x: float = c.x + side * lerpf(sw * 0.06, sw * 0.6, d * d)
+		var y: float = lerpf(c.y, s[1] - sh * 0.1, d * d)
+		var sz: float = lerpf(4.0, sh * 0.25, d * d)
+		if pop and d < 0.45:   # 텍스처가 늦게 뜸
+			box([x - sz * 0.4, y, x + sz * 0.4, y + sz], Color8(120, 120, 130))
+		else:
+			box([x - sz * 0.08, y, x + sz * 0.08, y + sz * 0.4], Color8(100, 70, 40))
+			circle(x, y + sz * 0.7, sz * 0.4, Color8(40, 110, 60))
+	var bob := absf(sin(tt * 6.0)) * 4.0   # 캐릭터 뒷모습
+	box([c.x - 14, s[1] + sh * 0.08 + bob, c.x + 14, s[1] + sh * 0.26 + bob], Color8(60, 50, 110))
+	circle(c.x, s[1] + sh * 0.3 + bob, 11, Color8(240, 200, 170))

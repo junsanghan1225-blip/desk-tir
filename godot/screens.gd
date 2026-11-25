@@ -700,7 +700,9 @@ class BenchView extends Mode:
 		text(g[0] + 12, g[1] + 22, why, 22, PINK)
 		if r.has("low1"):   # 평균만 보면 모르는 '가끔 끊김'
 			var bad: bool = r["low1"] < r["target"] * 0.5
-			text(g[0] + 12, g[3] - 22, "평균 %d · 1%% 최저 %dfps" % [roundi(r["value"]), r["low1"]], 22, PINK if bad else QUIET)
+			var lbl := "평균 %d · 1%% 최저 %dfps" % [roundi(r["value"]), r["low1"]]
+			box([g[0] + 4, g[3] - 40, g[0] + 20 + text_w(lbl, 22), g[3] - 4], Color(0.05, 0.04, 0.12, 0.9))   # 그래프 선 위에서도 읽히게
+			text(g[0] + 12, g[3] - 22, lbl, 22, PINK if bad else INK)
 
 	func draw() -> void:
 		dim()
@@ -755,15 +757,18 @@ class BenchView extends Mode:
 				text(GRAPH[0], 520, "켜지기만 하면 되는 손님이에요.", 22, INK)
 				text(GRAPH[0], 480, "소음만 기준보다 조용하면 OK", 22, QUIET)
 		# 3) 왼쪽 아래: 온도계 2개 + 소음 막대
-		thermo(96, 104, 104, r["cpu_temp"] * kk, "CPU")
-		thermo(216, 104, 104, r["gpu_temp"] * kk, "그래픽")
+		# 3) 왼쪽 아래: CPU · 그래픽 · 소음을 같은 폭 · 같은 높이로 (색은 조금씩만 다르게)
+		thermo(96, 104, 100, r["cpu_temp"] * kk, "CPU", CYAN)
+		thermo(206, 104, 100, r["gpu_temp"] * kk, "그래픽", Color8(90, 220, 170))
 		var q2: float = use.get("quiet", 40)
 		var loud: bool = r["noise"] > q2
-		text(text_c_x(342, "소음"), 70, "소음", 22, INK)
-		for i in 6:   # 소리 막대 (높을수록 시끄러움)
+		var nc: Color = PINK if loud else Color8(120, 190, 245)
+		for i in 6:   # 소리 막대 (높을수록 시끄러움), 온도계와 같은 높이 100
 			var on: bool = i < int(6 * minf(1.0, r["noise"] / 50.0) * kk + 0.5)
-			box([300 + i * 15, 104, 310 + i * 15, 116 + i * 16], (PINK if loud else CYAN) if on else Color8(30, 22, 60))
-		text(text_c_x(342, "%ddB" % r["noise"]), 220, "%ddB" % r["noise"], 22, PINK if loud else INK)
+			box([280 + i * 12, 104, 288 + i * 12, 120 + i * 16.8], nc if on else Color8(30, 22, 60))
+		var nv := "%ddB" % roundi(r["noise"] * kk)
+		text(316 - text_w(nv, 22) / 2.0, 226, nv, 22, PINK if loud else INK)
+		text(316 - text_w("소음", 22) / 2.0, 70, "소음", 22, INK)
 		if kk < 1.0:
 			text(GRAPH[0], 180, "테스트 중" + ".".repeat(int((Time.get_ticks_msec() - t0) / 250) % 4), 33, QUIET)
 			return
@@ -918,7 +923,7 @@ class Trial extends Mode:
 			draw_app(SCREEN, r, run_t)
 		else:   # 나란히: 손님이 원한 성능 vs 지금 PC → 부드러움 · 속도 차이가 바로 보임
 			var want := r.duplicate()
-			want.merge({"value": r["target"], "ratio": 1.0, "ok": true, "ram_low": false, "throttle": false}, true)
+			want.merge({"value": r["target"], "ratio": 1.0, "ok": true, "ram_low": false, "throttle": false, "low1": r["target"], "vram_short": false}, true)
 			var now_lbl := "지금 " + Bench.value_text(r) + (" → 화면 %dHz" % hz if shown_r["value"] < r["value"] else "")
 			var sides := [[[380, 240, 800, 560], want, "손님이 원한 " + Bench.value_text(want), QUIET], [[820, 240, 1240, 560], shown_r, now_lbl, GREEN if r["ratio"] >= 1.0 and shown_r["value"] >= r["target"] else PINK]]
 			for sd in sides:
