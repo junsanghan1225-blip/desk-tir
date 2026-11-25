@@ -369,3 +369,20 @@ func chip(x: float, y: float, s: String, c: Color) -> void:
 	box(r, Color(0.08, 0.06, 0.16, 0.9))
 	outline(r, c, 2.0)
 	text(x + 12, y, s, 22, c)
+
+
+## 칸에 안 들어가는 이름은 끝을 '…'로 (겹치지 않게) → 마우스를 올리면 hover_tip()으로 전체 이름
+func clip(s: String, w: float, size := 22) -> String:
+	if text_w(s, size) <= w:
+		return s
+	while s.length() > 1 and text_w(s + "…", size) > w:
+		s = s.left(s.length() - 1)
+	return s.strip_edges() + "…"
+
+
+## 말풍선: (x, y) 오른쪽에 전체 글자
+func hover_tip(x: float, y: float, s: String) -> void:
+	var w := text_w(s, 22) + 20
+	box([x, y - 18, x + w, y + 18], Color(0.05, 0.03, 0.12, 0.95))
+	outline([x, y - 18, x + w, y + 18], CYAN, 2)
+	text(x + 10, y, s, 22, INK)

@@ -1053,11 +1053,11 @@ class Dex extends Mode:
 				fit(icon_of(ids[i]), (r[0] + r[2]) / 2.0, r[1] + 58, 80, 56)
 			else:
 				text_c(r, "?", 33, DIM)
-			text_c([r[0], r[1] + 2, r[2], r[1] + 30], wrap_text(DB.PARTS[ids[i]]["name"], 140)[0] if on else "", 22, QUIET)
+			text_c([r[0], r[1] + 2, r[2], r[1] + 30], clip(DB.PARTS[ids[i]]["name"], 140) if on else "", 22, QUIET)
 		var p: Dictionary = DB.PARTS[ids[sel]]
 		if Game.dex.has("p:" + ids[sel]):
 			text(30, 70, "%s · %d만 원" % [p["name"], p["price"]], 22, GOLD)
-			text(30, 36, wrap_text(p.get("desc", ""), 1200)[0], 22, INK)
+			text(30, 36, clip(p.get("desc", ""), 1200), 22, INK)
 		else:
 			text(30, 52, "납품한 PC에 넣으면 기록돼요", 22, DIM)
 

@@ -800,11 +800,15 @@ func draw_inventory() -> void:
 		if ids[i].begins_with("u"):
 			var e: Dictionary = Game.used[int(ids[i].substr(1))]
 			box([r[0], r[1], r[0] + 4, r[3]], GOLD)
-			text(r[0] + 36, cy, wrap_text(p["name"], r[2] - r[0] - 110)[0], 16, GOLD)
-			text(r[2] - 64, cy, used_label(e), 16, (GREEN if e["cond"] >= 60 else PINK) if e["known"] else QUIET)
+			var lb := used_label(e)
+			text(r[0] + 36, cy, clip(p["name"], r[2] - r[0] - 46 - text_w(lb, 22)), 16, GOLD)
+			text(r[2] - 4 - text_w(lb, 22), cy, lb, 16, (GREEN if e["cond"] >= 60 else PINK) if e["known"] else QUIET)
 		else:
-			text(r[0] + 36, cy, wrap_text(p["name"], r[2] - r[0] - 80)[0], 16)
-			text(r[2] - 34, cy, "x%d" % Game.stock[ids[i]], 16, CYAN)
+			var cnt := "x%d" % Game.stock[ids[i]]
+			text(r[0] + 36, cy, clip(p["name"], r[2] - r[0] - 46 - text_w(cnt, 22)), 16)
+			text(r[2] - 4 - text_w(cnt, 22), cy, cnt, 16, CYAN)
+		if inside(m.mouse.x, m.mouse.y, r) and held.is_empty():   # 잘린 이름은 올리면 전체
+			hover_tip(INV_W + 8, cy, p["name"])
 
 
 func draw() -> void:

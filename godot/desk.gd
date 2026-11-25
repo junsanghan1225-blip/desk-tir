@@ -596,8 +596,11 @@ func draw_stock() -> void:
 		var cy: float = (r[1] + r[3]) / 2.0
 		var dim_row: bool = it["price"] > left or (top_view and it["layer"] == "wall")
 		fit(ids[i], r[0] + 14, cy, 28, 25)
-		text(r[0] + 34, cy, it["name"], 15, DIM if dim_row else INK)
-		text(r[2] - 34, cy, "x%d" % Game.stock.get(ids[i], 0), 16, CYAN)
+		var cnt := "x%d" % Game.stock.get(ids[i], 0)
+		text(r[0] + 34, cy, clip(it["name"], r[2] - r[0] - 46 - text_w(cnt, 22)), 15, DIM if dim_row else INK)
+		text(r[2] - 4 - text_w(cnt, 22), cy, cnt, 16, CYAN)
+		if inside(m.mouse.x, m.mouse.y, r) and held == "" and clip(it["name"], r[2] - r[0] - 46 - text_w(cnt, 22)) != it["name"]:
+			hover_tip(SHOP_W + 8, cy, it["name"])
 
 
 func draw() -> void:

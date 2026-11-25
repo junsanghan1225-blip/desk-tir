@@ -220,10 +220,10 @@ func info(r: Array, name: String, price: String, sub: String, badge: String, ink
 		badge = price
 	elif price != "":
 		text(r[2] - 14 - text_w(price, 26), r[1] + 54, price, 26, GOLD)
-	text(r[0] + 14, r[1] + 54, wrap_text(name, w if low else w - pw)[0], 22, ink)
+	text(r[0] + 14, r[1] + 54, clip(name, w if low else w - pw), 22, ink)
 	var bs := 26 if low else 22
 	var bw := text_w(badge, bs) + 10 if badge != "" else 0.0
-	text(r[0] + 14, r[1] + 22, wrap_text(sub, w - bw)[0], 22, QUIET)
+	text(r[0] + 14, r[1] + 22, clip(sub, w - bw), 22, QUIET)
 	if badge != "":
 		text(r[2] - 14 - text_w(badge, bs), r[1] + 22, badge, bs, GOLD if low else PINK)
 
@@ -248,7 +248,7 @@ func draw_cart() -> void:
 		box([r[0] + 6, r[1] + 8, r[0] + 40, r[3] - 8], Color8(90, 30, 60))
 		text_c([r[0] + 6, r[1], r[0] + 40, r[3]], "−", 22, PINK)
 		fit(icon_of(id), r[0] + 66, (r[1] + r[3]) / 2.0, 40, 40)
-		text(r[0] + 92, r[3] - 18, wrap_text(p["name"], r[2] - r[0] - 100)[0], 22)
+		text(r[0] + 92, r[3] - 18, clip(p["name"], r[2] - r[0] - 100), 22)
 		text(r[0] + 92, r[1] + 18, "%d만 × %d" % [p["price"], Game.cart[id]], 22, GOLD)
 	if ids.size() > CART_ROWS:   # 스크롤: ▲▼ 버튼 · 마우스 휠, 오른쪽에 위치 막대
 		text(CART[0] + 14, 216, "%d~%d / %d종" % [cart_top + 1, cart_top + CART_ROWS, ids.size()], 22, QUIET)
