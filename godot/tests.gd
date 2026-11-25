@@ -156,6 +156,7 @@ func _initialize() -> void:
 		"웹소설 작가": func(b: PCBuild): b.faults.erase("cpu_fan"),
 		"동네 카페 사장님": func(b: PCBuild): b.faults.erase("ram_seat"),
 		"손녀 바보 할머니": func(b: PCBuild): b.faults.clear(),
+		"은퇴한 교수님": func(b: PCBuild): b.faults.erase("cap_bulge"),
 		"프로게이머 지망생": func(b: PCBuild):   # 쿨러 떼기 → 굳은 구리스 닦기 → 새로 바르기 → 쿨러 → BIOS XMP
 			b.remove("COOLER")
 			b.apply_paste()

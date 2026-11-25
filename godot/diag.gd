@@ -4,7 +4,7 @@ extends Mode
 
 const VIEWS := ["정면", "뒷면", "속 확대", "BIOS", "윈도우"]
 const BTN_BACK := [12, 648, 172, 714]
-const TILES := [[20, 330, 630, 626], [650, 330, 1260, 626], [20, 20, 630, 316], [650, 20, 1260, 316]]
+const TILES := [[20, 330, 630, 626], [650, 330, 1260, 626], [20, 20, 630, 316], [650, 20, 950, 316], [970, 20, 1260, 316]]
 const POWER_BTN := Vector2(565, 560)
 const PSU_SWITCH := [552, 92, 608, 148]
 const MB_HDMI := [240, 442, 300, 462]
@@ -16,11 +16,28 @@ var on_t := -1      # 정면에서 전원 누른 시각 (-1 = 꺼짐)
 var toast := ""
 var pick := -1      # 작업 관리자에서 고른 줄
 
+# ---- 인두(납땜) 작업: 부푼 콘덴서 교체 ----
+const SOLDER_JOINTS := [Vector2(590, 230), Vector2(690, 230)]
+const BTN_IRON := [160, 10, 420, 58]
+const BTN_NEWCAP := [440, 10, 720, 58]
+const BTN_SCLOSE := [1020, 10, 1240, 58]
+var solder := false
+var iron_on := false
+var temp := 25.0
+var stage := 0            # 0 = 헌 콘덴서 녹여 빼기 · 1 = 새 것 꽂기 · 2 = 새 것 납땜
+var melt := [0.0, 0.0]
+var burn := [0.0, 0.0]
+var burnt := [false, false]
+var holding := -1
+var last_ms := 0
+var smoke := []           # [x, y, 생긴 시각, 짙은지]
+
 
 func enter() -> void:
 	toast = ""
 	on_t = -1
 	pick = -1
+	solder = false
 
 
 func view_rect(i: int) -> Array:
@@ -42,7 +59,14 @@ func fixed(f: String, msg: String) -> void:
 	sfx("place")
 
 
+func up(_x: float, _y: float) -> void:
+	holding = -1
+
+
 func down(x: float, y: float, _right: bool) -> void:
+	if solder:
+		solder_down(x, y)
+		return
 	if inside(x, y, BTN_BACK):
 		m.pop()
 		return
@@ -72,6 +96,12 @@ func down(x: float, y: float, _right: bool) -> void:
 				["cpu_fan", "CPU_FAN 단자에 팬 선을 꽂았어요", "팬 선은 잘 꽂혀 있어요"],
 				["gpu_power", "전원선을 딸깍 소리 나게 끝까지 밀었어요", "전원선은 잘 꽂혀 있어요"],
 				["dust", "에어 스프레이로 먼지를 날렸어요", "먼지는 별로 없어요"]]
+			if inside(x, y, TILES[4]):   # 메인보드 콘덴서 → 인두 작업
+				if faults().has("cap_bulge"):
+					open_solder()
+				else:
+					toast = "콘덴서는 멀쩡해요"
+				return
 			for i in 4:
 				if inside(x, y, TILES[i]):
 					if faults().has(acts[i][0]):
@@ -317,8 +347,8 @@ func draw_back() -> void:
 
 func draw_close() -> void:
 	var pc := Game.pc
-	var names := ["RAM 슬롯", "CPU 팬 커넥터", "그래픽카드 전원선", "방열판 · 팬"]
-	for i in 4:
+	var names := ["RAM 슬롯", "CPU 팬 커넥터", "그래픽카드 전원선", "방열판 · 팬", "보드 콘덴서"]
+	for i in 5:
 		var r: Array = TILES[i]
 		frame("ui_slot", r)
 		text(r[0] + 16, r[3] - 26, names[i], 22, CYAN)
@@ -350,12 +380,144 @@ func draw_close() -> void:
 			box([270 + j * 28, 162, 284 + j * 28, 178], GOLD)
 	polyline([Vector2(320, 220 + gap), Vector2(320, 290)], Color8(230, 190, 80), 8)
 	# 방열판: 먼지
-	for j in 10:
-		box([700 + j * 50, 60, 730 + j * 50, 240], Color8(160, 160, 176))
+	for j in 8:
+		box([672 + j * 34, 60, 694 + j * 34, 240], Color8(160, 160, 176))
 	if faults().has("dust"):
-		for j in 26:
-			circle(710 + fmod(j * 97.0, 500.0), 70 + fmod(j * 53.0, 170.0), 14 + j % 3 * 4, Color(0.55, 0.52, 0.5, 0.9))
+		for j in 20:
+			circle(680 + fmod(j * 97.0, 250.0), 70 + fmod(j * 53.0, 170.0), 12 + j % 3 * 3, Color(0.55, 0.52, 0.5, 0.9))
+	# 보드 콘덴서: 부풀면 윗면이 볼록 + 갈색 자국
+	box([990, 40, 1240, 250], Color8(30, 80, 60))
+	for j in 3:
+		var cx := 1040.0 + j * 75
+		var bulge: bool = j == 1 and faults().has("cap_bulge")
+		box([cx - 20, 80, cx + 20, 190], Color8(40, 40, 60))
+		box([cx - 20, 180, cx + 20, 190], Color8(190, 190, 200))
+		box([cx - 6, 80, cx + 6, 190], Color8(70, 70, 100))
+		if bulge:
+			circle(cx, 194, 20, Color8(190, 190, 200))
+			circle(cx + 6, 186, 8, Color8(120, 70, 30))
+		else:
+			box([cx - 14, 184, cx + 14, 188], Color8(120, 120, 130))
 	text(TILES[3][0] + 16, TILES[3][1] + 22, "눌러서 에어 스프레이", 22, DIM)
+
+
+# ---------- 인두 작업 ----------
+func open_solder() -> void:
+	solder = true
+	iron_on = false
+	temp = 25.0
+	stage = 0
+	melt = [0.0, 0.0]
+	burn = [0.0, 0.0]
+	burnt = [false, false]
+	holding = -1
+	smoke = []
+	last_ms = Time.get_ticks_msec()
+	toast = "인두를 켜고 300°C가 넘으면 납땜 자리를 꾹 눌러 녹여요"
+
+
+func solder_down(x: float, y: float) -> void:
+	if inside(x, y, BTN_SCLOSE):
+		solder = false
+		return
+	if inside(x, y, BTN_IRON):
+		iron_on = not iron_on
+		sfx("click")
+		return
+	if inside(x, y, BTN_NEWCAP) and stage == 1:
+		stage = 2
+		melt = [0.0, 0.0]
+		sfx("place")
+		toast = "새 콘덴서를 꽂았어요. 다리 두 곳을 납땜해요"
+		return
+	for i in 2:
+		if Vector2(x, y).distance_to(SOLDER_JOINTS[i]) < 40 and stage != 1:
+			holding = i
+			if temp < 300:
+				toast = "납이 안 녹아요 — 인두 온도가 낮아요"
+			else:
+				sfx("paste")
+
+
+func solder_tick(dt: float) -> void:
+	temp = minf(370.0, temp + 170.0 * dt) if iron_on else maxf(25.0, temp - 70.0 * dt)
+	if holding < 0 or stage == 1:
+		return
+	var now := Time.get_ticks_msec()
+	if temp < 300:
+		return
+	melt[holding] += dt
+	var j: Vector2 = SOLDER_JOINTS[holding]
+	if randf() < 0.5:
+		smoke.append([j.x + randf_range(-10, 10), j.y + 10, now, burn[holding] > 0.2])
+	if melt[holding] > 1.6:   # 너무 오래 꾹: 기판이 탐
+		burn[holding] += dt
+		if burn[holding] > 1.0 and not burnt[holding]:
+			burnt[holding] = true
+			Game.money -= 5
+			toast = "앗, 너무 오래 대서 기판이 탔어요! (가게 돈 -5만)"
+			sfx("error")
+	if melt[0] >= 1.0 and melt[1] >= 1.0:
+		if stage == 0:
+			stage = 1
+			holding = -1
+			toast = "다리를 다 녹였어요 → 부푼 콘덴서를 뽑았어요. '새 콘덴서 꽂기'를 눌러요"
+			sfx("place")
+		elif stage == 2:
+			holding = -1
+			solder = false
+			fixed("cap_bulge", "새 콘덴서를 납땜했어요!" + (" (조금 탔지만)" if burnt[0] or burnt[1] else ""))
+
+
+func draw_solder() -> void:
+	var now := Time.get_ticks_msec()
+	solder_tick(minf(0.1, (now - last_ms) / 1000.0))
+	last_ms = now
+	box([0, 0, 1280, 640], Color8(10, 8, 20))
+	box([140, 70, 1140, 600], Color8(28, 90, 64))   # 기판
+	for i in 9:
+		line(Vector2(160, 110 + i * 52), Vector2(1120, 110 + i * 52), Color8(40, 120, 84), 3)   # 회로 줄
+	for i in 2:   # 납땜 자리: 녹을수록 반짝, 너무 오래면 거뭇
+		var j: Vector2 = SOLDER_JOINTS[i]
+		if burn[i] > 0 or burnt[i]:
+			circle(j.x, j.y, 30 + minf(burn[i], 1.5) * 14, Color(0.15, 0.08, 0.02, minf(0.9, 0.3 + burn[i] * 0.5)))
+		circle(j.x, j.y, 20, Color8(200, 200, 210))
+		var mt: float = clampf(melt[i], 0.0, 1.0)
+		circle(j.x, j.y, 12 + mt * 6, Color8(150, 150, 160).lerp(Color8(240, 240, 250), mt))
+		if mt >= 1.0:
+			circle(j.x - 4, j.y + 4, 4, Color.WHITE)
+	if stage != 1:   # 콘덴서 몸통 (위로 서 있음)
+		var newcap: bool = stage == 2
+		box([560, 250, 720, 470], Color8(40, 40, 70) if newcap else Color8(36, 34, 52))
+		box([560, 250, 720, 470], Color8(40, 40, 70))
+		box([600, 250, 620, 470], Color8(80, 80, 120))
+		box([560, 460, 720, 474], Color8(200, 200, 210))
+		if not newcap:   # 부풀고 새어 나온 갈색 자국
+			circle(640, 478, 70, Color8(200, 200, 210))
+			circle(660, 468, 24, Color8(130, 80, 30))
+		line(Vector2(590, 250), Vector2(590, 230), Color8(200, 200, 210), 5)
+		line(Vector2(690, 250), Vector2(690, 230), Color8(200, 200, 210), 5)
+	for p in smoke.duplicate():   # 연기: 위로 올라가며 흐려짐 (짙으면 탐)
+		var age: float = (now - p[2]) / 1000.0
+		if age > 1.6:
+			smoke.erase(p)
+			continue
+		var c := Color(0.25, 0.22, 0.2, 0.7 - age * 0.4) if p[3] else Color(0.9, 0.9, 0.95, 0.45 - age * 0.28)
+		circle(p[0] + sin(age * 4 + p[1]) * 10, p[1] + age * 140, 8 + age * 14, c)
+	if holding >= 0:   # 인두 끝이 납땜 자리에
+		var tip: Vector2 = SOLDER_JOINTS[holding]
+		line(tip, tip + Vector2(120, 260), Color8(170, 170, 180), 8)
+		line(tip + Vector2(120, 260), tip + Vector2(170, 380), Color8(40, 40, 50), 22)
+		circle(tip.x, tip.y, 6, Color(1, 0.5, 0.2, 0.8) if temp >= 300 else Color8(120, 120, 130))
+	# 온도계 + 버튼
+	box([1170, 90, 1210, 560], Color8(30, 22, 60))
+	box([1176, 96 + 470 * 300.0 / 450, 1204, 96 + 470 * 380.0 / 450], Color(GREEN, 0.25))   # 알맞은 온도
+	box([1176, 96, 1204, 96 + 458 * clampf(temp / 450.0, 0, 1)], PINK if temp >= 380 else (GREEN if temp >= 300 else CYAN))
+	text(1150, 590, "%d°C" % temp, 33, GREEN if temp >= 300 else INK)
+	button(BTN_IRON, "인두 끄기" if iron_on else "인두 켜기", PINK if iron_on else VIOLET)
+	button(BTN_NEWCAP, "새 콘덴서 꽂기", CYAN if stage == 1 else DIM)
+	button(BTN_SCLOSE, "닫기", VIOLET)
+	text(160, 620, ["① 헌 콘덴서 다리 두 곳을 녹여요", "② 새 콘덴서를 꽂아요", "③ 새 콘덴서 다리 두 곳을 납땜해요"][stage], 33, GOLD)
 
 
 func draw_bios() -> void:
@@ -409,6 +571,12 @@ func draw_windows() -> void:
 
 func draw() -> void:
 	grid()
+	if solder:
+		draw_solder()
+		if toast != "":
+			box([300, 64, 1100, 110], Color(0, 0, 0, 0.7))
+			text_c([300, 64, 1100, 110], toast, 22, GREEN)
+		return
 	match view:
 		0: draw_front()
 		1: draw_back()

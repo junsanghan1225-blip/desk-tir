@@ -20,15 +20,14 @@ const PER := 14
 const BTN_PREV := [14, 70, 64, 100]
 const BTN_NEXT := [206, 70, 256, 100]
 const PASTE_ROW := [10, 570, 260, 600]   # 서멀 구리스: 항상 있는 도구
-const BTN_DRIVER := [10, 6, 132, 62]    # 도구: 드라이버(나사 조이기 · 풀기)
-const BTN_TIE := [138, 6, 260, 62]       # 도구: 케이블 타이(전원선 묶기)
+const BTN_DRIVER := [10, 6, 260, 62]    # 도구: 드라이버(나사 조이기 · 풀기)
 const MARGIN := {"CASE": 0, "MB": 0, "CPU": 20, "COOLER": 10, "SSD": 16, "GPU": 16, "PSU": 16}
 
 var held: Array = []   # ["part", id] | ["cable", 이름] | ["paste"]
 var toast := ""
 var post: Array = []   # 마지막 전원 테스트 [단계, 메시지]
 var page := 0
-var tool := ""         # "" = 손(끌어 꽂기) · "driver" · "tie"
+var tool := ""         # "" = 손(끌어 꽂기) · "driver"
 var spin := {}         # 나사 키 -> 돌리기 시작한 시각 (돌아가는 연출)
 var showcase := false  # 완성 모습 보는 중
 
@@ -146,13 +145,6 @@ func screw_points() -> Array:
 	return out
 
 
-## 전원선 묶는 자리 (오른쪽 선 통로)
-func tie_spot(c: String) -> Array:
-	var lane: float = mb_rect()[2] + 22 + CABLE_NAMES.keys().find(c) * 9
-	var y: float = (cable_start(c).y + center(socket_rect(c)).y) / 2.0
-	return [lane - 14, y - 14, lane + 14, y + 14]
-
-
 func use_tool(x: float, y: float) -> bool:
 	var pc := Game.pc
 	if tool == "driver":
@@ -166,18 +158,6 @@ func use_tool(x: float, y: float) -> bool:
 			post = []
 			return true
 		toast = "나사(동그라미)를 눌러 조여요"
-		return true
-	if tool == "tie":
-		for c in pc.cables:
-			if c != "front" and inside(x, y, grow(tie_spot(c), 8)):
-				if pc.ties.has(c):
-					pc.ties.erase(c)
-				else:
-					pc.ties[c] = true
-				sfx("plug")
-				toast = "선 정리 완료! 바람이 잘 통해요" if pc.tidy() else "%s 묶음" % CABLE_NAMES[c]
-				return true
-		toast = "오른쪽 선 통로의 전원선을 눌러 묶어요"
 		return true
 	return false
 
@@ -240,10 +220,10 @@ func down(x: float, y: float, right: bool) -> void:
 		sfx("click")
 		m.modes["bench"].open()
 		return
-	for tb in [[BTN_DRIVER, "driver"], [BTN_TIE, "tie"]]:
+	for tb in [[BTN_DRIVER, "driver"]]:
 		if inside(x, y, tb[0]):
 			tool = "" if tool == tb[1] else tb[1]
-			toast = {"driver": "드라이버: 나사를 눌러 조이기 · 다시 누르면 풀기", "tie": "케이블 타이: 전원선을 눌러 묶기", "": ""}[tool]
+			toast = "드라이버: 나사를 눌러 조이기 · 다시 누르면 풀기" if tool == "driver" else ""
 			sfx("click")
 			return
 	if tool != "" and inside(x, y, CASE_AREA) and use_tool(x, y):
@@ -493,36 +473,43 @@ func draw_hover() -> void:
 			return
 
 
+const SCREW_ANIM := 450.0   # 나사 돌리는 시간(ms)
+
+
+## 나사: 헐거우면 살짝 떠 있고, 누르면 드라이버가 내려와 빙글빙글 돌며 쏙 들어감 (풀 땐 반대로 올라옴)
 func draw_screws() -> void:
 	var pc := Game.pc
 	var now := Time.get_ticks_msec()
 	for s in screw_points():
-		var p: Vector2 = s[2]
+		var p0: Vector2 = s[2]
 		var on: bool = pc.screws[s[0]][s[1]]
-		var k: float = clampf((now - spin.get("%s%d" % [s[0], s[1]], 0)) / 300.0, 0.0, 1.0)
-		var a: float = (1.0 - k) * TAU * (1 if on else -1) + 0.6   # 돌아가는 십자 홈
-		if not on:
-			circle(p.x, p.y, 10, Color8(20, 16, 30))   # 빈 구멍
-			p += Vector2(5, 5)                          # 나사가 살짝 떠 있음
-		circle(p.x, p.y, 9, Color8(210, 210, 220) if on else Color8(150, 150, 165))
-		var d := Vector2(cos(a), sin(a)) * 6
+		var started: int = spin.get("%s%d" % [s[0], s[1]], -100000)
+		var k: float = clampf((now - started) / SCREW_ANIM, 0.0, 1.0)
+		var ease: float = k * k * (3 - 2 * k)
+		var up: float = (1.0 - ease) if on else ease   # 0 = 끝까지 박힘, 1 = 떠 있음
+		circle(p0.x, p0.y, 10, Color8(20, 16, 30))   # 나사 구멍
+		var p := p0 + Vector2(5, 5) * up
+		var r: float = 8.0 + 2.0 * up                  # 떠 있으면 조금 커 보임 (가까움)
+		circle(p.x + 1, p.y - 2, r, Color(0, 0, 0, 0.35 * up))   # 그림자
+		circle(p.x, p.y, r, Color8(150, 150, 165).lerp(Color8(214, 214, 224), 1.0 - up))
+		circle(p.x - r * 0.3, p.y + r * 0.3, r * 0.35, Color(1, 1, 1, 0.25))   # 반짝
+		var turns: float = (2.5 * TAU) * (ease if on else -ease)
+		var a: float = 0.6 + turns
+		var d := Vector2(cos(a), sin(a)) * (r - 2)
 		var e := Vector2(-d.y, d.x)
-		line(p - d, p + d, Color8(60, 60, 70), 2)
-		line(p - e, p + e, Color8(60, 60, 70), 2)
+		line(p - d, p + d, Color8(60, 60, 70), 2.5)
+		line(p - e, p + e, Color8(60, 60, 70), 2.5)
+		if k < 1.0:   # 돌리는 동안 드라이버가 나사 위에
+			var tip := p + Vector2(0, 2)
+			line(tip, tip + Vector2(18, 30), Color8(200, 200, 212), 4)
+			var hb := tip + Vector2(18, 30)
+			for q in 3:   # 손잡이 홈이 돌아가 보이게
+				var off: float = fmod(turns * 3.0 + q * 2.1, TAU)
+				line(hb + Vector2(cos(off) * 5, 0), hb + Vector2(cos(off) * 5 + 14, 24), PINK.darkened(0.2 * q), 6)
+		elif on and now - started < SCREW_ANIM + 250:   # 다 조이면 반짝
+			m.draw_arc(Vector2(p.x, H - p.y), 14, 0, TAU, 16, Color(1, 1, 1, 1.0 - (now - started - SCREW_ANIM) / 250.0), 2)
 		if tool == "driver" and not on:
-			outline([p.x - 15, p.y - 15, p.x + 15, p.y + 15], GOLD if fmod(now / 400.0, 2.0) < 1 else PINK, 2)
-	if tool == "tie":
-		for c in pc.cables:
-			if c != "front":
-				var r := tie_spot(c)
-				if pc.ties.has(c):
-					box([r[0] - 2, r[1] + 9, r[2] + 2, r[3] - 9], Color8(235, 235, 240))
-				else:
-					outline(r, GOLD, 2)
-	else:
-		for c in pc.ties:
-			var r := tie_spot(c)
-			box([r[0] - 2, r[1] + 9, r[2] + 2, r[3] - 9], Color8(235, 235, 240))
+			outline([p0.x - 15, p0.y - 15, p0.x + 15, p0.y + 15], GOLD if fmod(now / 400.0, 2.0) < 1 else PINK, 2)
 
 
 func draw_tool_cursor() -> void:
@@ -531,8 +518,7 @@ func draw_tool_cursor() -> void:
 	if tool == "driver":   # 손잡이 + 축
 		line(Vector2(x, y), Vector2(x + 26, y + 26), Color8(200, 200, 210), 4)
 		line(Vector2(x + 26, y + 26), Vector2(x + 50, y + 50), PINK, 12)
-	elif tool == "tie":
-		polyline([Vector2(x, y), Vector2(x + 20, y + 8), Vector2(x + 34, y + 30)], Color8(40, 40, 46), 6)
+
 
 
 func draw_drag() -> void:
@@ -612,7 +598,6 @@ func draw_inventory() -> void:
 	panel([-12, -12, INV_W, 650])
 	text(14, ROW_TOP + 22, "부품 재고  (끌어서 장착)", 18)
 	button(BTN_DRIVER, "드라이버", GOLD if tool == "driver" else VIOLET)
-	button(BTN_TIE, "타이", GOLD if tool == "tie" else VIOLET)
 	frame("ui_slot", PASTE_ROW)
 	circle(26, 585, 9, Color8(200, 200, 210))
 	text(46, 585, "서멀 구리스 (CPU 위로)", 16)

@@ -30,6 +30,7 @@ const FAULT_INFO := {
 	"cpu_fan": ["CPU 팬 선 빠짐", "조용해졌다가 갑자기 꺼짐", "쿨러 팬이 멈춤, BIOS 0 RPM", "보드의 CPU_FAN 단자에 꽂기"],
 	"boot_order": ["부팅 순서 꼬임", "'부팅 장치 없음' 글자만", "BIOS 부팅 1순위가 USB", "윈도우가 깔린 SSD를 1순위로"],
 	"paste_dry": ["굳은 서멀 구리스", "오래 쓰면 뜨거워져 느려짐", "쉬는데도 CPU 60°C 이상", "쿨러를 떼고 닦은 뒤 새로 바르기 (2~3년마다)"],
+	"cap_bulge": ["부푼 콘덴서", "가끔 꺼지다가 아예 안 켜짐 · 탄 냄새", "보드 위 콘덴서 윗면이 볼록 · 갈색 자국", "인두를 300°C 넘게 달궈 녹여 빼고 새 콘덴서를 납땜. 너무 오래 대면 기판이 타요"],
 	"xmp_off": ["XMP 꺼짐", "프레임이 조금씩 모자람", "BIOS 메모리 속도 2133MHz", "BIOS에서 XMP를 켜면 RAM이 제 속도로"],
 }
 
@@ -45,6 +46,7 @@ const FAULTS := {
 	"boot_order": 2,   # 부팅 순서가 SSD가 아님
 	"paste_dry": 3,    # 서멀 구리스가 말라 굳음 → 오래 쓰면 뜨거워져 느려짐
 	"xmp_off": 3,      # BIOS에서 RAM 속도(XMP)가 꺼짐 → 프레임이 조금 모자람
+	"cap_bulge": 3,    # 메인보드 콘덴서가 부풂 → 인두로 교체 (납땜)
 }
 
 
@@ -291,6 +293,8 @@ func capacity() -> int:
 func post() -> Array:
 	if not has("CASE") or not has("MB"):
 		return [-1, "메인보드가 없어요"]
+	if faults.has("cap_bulge"):
+		return [-1, "전원 버튼을 눌러도 반응이 없어요 (살짝 탄 냄새)"]
 	if faults.has("psu_switch"):   # 증상만 알려 준다 (원인은 진단 화면에서)
 		return [-1, "전원 버튼을 눌러도 아무 반응이 없어요"]
 	if not has("PSU") or not cables.has("24pin"):

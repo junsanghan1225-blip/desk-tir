@@ -446,7 +446,7 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		var rp := {"증상 해결": 50.0 if b["ok"] and pc.faults.is_empty() and pc.picture() else 0.0, "성능": pc_s * 2.5}
 		return _total(rp, {"증상 해결": 50, "성능": 50}, [], boot, 0)
 	if kind_of(req) in ["pc", "full"]:   # PC 조립(성능 위주) · PC + 데스크(둘 다 반반)
-		var fin := (0.7 if pc.loose().is_empty() and pc.has("CASE") else 0.0) + (0.3 if pc.tidy() else 0.0)
+		var fin := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0   # 나사를 다 조였는지
 		var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0,
 			"테마 일치": theme_s / 25.0, "조합 시너지": minf(1.0, syn.size() / 2.0)}
 		var w := {"PC 성능": 50, "조립 마감": 15, "모니터": 15, "배선": 10, "필수 · 금지": 10}
