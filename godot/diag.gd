@@ -6,6 +6,16 @@ const VIEWS := ["정면", "뒷면", "속 확대", "BIOS", "윈도우", "보드 �
 const VIEW_POS := [0, 1, 2, 4, 5, 3]   # 탭 순서: 정면 · 뒷면 · 속 확대 · 보드 위 · BIOS · 윈도우
 const TILES2 := [[20, 330, 630, 626], [650, 330, 1260, 626], [20, 20, 630, 316], [650, 20, 1260, 316]]   # 보드 위: 8핀 · 프런트 패널 · RAM 배치 · CMOS
 const BTN_BACK := [12, 648, 172, 714]
+const BTN_HINT := [1036, 648, 1136, 714]
+## 힌트 3단계: 어느 쪽 → 어느 화면 → 정확히 어디 (FAULT_INFO의 '어디서 보이나')
+const AREA := {"psu_switch": "전원", "front_panel": "전원", "eps_power": "전원", "gpu_power": "전원",
+	"monitor_mb": "화면 연결", "ram_seat": "메모리(RAM)", "ram_channel": "메모리(RAM)", "xmp_off": "메모리(RAM)",
+	"dust": "열 · 소음", "paste_dry": "열 · 소음", "cpu_fan": "열 · 소음", "cap_bulge": "메인보드 부품",
+	"cmos_battery": "메인보드 설정", "boot_order": "부팅 설정", "bloat": "프로그램"}
+const SEE := {"psu_switch": 1, "monitor_mb": 1, "dust": 2, "bloat": 4, "ram_seat": 2, "gpu_power": 2, "cpu_fan": 2,
+	"boot_order": 3, "paste_dry": 3, "cap_bulge": 2, "xmp_off": 3, "eps_power": 5, "front_panel": 5, "ram_channel": 3, "cmos_battery": 3}
+var hint_for := ""   # 지금 힌트를 주는 고장
+var hint_step := 0   # 0 = 아직 안 봄, 1~3
 const TILES := [[20, 330, 630, 626], [650, 330, 1260, 626], [20, 20, 630, 316], [650, 20, 950, 316], [970, 20, 1260, 316]]
 const POWER_BTN := Vector2(565, 560)
 const PSU_SWITCH := [552, 92, 608, 148]
@@ -43,8 +53,8 @@ func enter() -> void:
 
 
 func view_rect(i: int) -> Array:
-	var x: int = 184 + VIEW_POS[i] * 160
-	return [x, 648, x + 152, 714]
+	var x: int = 184 + VIEW_POS[i] * 142
+	return [x, 648, x + 136, 714]
 
 
 func t() -> float:
@@ -61,6 +71,36 @@ func fixed(f: String, msg: String) -> void:
 	sfx("place")
 
 
+## 힌트: 남은 고장 중 첫 번째를 3단계로 (1 어느 쪽 · 2 어느 화면(탭 깜빡) · 3 정확히 어디). 안 쓰고 고치면 '명탐정 보너스'
+func next_hint() -> void:
+	if faults().is_empty():
+		toast = "고장은 다 고쳤어요. 전원을 켜서 확인해 봐요"
+		return
+	var f: String = faults().keys()[0]
+	if f != hint_for:
+		hint_for = f
+		hint_step = 0
+	if hint_step < 3:
+		hint_step += 1
+		Game.hints_used += 1
+		sfx("click")
+
+
+func draw_hint() -> void:
+	if hint_step == 0 or not (hint_for in faults()):
+		return
+	var lines := ["힌트 1: %s 쪽이 수상해요" % AREA.get(hint_for, "부품")]
+	if hint_step >= 2:
+		lines.append("힌트 2: '%s' 화면을 살펴봐요" % VIEWS[SEE.get(hint_for, 0)])
+	if hint_step >= 3:
+		lines.append("힌트 3: " + PCBuild.FAULT_INFO[hint_for][2])
+	var h := lines.size() * 30 + 12
+	box([184, BAR - h - 6, 1136, BAR - 6], Color(0.05, 0.03, 0.12, 0.92))
+	outline([184, BAR - h - 6, 1136, BAR - 6], GOLD, 2)
+	for k in lines.size():
+		text(200, BAR - 26 - k * 30, clip(lines[k], 920), 22, GOLD if k == lines.size() - 1 else INK)
+
+
 func up(_x: float, _y: float) -> void:
 	holding = -1
 
@@ -71,6 +111,9 @@ func down(x: float, y: float, _right: bool) -> void:
 		return
 	if inside(x, y, BTN_BACK):
 		m.pop()
+		return
+	if inside(x, y, BTN_HINT):
+		next_hint()
 		return
 	for i in VIEWS.size():
 		if inside(x, y, view_rect(i)):
@@ -670,8 +713,12 @@ func draw() -> void:
 		5: draw_board()
 	frame("ui_panel", [-12, BAR, 1292, H + 12])
 	button(BTN_BACK, "◀ 조립", VIOLET)
+	button(BTN_HINT, "힌트 %d" % hint_step if hint_step > 0 and hint_for in faults() else "힌트", GOLD if not faults().is_empty() else DIM)
+	draw_hint()
+	var blink := hint_step >= 2 and hint_for in faults() and fmod(Time.get_ticks_msec() / 400.0, 2.0) < 1.0
 	for i in VIEWS.size():
-		frame("ui_button", view_rect(i), CYAN if i == view else Color8(80, 66, 140))
+		var hot: bool = blink and SEE.get(hint_for, -1) == i and view != i   # 힌트 2부터: 볼 화면 탭이 깜빡
+		frame("ui_button", view_rect(i), CYAN if i == view else GOLD if hot else Color8(80, 66, 140))
 		text_c(view_rect(i), VIEWS[i], 22, Color.WHITE if i == view else QUIET)
 	if toast != "":
 		box([300, 0, 980, 50], Color(0, 0, 0, 0.7))

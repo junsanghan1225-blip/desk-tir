@@ -47,6 +47,9 @@ static var power_t := 0     # 켠 시각 (부팅 화면 → 바탕화면)
 static var checkouts := 0   # 이번 주문 결제 횟수 (두 번째부터 배송비)
 static var ship_paid := 0   # 이번 주문 추가 배송비 (만)
 static var bill := []       # 마지막 정산 내역 [[항목, 금액(만)], ...] → 결과 화면
+static var hints_used := 0  # 이번 수리에서 본 힌트 수 (0이면 명탐정 보너스)
+static var streak := 0      # 연속 별 3개 (팁이 점점 커짐)
+static var last_gift := ""  # 만족한 손님이 두고 간 선물 (창고로)
 const SHIP_FEE := 2         # 한 주문에서 두 번째 결제부터 붙는 배송비 (만)
 
 
@@ -56,6 +59,7 @@ static func new_game() -> void:
 	stock = {}
 	upgrades = {}
 	stars_total = 0
+	streak = 0
 	history = {}
 	used = []
 	dex = {}
@@ -98,6 +102,8 @@ static func today() -> Dictionary:
 
 
 static func reset_order() -> void:
+	hints_used = 0
+	last_gift = ""
 	checkouts = 0
 	ship_paid = 0
 	power = false
@@ -299,9 +305,15 @@ static func settle(result: Dictionary) -> Array:
 	var sat: int = roundi(budget * PAY_RATE[result["stars"]] / 100.0) - budget   # 실망하면 깎아서 냄
 	var pay: int = max(0, budget + sat)
 	var tip: int = result["stars"] * budget * TIP_RATE[level() - 1] / 100
-	money += pay + tip
+	streak = streak + 1 if result["stars"] == 3 else 0   # 계속할 이유: 연속 만점이면 팁이 불어남
+	var combo: int = tip * mini(streak - 1, 3) / 2 if streak >= 2 else 0
+	var sleuth: int = 2 if request().has("repair") and result["stars"] > 0 and hints_used == 0 else 0
+	money += pay + tip + combo + sleuth
+	last_gift = gift() if result["stars"] == 3 else ""
+	if last_gift != "":
+		stock[last_gift] = stock.get(last_gift, 0) + 1
 	bill = [["손님 예산", budget], ["만족도 별 %d개 (%d%%)" % [result["stars"], PAY_RATE[result["stars"]]], sat],
-		["팁", tip],
+		["팁", tip], ["연속 만점 %d번째 (팁 보너스)" % streak, combo], ["명탐정 보너스 (힌트 없이 수리)", sleuth],
 		["물건 값", -spent()]]
 	if ship_paid > 0:
 		bill.append(["나눠 산 배송비 (%d번)" % (checkouts - 1), -ship_paid])
@@ -327,6 +339,22 @@ static func settle(result: Dictionary) -> Array:
 			stats["speed"] = 1
 	check_achv()
 	return [pay, tip]   # 교체하고 남은 헌 부품은 중고 창고에 남음 (손님이 처분해 달래요)
+
+
+## 만족한 손님의 선물: 아직 안 가진 싼 소품 하나 (날짜 · 순서로 정해짐)
+static func gift() -> String:
+	var pool := DB.ITEMS.keys().filter(func(i): return DB.ITEMS[i]["price"] <= 6 and unlocked(DB.ITEMS[i]) and not stock.has(i) and i != "monitor")
+	if pool.is_empty():
+		return ""
+	return pool[(day * 31 + order_index * 7) % pool.size()]
+
+
+## 내일 예약 손님: [몇 명, 그중 한 명의 첫마디] → 영업 마감 화면 예고
+static func teaser() -> Array:
+	var reqs := DB.REQUESTS.filter(func(q): return q["day"] == day + 1)
+	if reqs.is_empty():
+		return [0, ""]
+	return [reqs.size(), lines(reqs[day % reqs.size()])[0]]
 
 
 static func _add(k: String, n: int) -> void:
@@ -412,7 +440,7 @@ static func save(mode: String) -> void:
 		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(),
 			"cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
 	var d := {"mode": mode, "money": money, "day": day, "stock": stock, "upgrades": upgrades.keys(), "stars_total": stars_total,
-		"history": history, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv, "visits": visits}
+		"history": history, "streak": streak, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv, "visits": visits}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -439,6 +467,7 @@ static func load_save() -> String:
 		upgrades[u] = true
 	stars_total = d["stars_total"]
 	history = d["history"]
+	streak = d.get("streak", 0)
 	ledger = d["ledger"]
 	order_index = d["order_index"]
 	used = d.get("used", [])

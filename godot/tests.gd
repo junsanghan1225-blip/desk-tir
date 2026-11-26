@@ -217,7 +217,8 @@ func _initialize() -> void:
 	var m0 := Game.money
 	Game.settle(Rules.score(Game.request(), [], Game.pc, []))
 	ok(Game.dex.has("f:ram_seat") and Game.dex.has("p:cpu6") and Game.achv.has("first") and "first" in Game.new_achv, "도감 · 첫 납품 업적 %s" % [Game.new_achv])
-	ok("silent" in Game.new_achv and Game.money == m0 + Game.ledger[0]["pay"] + Game.ledger[0]["tip"] + Game.new_achv.reduce(func(a, k): return a + Game.ACHV[k][2], 0), "업적 보상 (조용한 사무용 PC라 숨죽인 PC도)")
+	ok("silent" in Game.new_achv and Game.money == m0 + Game.ledger[0]["pay"] + Game.ledger[0]["tip"] + Game.bill[3][1] + Game.bill[4][1] + Game.new_achv.reduce(func(a, k): return a + Game.ACHV[k][2], 0), "업적 보상 (조용한 사무용 PC라 숨죽인 PC도)")
+	ok(Game.bill[4][1] == 2, "힌트 없이 고치면 명탐정 보너스")
 	Game.day = 4   # 목표: 수리 의뢰 별 3개 (카페 수리는 5일차 장부지만 목표 판정만 봄)
 	ok(Game.daily()[2] == "repair3" and Game.daily_done() and Game.claim_daily() == Game.daily()[1] and Game.claim_daily() == 0, "일일 목표 보상은 한 번만")
 

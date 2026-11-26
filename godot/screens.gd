@@ -217,6 +217,10 @@ class Result extends Mode:
 			text(640, 395 - j * 34, wanted[j], 17)
 		if not Game.new_achv.is_empty():
 			text(640, 100, "업적 달성! " + ", ".join(Game.new_achv.map(func(k): return "%s +%d만" % [Game.ACHV[k][0], Game.ACHV[k][2]])), 22, GOLD)
+		if Game.last_gift != "":   # 만족한 손님의 선물 → 다음 손님 책상에 써 볼 수 있음
+			text(640, 140, "손님이 선물을 두고 갔어요: %s (창고로)" % DB.ITEMS[Game.last_gift]["name"], 22, GOLD)
+		if Game.streak >= 2:
+			text(640, 172, "연속 만점 %d번째! 다음 손님도 만점이면 팁이 더 커져요" % Game.streak, 18, PINK)
 		text(640, 40, "화면을 눌러 다음 손님 받기" if Game.order_index + 1 < Game.todays_requests().size() else "화면을 눌러 영업 마감", 18, DIM)
 
 
@@ -259,6 +263,9 @@ class DayEnd extends Mode:
 	func draw() -> void:
 		box([0, 0, 1280, H], BG)
 		text(120, 684, "%d일차 영업 마감" % Game.day, 34, PINK)
+		var tz := Game.teaser()   # 계속할 이유: 내일 올 손님 예고
+		if tz[0] > 0:
+			text(120, 56, clip("내일 예약 %d명 · 그중 한 분: \"%s\"" % [tz[0], tz[1]], 760), 18, GOLD)
 		News.goal_line(self, 630, 120)
 		var lv := Game.level()
 		text(700, 680, "가게 레벨 %d" % lv, 22, CYAN)
