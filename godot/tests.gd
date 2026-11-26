@@ -142,14 +142,14 @@ func _initialize() -> void:
 
 	# --- 가게 (state.py) ---
 	Game.new_game()
-	ok(Game.money == 200 and Game.todays_requests().size() == 3 and not Game.add_to_cart("cpu3"), "새 게임 · 잠긴 상품")
+	ok(Game.money == 300 and Game.todays_requests().size() == 3 and not Game.add_to_cart("cpu3"), "새 게임 · 잠긴 상품")
 	Game.add_to_cart("monitor", 2); Game.add_to_cart("monitor", -1)
 	var rc := Game.checkout()
-	ok(rc["total"] == 25 and Game.money == 175 and Game.stock["monitor"] == 1 and Game.cart.is_empty(), "결제")
+	ok(rc["total"] == 13 and Game.money == 287 and Game.stock["monitor"] == 1 and Game.cart.is_empty(), "결제")
 	Game.add_to_cart("cpu6", 100)
 	ok(Game.checkout().is_empty(), "돈이 모자라면 결제 안 됨")
 	Game.cart.clear()
-	ok(Game.sell_back("monitor") and Game.money == 187, "반품 반값")
+	ok(Game.sell_back("monitor") and Game.money == 293, "반품 반값")
 	Game.stars_total = 3
 	ok(Game.buy_upgrade("gamer") and Game.add_to_cart("mic"), "가게 돈으로 게이밍 라인 해금")
 	Game.stars_total = 0
@@ -157,8 +157,8 @@ func _initialize() -> void:
 	Game.placed = [{"id": "lamp_warm", "layer": "desk", "x": 306, "y": 210}]
 	var before := Game.money
 	var paid_now := Game.settle({"stars": 2})
-	ok(paid_now[0] == 80 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
-	ok(Game.settle({"stars": 0}) == [32, 0] and Game.settle({"stars": 1})[0] == 64, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
+	ok(paid_now[0] == 100 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
+	ok(Game.settle({"stars": 0}) == [40, 0] and Game.settle({"stars": 1})[0] == 80, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
 	ok(Game.bill.any(func(b): return b[0] == "물건 값"), "정산 내역")
 	Game.history["자취 1년차 대학생"] = 3
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
@@ -215,7 +215,7 @@ func _initialize() -> void:
 	var worn := Bench.run(Bench.parts_of(oldpsu), fps_use)
 	ok(worn["cpu_temp"] > Bench.run(Bench.parts_of(PCBuild.full({"case": "case3", "cpu": "cpu5", "mb": "mb1", "cooler": "cool2", "gpu": "gpu3", "psu": "psu3"})), fps_use)["cpu_temp"], "낡은 쿨러는 더 뜨거움")
 	Game.pc = oldpsu
-	ok(Game.spent() == 1 + DB.PARTS["case3"]["price"] + DB.PARTS["cpu5"]["price"] + 8 + DB.PARTS["gpu3"]["price"] + DB.PARTS["psu3"]["price"] + 10 + 5, "중고는 산 값으로 계산 %d" % Game.spent())
+	ok(Game.spent() == 1 + DB.PARTS["case3"]["price"] + DB.PARTS["cpu5"]["price"] + DB.PARTS["mb1"]["price"] + DB.PARTS["gpu3"]["price"] + DB.PARTS["psu3"]["price"] + DB.PARTS["ram2"]["price"] * 2 + DB.PARTS["ssd1"]["price"], "중고는 산 값으로 계산 %d" % Game.spent())
 	Game.new_game()
 
 	# --- 도감 · 업적 · 일일 목표 ---
@@ -371,7 +371,7 @@ func _initialize() -> void:
 	ok(Game.shelve() == "" and Game.shelf.size() == 1 and not Game.pc.has("CASE"), "보관")
 	var fee_m := Game.money
 	ok(Game.pay_shelf_fee() == Game.SHELF_FEE and Game.money == fee_m - Game.SHELF_FEE, "보관료")
-	Game.order_mod = {"budget": 999}   # 사무용 손님 예산(80)으론 기본 PC가 비쌈 → 예산 검사는 아래에서
+	Game.order_mod = {"budget": 999}   # 사무용 손님 예산(100)으론 기본 PC가 비쌈 → 예산 검사는 아래에서
 	ok(Game.shelf_fits(0) and Game.unshelve(0) == "" and Game.pc.boots() and Game.shelf.is_empty(), "맞는 손님에게 꺼내기")
 	ok(Game.shelve() == "", "다시 보관")
 	Game.order_mod = {}

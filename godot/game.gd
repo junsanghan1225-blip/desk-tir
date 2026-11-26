@@ -2,7 +2,7 @@ class_name Game
 ## 게임 진행 상태 (state.py + save_game.py 이식).
 ## 가게(여러 날 유지): 돈 · 날짜 · 창고 · 업그레이드 · 별 · 단골 기록 · 오늘 장부. 주문(손님 한 명 동안): 장바구니 · 배치 · PC · 케이블.
 
-const START_MONEY := 200
+const START_MONEY := 300
 const LEVELS := [0, 3, 9, 17, 27]     # 가게 레벨 n이 되려면 필요한 누적 별
 const TIP_RATE := [3, 4, 5, 6, 7]   # 레벨별 별 1개당 팁 (예산의 %). 예산이 빠듯해서 팁 · 알뜰 구매가 마진
 static var SAVE_PATH := "user://save.json"   # 테스트는 test_save.json을 써서 실제 저장을 안 건드림
@@ -41,7 +41,7 @@ const ACHV := {
 	"speed": ["240 클럽", "240fps 이상 게이밍 PC 납품", 15],
 }
 ## 일일 목표: [설명, 보상, 확인할 기록]
-const DAILY := [["별 3개 2번 받기", 20, "three"], ["오늘 마진 합계 80만 이상", 20, "margin"], ["중고 부품 2개 이상 써서 납품", 15, "used"],
+const DAILY := [["별 3개 2번 받기", 20, "three"], ["오늘 마진 합계 120만 이상", 20, "margin"], ["중고 부품 2개 이상 써서 납품", 15, "used"],
 	["수리 의뢰를 별 3개로", 20, "repair3"], ["모든 손님에게 별 2개 이상", 25, "all2"]]
 
 static var cart := {}
@@ -464,7 +464,7 @@ static func daily_done() -> bool:
 		return false
 	match kind:
 		"three": return ledger.filter(func(r): return r["stars"] == 3).size() >= 2
-		"margin": return ledger.reduce(func(a, r): return a + r["pay"] + r["tip"] - r["cost"], 0) >= 80
+		"margin": return ledger.reduce(func(a, r): return a + r["pay"] + r["tip"] - r["cost"], 0) >= 120
 		"used": return ledger.reduce(func(a, r): return a + r.get("used", 0), 0) >= 2
 		"repair3": return ledger.any(func(r): return r.get("repair", false) and r["stars"] == 3)
 	return ledger.all(func(r): return r["stars"] >= 2)
