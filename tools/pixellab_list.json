@@ -1,5 +1,36 @@
 [
   {"id": "gpu_mid", "prompt": "mid-range gaming graphics card with two fans, dark grey shroud, side view"},
   {"id": "kb_office", "prompt": "slim white office keyboard, top-down three-quarter view"},
-  {"id": "plant_mini", "prompt": "small succulent in a white ceramic pot, desk decoration"}
+  {"id": "plant_mini", "prompt": "small succulent in a white ceramic pot, desk decoration"},
+
+  {"id": "gpu_low", "prompt": "small low-profile graphics card with one fan, black, side view"},
+  {"id": "gpu_high", "prompt": "large high-end graphics card with three fans and silver accents, side view"},
+  {"id": "cpu", "prompt": "square desktop CPU processor chip with silver metal lid, top view"},
+  {"id": "ram", "prompt": "desktop DDR4 RAM stick with black heatspreader and green circuit board, side view"},
+  {"id": "ram_rgb", "prompt": "desktop RAM stick with rainbow RGB light bar on top, side view"},
+  {"id": "ssd_m2", "prompt": "M.2 NVMe SSD stick, thin green circuit board with black chips, top view"},
+  {"id": "ssd_sata", "prompt": "2.5 inch SATA SSD drive, dark grey metal case, three-quarter view"},
+  {"id": "mb_atx", "prompt": "black ATX motherboard with CPU socket, RAM slots and PCIe slots, top view"},
+  {"id": "cooler_stock", "prompt": "basic round CPU cooler with aluminum fins and black fan, three-quarter view"},
+  {"id": "cooler_tower", "prompt": "tower CPU air cooler with copper heatpipes and one fan, side view"},
+  {"id": "cooler_aio", "prompt": "AIO liquid CPU cooler with radiator, two fans and tubes, three-quarter view"},
+  {"id": "psu", "prompt": "desktop ATX power supply unit, black box with fan grille, three-quarter view"},
+  {"id": "case_mid", "prompt": "black mid tower PC case with tempered glass side panel, three-quarter view"},
+  {"id": "case_white", "prompt": "white mini PC case with glass side panel, three-quarter view"},
+  {"id": "case_rgb", "prompt": "gaming PC case with glass panel and colorful RGB fans glowing, three-quarter view"},
+
+  {"id": "mon_24", "prompt": "24 inch flat computer monitor on a simple stand, screen glowing blue, front view"},
+  {"id": "mon_27", "prompt": "27 inch thin bezel gaming monitor on a V-shaped stand, front view"},
+  {"id": "mon_curved", "prompt": "wide curved ultrawide gaming monitor, front view"},
+  {"id": "kb_gaming", "prompt": "black mechanical gaming keyboard with RGB backlight, three-quarter view"},
+  {"id": "mouse_gaming", "prompt": "black gaming mouse with RGB stripe, top view"},
+  {"id": "headset", "prompt": "over-ear gaming headset with microphone, side view"},
+  {"id": "speaker_book", "prompt": "pair of small wooden bookshelf speakers, front view"},
+  {"id": "lamp_warm", "prompt": "warm desk lamp with fabric shade glowing orange, side view"},
+  {"id": "light_bar", "prompt": "monitor light bar lamp clipped on top, glowing white, side view"},
+  {"id": "neon_sign", "prompt": "pink neon sign shaped like a heart, glowing"},
+  {"id": "mug", "prompt": "white coffee mug with steam, side view"},
+  {"id": "book_stand", "prompt": "wooden book stand holding an open book, side view"},
+  {"id": "plant_hang", "prompt": "hanging pothos plant in a small pot with long green vines"},
+  {"id": "cat_lucky", "prompt": "white Japanese lucky cat figurine with raised paw"}
 ]
