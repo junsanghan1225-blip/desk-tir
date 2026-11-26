@@ -122,7 +122,53 @@ def light_bar(d):   # 옆에서 본 모니터 라이트바: 가로 막대 + 아�
     box(d, [50, 86, 78, 92], (52, 52, 60))
 
 
-DRAW = {f.__name__: f for f in [gpu_low, ram_rgb, ssd_m2, ssd_sata, psu, mouse_gaming, light_bar]}
+LEAF, LEAF_D = (90, 190, 90), (50, 130, 60)
+
+
+def plant_hang(d):   # 줄에 매달린 화분 + 양옆으로 늘어진 덩굴(스킨답서스)
+    for x in (40, 88):
+        d.line([64, 6, x, 46], fill=(200, 180, 140), width=2)       # 매다는 줄
+    d.ellipse([60, 2, 68, 10], outline=(200, 180, 140), width=2)
+    for side, xs in ((-1, 44), (1, 84)):                             # 늘어진 덩굴
+        for i in range(7):
+            x, y = xs + side * (i % 2) * 6 + side * i * 2, 58 + i * 9
+            d.line([x, y - 9, x, y], fill=LEAF_D, width=2)
+            d.ellipse([x - 6, y - 4, x + 6, y + 4], fill=LEAF if i % 2 else LEAF_D)
+            d.ellipse([x - 3, y - 3, x + 1, y], fill=(150, 230, 140))
+    for x, y in ((50, 40), (64, 34), (78, 40), (58, 42), (70, 42)):  # 화분 위 잎
+        d.ellipse([x - 8, y - 6, x + 8, y + 6], fill=LEAF)
+        d.ellipse([x - 4, y - 4, x, y - 1], fill=(150, 230, 140))
+    d.polygon([(38, 46), (90, 46), (82, 72), (46, 72)], fill=(236, 236, 240))   # 흰 화분
+    d.rectangle([38, 46, 90, 50], fill=(255, 255, 255))
+    d.polygon([(46, 66), (82, 66), (82, 72), (46, 72)], fill=(190, 190, 204))
+
+
+def cat_lucky(d):   # 앞에서 본 행운 고양이: 흰 몸, 든 왼발, 빨간 목걸이와 금 방울, 금화
+    W, Wd = (246, 244, 240), (200, 196, 204)
+    d.ellipse([34, 58, 94, 118], fill=W)                             # 몸
+    d.ellipse([40, 100, 88, 120], fill=Wd)
+    d.polygon([(38, 34), (42, 10), (58, 26)], fill=W)                # 귀
+    d.polygon([(90, 34), (86, 10), (70, 26)], fill=W)
+    d.polygon([(43, 28), (45, 16), (53, 26)], fill=(255, 160, 170))
+    d.polygon([(85, 28), (83, 16), (75, 26)], fill=(255, 160, 170))
+    d.ellipse([32, 20, 96, 70], fill=W)                              # 머리
+    d.rounded_rectangle([94, 14, 112, 66], 8, fill=W, outline=Wd, width=2)   # 든 발 (머리 옆으로)
+    d.ellipse([98, 18, 108, 26], fill=(255, 160, 170))
+    d.line([38, 66, 90, 66], fill=Wd, width=2)                       # 머리 · 몸 경계
+    d.arc([44, 38, 56, 48], 200, 340, fill=(30, 24, 40), width=3)    # 웃는 눈
+    d.arc([72, 38, 84, 48], 200, 340, fill=(30, 24, 40), width=3)
+    d.ellipse([61, 50, 67, 54], fill=(240, 110, 130))                # 코
+    d.ellipse([38, 50, 46, 56], fill=(255, 190, 200))                # 볼
+    d.ellipse([82, 50, 90, 56], fill=(255, 190, 200))
+    d.rectangle([40, 68, 88, 73], fill=(220, 50, 60))                # 목걸이
+    d.ellipse([58, 70, 70, 82], fill=GOLD)                           # 방울
+    d.line([60, 77, 68, 77], fill=GOLD_D, width=1)
+    d.ellipse([44, 82, 72, 106], fill=GOLD)                          # 금화
+    d.ellipse([48, 86, 68, 102], outline=GOLD_D, width=2)
+    d.ellipse([47, 84, 55, 90], fill=(255, 236, 150))
+
+
+DRAW = {f.__name__: f for f in [gpu_low, ram_rgb, ssd_m2, ssd_sata, psu, mouse_gaming, light_bar, plant_hang, cat_lucky]}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or DRAW:
