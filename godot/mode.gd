@@ -89,13 +89,20 @@ func spr(name: String, cx: float, cy: float) -> void:
 
 
 ## 사각형에 꽉 맞춰
-func put(name: String, r: Array) -> void:
-	m.draw_texture_rect(DB.tex(name), _rect(r), false)
+## 소품은 DB.skin으로 새 화풍 그림. 비율이 조금 다른 PixelLab 그림은 비율을 지켜 바닥 가운데에 맞춤
+func put(name: String, r: Array, tint := Color.WHITE) -> void:
+	var s := DB.skin(name)
+	if s.begins_with("pixellab/"):
+		var t := DB.tex(s).get_size()
+		var k: float = min((r[2] - r[0]) / t.x, (r[3] - r[1]) / t.y)
+		var cx: float = (r[0] + r[2]) / 2.0
+		r = [cx - t.x * k / 2, r[1], cx + t.x * k / 2, r[1] + t.y * k]   # y는 아래가 작음 → r[1]이 바닥
+	m.draw_texture_rect(DB.tex(s), _rect(r), false, tint)
 
 
 ## 비율을 유지한 채 상자 안에 맞춰 (썸네일 · 아이콘)
 func fit(name: String, cx: float, cy: float, mw: float, mh: float) -> void:
-	var s := DB.tex(name).get_size()
+	var s := DB.tex(DB.skin(name)).get_size()
 	var k: float = min(mw / s.x, mh / s.y)
 	put(name, [cx - s.x * k / 2, cy - s.y * k / 2, cx + s.x * k / 2, cy + s.y * k / 2])
 
@@ -274,10 +281,10 @@ func dim() -> void:
 
 
 func icon_of(id: String) -> String:
+	if DB.ITEMS.has(id):
+		return id   # 소품은 put · fit이 DB.skin으로 책상 배치와 같은 그림을 씀
 	if DB.px(id) != "":
 		return DB.px(id)
-	if DB.ITEMS.has(id):
-		return id
 	if DB.PARTS[id]["type"] == "CASE":
 		return DB.look(id)
 	return "part_" + DB.PARTS[id]["type"]

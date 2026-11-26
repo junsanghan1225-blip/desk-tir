@@ -384,7 +384,7 @@ func draw_without_stand(p: Dictionary, r = null) -> void:
 		r = Rules.rect_of(p)
 	var f: Array = SCREEN[p["id"]]
 	var k: float = (f[3] + 8.0) / f[5]
-	var t := DB.tex(art(p))
+	var t := DB.tex(DB.skin(art(p)))
 	m.draw_texture_rect_region(t, _rect([r[0], r[3] - (r[3] - r[1]) * k, r[2], r[3]]), Rect2(0, 0, t.get_width(), t.get_height() * k))
 
 

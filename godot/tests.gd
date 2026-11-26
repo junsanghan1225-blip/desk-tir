@@ -11,6 +11,7 @@ func ok(cond: bool, what: String) -> void:
 
 
 func _initialize() -> void:
+	Game.SAVE_PATH = "user://test_save.json"   # 실제 플레이 저장은 그대로 두기
 	# --- 조립 (pcbuild.py) ---
 	var b := PCBuild.new()
 	ok(b.check("mb2") == "케이스부터 끼워야 해요", "케이스 먼저")
@@ -308,9 +309,10 @@ func _initialize() -> void:
 	# --- PixelLab 아이콘 대응표: 모든 id가 실제 물건이고 그림이 있으면 그걸 씀 ---
 	for id in DB.PX:
 		ok(DB.ITEMS.has(id) or DB.PARTS.has(id), "PX 대응표 id: " + id)
-	ok(DB.px("gpu6") == "pixellab/gpu_high" and DB.px("cpu3") == "pixellab/cpu" and DB.px("case4") == "pixellab/case4", "PX 대응표 · 같은 이름 · 종류 공통")
-	for id in DB.ITEMS:   # 모든 소품 아이콘이 같은 화풍
-		ok(DB.px(id) != "", "PixelLab 화풍 아이콘 없음: " + id)
+	ok(DB.px("gpu6") == "pixellab/gpu_high" and DB.px("cpu3") == "pixellab/cpu" and DB.px("case4") == "styled/case4", "PX 대응표 · 종류 공통 · 바꾼 그림")
+	for id in DB.ITEMS:   # 모든 소품이 새 화풍 (쇼핑 아이콘 = 책상 배치 그림)
+		ok(DB.skin(id) != id, "새 화풍 그림 없음: " + id)
+	ok(DB.skin("mug__c1") == "styled/mug__c1" and DB.skin("mug") == "styled/mug", "색 있는 소품은 색마다 같은 화풍")
 
 	print("godot rules ok" if failed == 0 else "godot rules FAILED: %d" % failed)
 	quit(1 if failed else 0)

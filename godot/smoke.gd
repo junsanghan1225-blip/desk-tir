@@ -7,6 +7,7 @@ var shots := DisplayServer.get_name() != "headless"
 
 
 func _initialize() -> void:
+	Game.SAVE_PATH = "user://test_save.json"   # 실제 플레이 저장은 그대로 두기
 	Game.delete_save()
 	main = load("res://godot/main.tscn").instantiate()
 	root.add_child(main)

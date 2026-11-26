@@ -56,9 +56,7 @@ const PX := {
 	"ram4": "ram_rgb", "ram7": "ram_rgb", "ssd4": "ssd_sata",
 	"case1": "case_mid", "case6": "case_mid", "case8": "case_mid",
 	"case2": "case_white", "case3": "case_rgb", "case7": "case_rgb",
-	"monitor": "mon_24", "monitor_22": "mon_24", "monitor_144": "mon_24",
-	"monitor_27": "mon_27", "monitor_qhd165": "mon_27", "monitor_240": "mon_27",
-	"monitor_oled": "mon_27", "monitor_4k": "mon_27", "monitor_curve": "mon_curved",
+	# 모니터는 화면 위치(desk.gd SCREEN)가 원래 그림 기준이라 PixelLab 그림 대신 같은 화풍으로 바꾼 원래 그림
 	"keyboard": "kb_office", "gaming_kb": "kb_gaming", "mouse_gaming": "mouse_gaming",
 	"headset": "headset", "speaker": "speaker_book", "lamp_warm": "lamp_warm",
 	"monitor_bar": "light_bar", "mug": "mug",
@@ -68,23 +66,49 @@ const PX := {
 const PX_TYPE := {"CPU": "cpu", "MB": "mb_atx", "RAM": "ram", "SSD": "ssd_m2", "PSU": "psu"}   # 종류 전체가 한 그림
 
 
-## 아이콘 그림 이름: PixelLab 그림(또는 같은 화풍으로 바꾼 그림)이 있으면 "pixellab/<id>", 없으면 ""
+## 부품 아이콘: PixelLab 그림 → 같은 화풍으로 바꾼 그림(styled/) → "" (기존 그림)
 static func px(id: String) -> String:
-	var pid: String = PX.get(id, "")
-	if pid == "" or not _px_has(pid):   # 대응표 → 같은 이름 파일(같은 화풍으로 바꾼 것) → 종류 공통 그림
-		pid = id if _px_has(id) else PX_TYPE.get(PARTS[id]["type"], "") if PARTS.has(id) else ""
-	return "pixellab/" + pid if pid != "" and _px_has(pid) else ""
+	var pid: String = PX.get(id, PX_TYPE.get(PARTS[id]["type"], "") if PARTS.has(id) else "")
+	if pid != "" and _has("pixellab/" + pid):
+		return "pixellab/" + pid
+	return "styled/" + id if _has("styled/" + id) else ""
 
 
-static func _px_has(pid: String) -> bool:
-	return ResourceLoader.exists("res://resource/pixellab/%s.png" % pid)
+static var _skin := {}
+
+
+## 소품 그림(id 또는 id__c색)을 쇼핑 아이콘 · 책상 배치 · 창고 어디서나 같은 그림으로 바꿔 줌.
+## PixelLab 그림은 색 바꾸기가 없고 비율이 책상 그림과 비슷할 때만, 아니면 같은 화풍으로 바꾼 원래 그림(styled/).
+static func skin(name: String) -> String:
+	if not _skin.has(name):
+		var id := name.get_slice("__", 0)
+		var s := name
+		if ITEMS.has(id):
+			var pid: String = PX.get(id, id)
+			if name == id and not _has(id + "__c1") and _has("pixellab/" + pid) and _ratio_ok(id, "pixellab/" + pid):
+				s = "pixellab/" + pid
+			elif _has("styled/" + name):
+				s = "styled/" + name
+		_skin[name] = s
+	return _skin[name]
+
+
+static func _ratio_ok(id: String, art: String) -> bool:   # 가로세로 비율 차이 1.5배 안쪽
+	var a := size_of(id)
+	var b := tex(art).get_size()
+	var r := (float(a.x) / a.y) / (b.x / b.y)
+	return r < 1.5 and r > 1 / 1.5
+
+
+static func _has(name: String) -> bool:
+	return ResourceLoader.exists("res://resource/real/%s.png" % name) or ResourceLoader.exists("res://resource/%s.png" % name)
 
 
 static func tex(name: String) -> Texture2D:
 	if not _tex.has(name):
 		var real := "res://resource/real/%s.png" % name   # 실제 비율 정면 그림이 있으면 그걸로 (pico2d는 원래 그림)
 		_tex[name] = load(real if ResourceLoader.exists(real) else "res://resource/%s.png" % name)
-		if name.begins_with("pixellab/"):   # 128px 캔버스의 투명 여백을 잘라 다른 아이콘처럼 칸을 채우게
+		if name.begins_with("pixellab/") or name.begins_with("styled/"):   # 투명 여백을 잘라 다른 아이콘처럼 칸을 채우게
 			var at := AtlasTexture.new()
 			at.atlas = _tex[name]
 			at.region = Rect2(_tex[name].get_image().get_used_rect())

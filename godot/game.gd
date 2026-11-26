@@ -5,7 +5,7 @@ class_name Game
 const START_MONEY := 200
 const LEVELS := [0, 3, 9, 17, 27]     # 가게 레벨 n이 되려면 필요한 누적 별
 const TIP_RATE := [5, 6, 8, 10, 12]   # 레벨별 별 1개당 팁 (예산의 %)
-const SAVE_PATH := "user://save.json"
+static var SAVE_PATH := "user://save.json"   # 테스트는 test_save.json을 써서 실제 저장을 안 건드림
 
 static var money := START_MONEY
 static var day := 1
