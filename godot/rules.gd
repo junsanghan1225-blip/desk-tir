@@ -326,26 +326,18 @@ const LINES := {
 }
 
 
-## 특이 조건 (의뢰마다 하나, 날이 갈수록 자주): 놓는 방식 자체를 바꾸게 만드는 퍼즐 같은 요청
+## 특이 조건 (둘째 날부터 몇몇 의뢰에): 놓는 방식 자체를 바꾸게 만드는 퍼즐 같은 요청
 static func twist_ok(t: Dictionary, placed: Array) -> bool:
 	var desk := placed.filter(func(p): return p["layer"] == "desk" and not is_mounted(p))
-	var wall := placed.filter(func(p): return p["layer"] == "wall")
 	match t["kind"]:
 		"few":   # 좁은 책상: 책상 위 물건 n개까지
 			return desk.size() <= t["n"]
-		"no_wall":   # 벽에 못을 못 박음
-			return wall.is_empty()
-		"wall_n":   # 벽 장식 n개 이상
-			return wall.size() >= t["n"]
 		"left":   # 왼손잡이: 마우스가 키보드 왼쪽
 			var kbs := desk.filter(func(p): return p["id"] in KEYBOARDS)
 			var ms := desk.filter(func(p): return p["id"] in MICE)
 			return not kbs.is_empty() and not ms.is_empty() and ms.all(func(m): return kbs.any(func(k): return center_x(m) < center_x(k)))
 		"dual":   # 모니터 두 대
 			return placed.filter(func(p): return is_monitor(p["id"])).size() >= 2
-		"one_color":   # 색 바꿀 수 있는 소품 2개 이상을 같은 색으로 (기본색 말고)
-			var cs := placed.filter(func(p): return DB.ITEMS[p["id"]].get("tint", false)).map(func(p): return p.get("color", 0))
-			return cs.size() >= 2 and cs[0] > 0 and cs.all(func(c): return c == cs[0])
 	return true
 
 

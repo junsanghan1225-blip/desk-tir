@@ -975,7 +975,7 @@ class Trial extends Mode:
 
 
 class Call extends Mode:
-	## 돌발: 주문 중에 손님이 전화 (예산 깎기 · 추가 요청 · 새 제품만). 누르면 닫힘
+	## 돌발: 주문 중에 손님이 전화 (예산 깎기 · 추가 요청). 누르면 닫힘
 	var said := ""
 	var t0 := 0
 
@@ -1004,7 +1004,7 @@ class Call extends Mode:
 		for ln in wrap_text("\"%s\"" % said, r[2] - r[0] - 300, 24):
 			text(r[0] + 260, y, ln, 24, INK)
 			y -= 34
-		var after := {"budget": "예산이 %d만으로 줄었어요." % req["budget"], "extra": "꼭 필요한 게 하나 늘었어요.", "new_only": "이제 중고 부품을 쓰면 안 돼요."}
+		var after := {"budget": "예산이 %d만으로 줄었어요." % req["budget"], "extra": "꼭 필요한 게 하나 늘었어요."}
 		text(r[0] + 260, y - 10, after[req["call"]], 22, GOLD)
 		text_c([r[0], r[1] + 10, r[2], r[1] + 50], "누르면 계속", 22, QUIET)
 

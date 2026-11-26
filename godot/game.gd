@@ -92,25 +92,22 @@ static func request() -> Dictionary:
 
 
 ## ---------- 주문 중 손님 전화 (돌발 이벤트) ----------
-## 둘째 날부터, 한 번이라도 결제한 뒤 책상 · 조립 · 배선으로 가면 가끔 손님이 전화한다. 날이 갈수록 자주.
-const CALL_CHANCE := [0, 0, 35, 50, 65, 75]   # 날짜별 %
+## 둘째 날부터, 한 번이라도 결제한 뒤 책상 · 조립 · 배선으로 가면 가끔 손님이 전화한다. 날이 갈수록 자주. 특이 조건이 있는 의뢰엔 안 옴.
+const CALL_CHANCE := [0, 0, 25, 35, 45, 55]   # 날짜별 %. 매번 오면 놀랍지 않으니 절반쯤만
 static func call_due() -> bool:
-	if order_mod.has("call") or checkouts < 1 or order_index >= todays_requests().size() or request().has("repair"):
+	if order_mod.has("call") or checkouts < 1 or order_index >= todays_requests().size() or request().has("repair") or request().has("twist"):   # 한 주문엔 신경 쓸 거리 하나만
 		return false
 	var rng := RandomNumberGenerator.new()
 	rng.seed = day * 1009 + order_index * 31 + 7   # 같은 날 같은 손님이면 늘 같음 (다시 해도 공평)
 	return rng.randi() % 100 < CALL_CHANCE[mini(day, CALL_CHANCE.size() - 1)]
 
 
-## 전화 내용을 정하고 의뢰에 반영. 손님 말을 돌려줌
+## 전화 내용을 정하고 의뢰에 반영 (예산 삭감 → 산 걸 덜어내야 할 수도 · 소품 하나 추가). 손님 말을 돌려줌
 static func take_call() -> String:
 	var req := request()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = day * 7717 + order_index
-	var kinds := ["budget", "extra"]
-	if req.get("used", "") == "ok":
-		kinds.append("new_only")
-	var k: String = kinds[rng.randi() % kinds.size()]
+	var k: String = ["budget", "extra"][rng.randi() % 2]
 	if k == "extra":
 		var have := []
 		for r in req["required"]:
@@ -122,17 +119,13 @@ static func take_call() -> String:
 			var id: String = pool[rng.randi() % pool.size()]
 			order_mod = {"call": k, "required": req["required"] + [{"any": [id], "count": 1, "named": true}]}
 			return "아 참, %s도 하나 놓아 주실 수 있어요? 예산은 그대로라 죄송해요!" % _name(id)
-	if k == "new_only":
-		order_mod = {"call": k, "used": "new"}
-		return "가족이 중고는 불안하대요… 새 제품으로만 부탁해도 될까요?"
 	var cut: int = maxi(5, roundi(req["budget"] * 0.08 / 5.0) * 5)
 	order_mod = {"call": "budget", "budget": req["budget"] - cut}
 	return "죄송해요, 갑자기 돈 들 데가 생겨서… 예산을 %d만 줄여도 될까요?" % cut
 
 
 ## 특이 조건 한 줄 (책상에서 맞추면 ✓)
-const TWIST_TEXT := {"few": "책상이 좁아요: 책상 위 물건 %d개까지", "no_wall": "세입자라 벽에 못을 못 박아요 (벽 장식 없이)", "wall_n": "벽이 허전해요: 벽 장식 %d개 이상",
-	"left": "왼손잡이예요: 마우스는 키보드 왼쪽에", "dual": "화면 두 개로 써요: 모니터 2대", "one_color": "색을 맞춰 주세요: 색 바꾸는 소품 2개 이상을 같은 색으로"}
+const TWIST_TEXT := {"few": "책상이 좁아요: 책상 위 물건 %d개까지", "left": "왼손잡이예요: 마우스는 키보드 왼쪽에", "dual": "화면 두 개로 써요: 모니터 2대"}
 static func twist_text(req: Dictionary) -> String:
 	if not req.has("twist"):
 		return ""

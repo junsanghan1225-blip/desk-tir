@@ -135,12 +135,7 @@ func _initialize() -> void:
 	var tw := [{"id": "keyboard", "layer": "desk", "x": 600, "y": Rules.DESK_Y, "z": 250}, {"id": "mouse_vertical", "layer": "desk", "x": 500, "y": Rules.DESK_Y, "z": 250}]
 	ok(Rules.twist_ok({"kind": "left"}, tw) and Rules.twist_ok({"kind": "few", "n": 2}, tw) and not Rules.twist_ok({"kind": "few", "n": 1}, tw), "왼손잡이 · 좁은 책상")
 	tw[1]["x"] = 800
-	ok(not Rules.twist_ok({"kind": "left"}, tw) and not Rules.twist_ok({"kind": "dual"}, tw) and Rules.twist_ok({"kind": "no_wall"}, tw), "오른쪽 마우스 · 모니터 1대 · 벽 비움")
-	tw.append({"id": "mug", "layer": "desk", "x": 400, "y": Rules.DESK_Y, "z": 0, "color": 2})
-	tw.append({"id": "tumbler", "layer": "desk", "x": 900, "y": Rules.DESK_Y, "z": 0, "color": 2})
-	ok(Rules.twist_ok({"kind": "one_color"}, tw), "색 맞춤")
-	tw[3]["color"] = 1
-	ok(not Rules.twist_ok({"kind": "one_color"}, tw), "색 다름")
+	ok(not Rules.twist_ok({"kind": "left"}, tw) and not Rules.twist_ok({"kind": "dual"}, tw), "오른쪽 마우스 · 모니터 1대")
 
 	# --- 가게 (state.py) ---
 	Game.new_game()
@@ -345,11 +340,11 @@ func _initialize() -> void:
 			var base: Dictionary = Game.todays_requests()[i]
 			Game.take_call()
 			var now := Game.request()
-			ok(now["budget"] < base["budget"] or now["required"].size() > base["required"].size() or now["used"] == "new", "전화 반영: %s" % now["call"])
+			ok(now["budget"] < base["budget"] or now["required"].size() > base["required"].size(), "전화 반영: %s" % now["call"])
 			ok(not Game.call_due() and Game.need_text(now) != "", "전화는 한 번만")
 			Game.reset_order()
 			ok(not Game.request().has("call"), "다음 주문엔 원래대로")
-	ok(calls >= 4, "전화가 여러 번 옴: %d" % calls)
+	ok(calls >= 3, "전화가 여러 번 옴: %d" % calls)
 
 	print("godot rules ok" if failed == 0 else "godot rules FAILED: %d" % failed)
 	quit(1 if failed else 0)

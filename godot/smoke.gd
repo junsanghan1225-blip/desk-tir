@@ -243,18 +243,21 @@ func run() -> void:
 	check(Game.load_save() == "news")
 	for n in ["door", "click", "cart", "buy", "pick", "place", "lever", "paste", "plug", "boot_ok"]:   # 그 순간에 실제 소리 파일을 불러와 틀었는지
 		check(main.sounds.get(n) != null, "소리 " + n)
-	Game.day = 3                               # 셋째 날: 특이 조건 있는 의뢰 → 결제 뒤 책상에 가면 손님 전화
-	for i in Game.todays_requests().size():   # 특이 조건이 있고 전화도 오는 손님
-		Game.order_index = i
-		Game.reset_order()
-		Game.checkouts = 1
-		if Game.request().has("twist") and Game.call_due():
-			break
+	Game.day = 3                               # 셋째 날: 특이 조건 있는 의뢰 / 다섯째 날: 결제 뒤 책상에 가면 손님 전화
+	Game.order_index = Game.todays_requests().find(Game.todays_requests().filter(func(q): return q.has("twist"))[0])
 	main.go("request")
 	await shot("3b_request_twist")
 	Game.checkouts = 1
+	check(not Game.call_due(), "특이 조건 의뢰엔 전화 없음 (신경 쓸 거리 하나만)")
+	Game.day = 5
+	for i in Game.todays_requests().size():   # 전화가 오는 손님
+		Game.order_index = i
+		Game.reset_order()
+		Game.checkouts = 1
+		if Game.call_due():
+			break
 	main.go("desk")
-	check(Game.call_due() or main.top() == main.modes["call"], "셋째 날 전화")
+	check(main.top() == main.modes["call"], "다섯째 날 전화")
 	if main.top() == main.modes["call"]:
 		await shot("7k_call")
 		main.modes["call"].t0 -= 1000
