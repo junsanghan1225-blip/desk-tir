@@ -264,5 +264,15 @@ func run() -> void:
 		tap([0, 0, 100, 100])
 		on("desk")
 		check(Game.request().has("call"), "전화 내용이 의뢰에 반영")
+	Game.day = 4                               # 수리: 진단 화면을 3곳 열면 무료 2곳을 넘어 점검비
+	Game.order_index = Game.todays_requests().find(Game.todays_requests().filter(func(q): return q.has("repair"))[0])
+	main.go("request")
+	main.go("build")
+	main.push("diag")
+	var dg = main.modes["diag"]
+	for i in [1, 2, 5]:
+		tap(dg.view_rect(i))
+	check(Game.look_cost() == Game.LOOK_FEE, "점검비 %d" % Game.look_cost())
+	await shot("8d_diag_fee")
 	print("godot smoke ok  (가게 돈 %d만)" % money)
 	quit()

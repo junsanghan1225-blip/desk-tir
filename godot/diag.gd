@@ -119,6 +119,10 @@ func down(x: float, y: float, _right: bool) -> void:
 		if inside(x, y, view_rect(i)):
 			view = i
 			toast = ""
+			if i != 0 and not Game.looks.has(i):   # 정면(증상 확인)은 공짜, 나머지는 처음 열 때 점검 1곳
+				Game.looks[i] = true
+				if Game.looks.size() > Game.FREE_LOOKS:
+					toast = "점검 시간 +%d만 (무료 점검 %d곳 다 씀)" % [Game.LOOK_FEE, Game.FREE_LOOKS]
 			return
 	toast = ""
 	match view:
@@ -720,6 +724,7 @@ func draw() -> void:
 		var hot: bool = blink and SEE.get(hint_for, -1) == i and view != i   # 힌트 2부터: 볼 화면 탭이 깜빡
 		frame("ui_button", view_rect(i), CYAN if i == view else GOLD if hot else Color8(80, 66, 140))
 		text_c(view_rect(i), VIEWS[i], 22, Color.WHITE if i == view else QUIET)
-	if toast != "":
-		box([300, 0, 980, 50], Color(0, 0, 0, 0.7))
-		text_c([300, 0, 980, 50], toast, 22, GREEN)
+	var free_left := Game.FREE_LOOKS - Game.looks.size()
+	var msg := toast if toast != "" else ("증상을 보고 골라 열기 · 무료 점검 %d곳 남음 (정면은 공짜)" % free_left if free_left > 0 else "무료 점검 끝 · 새 화면마다 %d만 (지금 -%d만)" % [Game.LOOK_FEE, Game.look_cost()])
+	box([240, 0, 1040, 50], Color(0, 0, 0, 0.7))
+	text_c([240, 0, 1040, 50], msg, 22, GREEN if toast != "" else GOLD)

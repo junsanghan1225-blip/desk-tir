@@ -110,6 +110,9 @@ func _initialize() -> void:
 	ok(Rules.crossings(tangled, placed) == 1, "꼬임 1")
 	ok(Rules.prune(wired, placed, PCBuild.new()).is_empty(), "부품이 없으면 선이 뽑힘")
 
+	var auto := Rules.auto_plug([], placed, pc)
+	ok(Rules.wiring_score(auto, placed)[1] == 0 and Rules.auto_plug(auto, placed, pc).size() == auto.size(), "한 번에 꽂기: 다 꽂고, 두 번 눌러도 그대로")
+
 	# --- 채점 (scorer.py) ---
 	var dev: Dictionary = DB.REQUESTS.filter(func(r): return r["customer"] == "밤샘 개발자")[0]
 	placed = []
@@ -322,6 +325,15 @@ func _initialize() -> void:
 	for id in DB.ITEMS:   # 모든 소품이 새 화풍 (쇼핑 아이콘 = 책상 배치 그림)
 		ok(DB.skin(id) != id, "새 화풍 그림 없음: " + id)
 	ok(DB.skin("mug__c1") == "styled/mug__c1" and DB.skin("mug") == "styled/mug", "색 있는 소품은 색마다 같은 화풍")
+
+	# --- 수리 점검비: 정면 빼고 2곳까지 무료, 그다음 화면마다 1만 ---
+	Game.looks = {1: true, 2: true}
+	ok(Game.look_cost() == 0, "무료 점검 2곳")
+	Game.looks[3] = true
+	Game.looks[4] = true
+	ok(Game.look_cost() == 2 * Game.LOOK_FEE, "점검비")
+	Game.reset_order()
+	ok(Game.looks.is_empty(), "다음 손님은 점검 새로")
 
 	# --- 손님 전화 (돌발): 첫날은 없고, 둘째 날부터 가끔. 전화 내용이 의뢰에 반영되고 다음 손님 땐 사라짐 ---
 	Game.new_game()

@@ -2,6 +2,7 @@ extends Mode
 ## 배선 정리 (책상 뒤 시점): 기기를 끌어 같은 색 포트에 꽂는다. 기기 순서와 포트 순서가 엇갈리면 선이 꼬인다.
 
 const BTN_DONE := [1100, 10, 1270, 50]
+const BTN_AUTO := [900, 10, 1090, 50]
 const HINT := {"HDMI": "모니터는 HDMI · DP 포트에", "DP": "모니터는 HDMI · DP 포트에", "USB": "USB 기기는 USB 포트에", "AUDIO": "스피커 · 헤드셋은 오디오 포트에"}
 const DEV_Y := 480
 
@@ -30,6 +31,12 @@ func down(x: float, y: float, right: bool) -> void:
 		return
 	if inside(x, y, BTN_DONE):
 		m.deliver()
+		return
+	if inside(x, y, BTN_AUTO):
+		var before := Game.cables.size()
+		Game.cables = Rules.auto_plug(Game.cables, Game.placed, Game.computer())
+		toast = "%d개 꽂았어요. 꼬인 선은 끌어서 다시 꽂으면 정리돼요" % (Game.cables.size() - before) if Game.cables.size() > before else "더 꽂을 게 없어요"
+		sfx("plug" if Game.cables.size() > before else "click")
 		return
 	var port = Rules.port_at(x, y, Game.computer())
 	var p = device_at(x, y)
@@ -180,4 +187,5 @@ func draw() -> void:
 	if toast != "":
 		box([30, 62, 40 + text_w(toast, 22) + 20, 100], Color(0, 0, 0, 0.75))
 		text(40, 81, toast, 22, PINK)
+	button(BTN_AUTO, "한 번에 꽂기", VIOLET)
 	button(BTN_DONE, "납품하기", PINK)

@@ -265,6 +265,21 @@ static func port_at(x: float, y: float, pc: PCBuild):
 	return null
 
 
+## 한 번에 꽂기: 안 꽂힌 기기를 놓은 순서대로 남는 포트에. 순서가 엇갈리면 꼬일 수 있음 → 정리는 손으로 (보너스)
+static func auto_plug(cables: Array, placed: Array, pc: PCBuild) -> Array:
+	var out := cables.duplicate()
+	for p in placed.filter(needs_cable):
+		if out.any(func(c): return is_same(c["dev"], p)):
+			continue
+		var need: String = DB.ITEMS[p["id"]]["port"]
+		for t in (["HDMI", "DP"] if need in ["HDMI", "DP"] else [need]):
+			var free := range(port_count(t, pc)).filter(func(i): return not out.any(func(c): return c["type"] == t and c["port"] == i))
+			if not free.is_empty():
+				out.append({"dev": p, "type": t, "port": free[0]})
+				break
+	return out
+
+
 static func needs_cable(p: Dictionary) -> bool:
 	return DB.ITEMS[p["id"]].has("port")
 

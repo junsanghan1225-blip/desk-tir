@@ -48,6 +48,9 @@ static var power_t := 0     # 켠 시각 (부팅 화면 → 바탕화면)
 static var checkouts := 0   # 이번 주문 결제 횟수 (두 번째부터 배송비)
 static var ship_paid := 0   # 이번 주문 추가 배송비 (만)
 static var bill := []       # 마지막 정산 내역 [[항목, 금액(만)], ...] → 결과 화면
+static var looks := {}       # 이번 수리에서 들여다본 진단 화면 (정면 빼고). 무료는 FREE_LOOKS곳, 그다음은 화면마다 점검비
+const FREE_LOOKS := 2
+const LOOK_FEE := 1          # 만 원. 수리비가 3~12만이라 아무 데나 다 열어 보면 남는 게 없음 → 증상으로 짐작하고 열기
 static var hints_used := 0  # 이번 수리에서 본 힌트 수 (0이면 명탐정 보너스)
 static var streak := 0      # 연속 별 3개 (팁이 점점 커짐)
 static var last_gift := ""  # 만족한 손님이 두고 간 선물 (창고로)
@@ -149,6 +152,7 @@ static func today() -> Dictionary:
 
 static func reset_order() -> void:
 	order_mod = {}
+	looks = {}
 	hints_used = 0
 	last_gift = ""
 	checkouts = 0
@@ -338,6 +342,10 @@ static func money_left() -> int:
 	return request()["budget"] - spent()
 
 
+static func look_cost() -> int:
+	return maxi(0, looks.size() - FREE_LOOKS) * LOOK_FEE
+
+
 ## 납품 정산: 손님은 예산만큼 내고 별 1개당 팁. 별 0개면 0원. [대금, 팁]
 const PAY_RATE := [40, 80, 100, 100]   # 별 0~3개일 때 받는 비율(%). 별 0개 = 실망: 그래도 일부는 냄
 
@@ -350,12 +358,13 @@ static func settle(result: Dictionary) -> Array:
 	streak = streak + 1 if result["stars"] == 3 else 0   # 계속할 이유: 연속 만점이면 팁이 불어남
 	var combo: int = tip * mini(streak - 1, 3) / 2 if streak >= 2 else 0
 	var sleuth: int = 2 if request().has("repair") and result["stars"] > 0 and hints_used == 0 else 0
-	money += pay + tip + combo + sleuth
+	var look_fee := look_cost()
+	money += pay + tip + combo + sleuth - look_fee
 	last_gift = gift() if result["stars"] == 3 else ""
 	if last_gift != "":
 		stock[last_gift] = stock.get(last_gift, 0) + 1
 	bill = [["손님 예산", budget], ["만족도 별 %d개 (%d%%)" % [result["stars"], PAY_RATE[result["stars"]]], sat],
-		["팁", tip], ["연속 만점 %d번째 (팁 보너스)" % streak, combo], ["명탐정 보너스 (힌트 없이 수리)", sleuth],
+		["팁", tip], ["연속 만점 %d번째 (팁 보너스)" % streak, combo], ["명탐정 보너스 (힌트 없이 수리)", sleuth], ["점검 시간 (무료 %d곳 넘게 열어 봄)" % FREE_LOOKS, -look_fee],
 		["물건 값", -spent()]]
 	if ship_paid > 0:
 		bill.append(["나눠 산 배송비 (%d번)" % (checkouts - 1), -ship_paid])
