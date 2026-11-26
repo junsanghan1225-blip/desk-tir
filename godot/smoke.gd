@@ -228,7 +228,25 @@ func run() -> void:
 	tap([0, 0, 100, 100])
 	on("day_end")
 	await shot("11_day_end")
+	Game.shelf = [PCBuild.full().to_dict(), PCBuild.full({"case": "case1", "mb": "mb1", "cpu": "cpu1", "gpu": "", "ram": ["ram1"]}).to_dict()]   # 창고: 랙 PC 두 대
+	var deco: String = DB.ITEMS.keys().filter(func(i): return i != "monitor")[3]
+	Game.stock[deco] = Game.stock.get(deco, 0) + 1
+	for id in ["ram2", "gpu2", "psu2", DB.ITEMS.keys()[5], DB.ITEMS.keys()[9]]:   # 캡처용 재고 상자
+		Game.stock[id] = 2
+	tap(main.modes["day_end"].BTN_STORAGE)
+	on("storage")
+	var st = main.modes["storage"]
+	var at: int = st.ids().find(deco)
+	tap(st.box_rect(at))
+	check(Game.showcase == [deco], "상자 → 내 책상 전시")
+	tap(st.rack_rect(0))
+	check(not Game.my_pc.is_empty() and Game.shelf.size() == 1, "랙 PC → 내 책상")
+	await shot("13_storage")
+	tap(st.BTN_BACK)
+	on("day_end")
+	var fee_before := Game.money
 	tap(main.modes["day_end"].BTN_NEXT)
+	check(Game.money == fee_before - Game.SHELF_FEE, "보관료")
 	on("news")
 	check(Game.day == 2)
 	if shots:                                  # 납품 사진 → 앨범

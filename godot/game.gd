@@ -22,6 +22,10 @@ static var stats := {}         # 업적용 누적 기록
 static var achv := {}          # 달성한 업적 -> true
 static var visits := {}        # 손님 이름 -> [방문마다 받은 별]
 static var new_achv := []      # 방금 달성한 업적 (결과 화면에 띄움)
+static var shelf := []         # 창고 랙: 미리 조립해 둔 PC (PCBuild.to_dict)
+static var showcase := []      # 창고 안 내 책상에 전시한 소품 id
+static var my_pc := {}         # 내 책상에 둔 PC (to_dict), 없으면 {}
+static var desk_tier := 0      # 내 책상 등급 (DESKS)
 
 ## 업적: id -> [이름, 설명, 보상(만 원), 조건(stats)]
 const ACHV := {
@@ -70,6 +74,10 @@ static func new_game() -> void:
 	stats = {}
 	achv = {}
 	visits = {}
+	shelf = []
+	showcase = []
+	my_pc = {}
+	desk_tier = 0
 	start_day()
 	reset_order()
 
@@ -473,6 +481,110 @@ static func next_customer() -> bool:
 	return order_index < todays_requests().size()
 
 
+# ---------- 창고: 미리 조립한 PC 랙 · 내 전시 책상 ----------
+const SHELF_MAX := 3
+const SHELF_FEE := 1   # 랙 PC 한 대당 하루 보관료(만). 공짜면 미리 조립이 의뢰 긴장감을 무너뜨려서
+const DESKS := [["접이식 책상", 0, 3], ["원목 책상", 30, 5], ["LED 게이밍 데스크", 80, 7]]   # [이름, 값(만), 전시 칸]
+
+
+static func in_order() -> bool:
+	return order_index < todays_requests().size() and not request().has("repair")
+
+
+## 조립대 PC를 랙에 올림 (켜지는 PC만). 못 하면 이유
+static func shelve() -> String:
+	if not in_order() or not pc.has("CASE"):
+		return "주문 중 조립대에 있는 PC를 올려요"
+	if shelf.size() >= SHELF_MAX:
+		return "랙이 꽉 찼어요 (%d대)" % SHELF_MAX
+	if not pc.boots():
+		return "켜지는 PC만 보관해요 (전원 테스트부터)"
+	shelf.append(pc.to_dict())
+	pc = PCBuild.new()
+	power = false
+	return ""
+
+
+## 랙 PC가 지금 손님 조건에 맞는지: 용도 성능 · 새 제품만
+static func shelf_fits(i: int) -> bool:
+	var b := PCBuild.from_dict(shelf[i])
+	var req := request()
+	if req.get("used", "") == "new" and not b.used.is_empty():
+		return false
+	if req.has("use"):
+		return Bench.run(Bench.parts_of(b), req["use"])["ok"]
+	return b.stars() >= req.get("perf", 1)
+
+
+## 랙 PC를 조립대로 (조건이 맞고 예산 안일 때만). 못 하면 이유
+static func unshelve(i: int) -> String:
+	if not in_order():
+		return "손님 주문 중에만 꺼내 쓸 수 있어요"
+	if pc.has("CASE"):
+		return "조립대가 비어 있어야 해요"
+	if not shelf_fits(i):
+		return "이 손님 조건엔 안 맞아요"
+	pc = PCBuild.from_dict(shelf[i])
+	if money_left() < 0:
+		pc = PCBuild.new()
+		return "손님 예산을 넘어요"
+	shelf.remove_at(i)
+	power = false
+	return ""
+
+
+static func shelf_fee() -> int:
+	return shelf.size() * SHELF_FEE
+
+
+## 다음 날로 넘어갈 때 보관료
+static func pay_shelf_fee() -> int:
+	money -= shelf_fee()
+	return shelf_fee()
+
+
+static func display(id: String) -> String:
+	if showcase.size() >= DESKS[desk_tier][2]:
+		return "전시 칸이 꽉 찼어요 (책상을 바꾸면 늘어요)"
+	if not take(id):
+		return "재고가 없어요"
+	showcase.append(id)
+	return ""
+
+
+static func undisplay(i: int) -> void:
+	give_back(showcase[i])
+	showcase.remove_at(i)
+
+
+## 랙 PC ↔ 내 책상 PC (원래 있던 건 랙으로)
+static func pc_to_desk(i: int) -> void:
+	var old := my_pc
+	my_pc = shelf[i]
+	shelf.remove_at(i)
+	if not old.is_empty():
+		shelf.append(old)
+
+
+static func pc_off_desk() -> String:
+	if shelf.size() >= SHELF_MAX:
+		return "랙이 꽉 찼어요"
+	shelf.append(my_pc)
+	my_pc = {}
+	return ""
+
+
+static func upgrade_desk() -> String:
+	if desk_tier + 1 >= DESKS.size():
+		return "이미 최고 책상이에요"
+	var nxt: Array = DESKS[desk_tier + 1]
+	if money < nxt[1]:
+		return "돈이 부족해요"
+	money -= nxt[1]
+	desk_tier += 1
+	return ""
+
+
 # ---------- 저장 · 이어하기 ----------
 static func save(mode: String) -> void:
 	var oi := order_index
@@ -490,7 +602,8 @@ static func save(mode: String) -> void:
 		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(), "mod": order_mod,
 			"cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
 	var d := {"mode": mode, "money": money, "day": day, "stock": stock, "upgrades": upgrades.keys(), "stars_total": stars_total,
-		"history": history, "streak": streak, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv, "visits": visits}
+		"history": history, "streak": streak, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv, "visits": visits,
+		"shelf": shelf, "showcase": showcase, "my_pc": my_pc, "desk_tier": desk_tier}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -526,6 +639,10 @@ static func load_save() -> String:
 	stats = d.get("stats", {})
 	achv = d.get("achv", {})
 	visits = d.get("visits", {})
+	shelf = d.get("shelf", [])
+	showcase = d.get("showcase", [])
+	my_pc = d.get("my_pc", {})
+	desk_tier = d.get("desk_tier", 0)
 	reset_order()
 	if d["order"] != null:
 		cart = d["order"]["cart"]

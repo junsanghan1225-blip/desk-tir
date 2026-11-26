@@ -25,7 +25,7 @@ func _ready() -> void:
 	var screens = load("res://godot/screens.gd")
 	for n in SCREENS:
 		modes[n] = screens.get(SCREENS[n]).new()
-	for n in ["shop", "desk", "build", "wire", "diag"]:
+	for n in ["shop", "desk", "build", "wire", "diag", "storage"]:
 		modes[n] = load("res://godot/%s.gd" % n).new()
 	for n in modes:
 		modes[n].m = self

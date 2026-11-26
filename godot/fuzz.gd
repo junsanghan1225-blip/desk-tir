@@ -32,5 +32,14 @@ func run() -> void:
 				if i % 50 == 0:
 					await process_frame
 			await process_frame
+		for i in 300:   # 창고: 주문 중(일시정지 → 창고)에 마구 누르기
+			if main.top() != main.modes["storage"]:
+				main.go("build")
+				main.push("storage")
+			var px := rng.randf_range(0, 1280)
+			var py := rng.randf_range(0, 720)
+			tap([px, py, px, py])
+			if i % 50 == 0:
+				await process_frame
 	print("fuzz2 done")
 	quit(0)

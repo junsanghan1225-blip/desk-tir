@@ -228,6 +228,7 @@ class Result extends Mode:
 
 class DayEnd extends Mode:
 	const BTN_NEXT := [900, 30, 1240, 76]
+	const BTN_STORAGE := [960, 120, 1240, 190]   # 업그레이드 두 칸 오른쪽 빈자리
 	var toast := ""
 
 	func up_rect(i: int) -> Array:
@@ -247,7 +248,12 @@ class DayEnd extends Mode:
 				m.go("ending")
 			else:
 				Game.day += 1
+				Game.pay_shelf_fee()
 				m.go("news")
+			return
+		if inside(x, y, BTN_STORAGE):
+			sfx("click")
+			m.push("storage")
 			return
 		var ids := DB.UPGRADES.keys()
 		for i in ids.size():
@@ -312,6 +318,9 @@ class DayEnd extends Mode:
 		if toast != "":
 			text(120, 60, toast, 16, PINK)
 		button(BTN_NEXT, "엔딩 보기" if Game.day >= Game.last_day() else "다음 날 영업", PINK)
+		button(BTN_STORAGE, "창고 · 내 책상", CYAN)
+		if Game.shelf_fee() > 0:
+			text(BTN_STORAGE[0], BTN_STORAGE[1] - 22, "보관료 -%d만/일" % Game.shelf_fee(), 22, QUIET)
 
 
 class Product extends Mode:
@@ -504,13 +513,13 @@ class Pause extends Mode:
 	## 일시정지 (ll 버튼 · 왼쪽 위 손님 이름 · ESC · 안드로이드 뒤로). 주문 중이면 왼쪽에 '의뢰 메모'(핵심만 크게).
 	const BOX := [340, 140, 940, 600]
 	const MEMO := [30, 40, 780, 620]
-	const BUTTONS := [["resume", "계속하기"], ["dex", "도감 · 업적"], ["title", "타이틀로"], ["quit", "게임 종료"]]
+	const BUTTONS := [["resume", "계속하기"], ["storage", "창고"], ["dex", "도감 · 업적"], ["title", "타이틀로"], ["quit", "게임 종료"]]
 
 	func _init() -> void:
 		overlay = true
 
 	func btn_rect(i: int) -> Array:
-		var y := 360 - i * 56
+		var y := 380 - i * 56
 		return [850, y - 46, 1230, y] if in_order() else [440, y - 46, 840, y]
 
 	func in_order() -> bool:
@@ -523,6 +532,7 @@ class Pause extends Mode:
 				match BUTTONS[i][0]:
 					"resume": m.pop()
 					"dex": m.push("dex")
+					"storage": m.push("storage")
 					"title": m.go("title")
 					_: m.get_tree().quit()
 

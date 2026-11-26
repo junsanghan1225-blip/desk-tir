@@ -358,5 +358,46 @@ func _initialize() -> void:
 			ok(not Game.request().has("call"), "다음 주문엔 원래대로")
 	ok(calls >= 3, "전화가 여러 번 옴: %d" % calls)
 
+	# --- 창고: 미리 조립 PC 랙 (켜지는 것만 · 조건 맞을 때만 · 보관료) · 내 책상 전시 ---
+	Game.new_game()
+	var fit_i := Game.todays_requests().find(Game.todays_requests().filter(func(q): return not q.has("repair") and q.get("use", {}).get("kind", "office") == "office")[0])
+	Game.order_index = fit_i
+	Game.reset_order()
+	ok(Game.shelve() != "", "빈 조립대는 보관 못 함")
+	Game.pc = PCBuild.full()
+	Game.pc.remove("SSD")
+	ok("켜지는" in Game.shelve(), "안 켜지는 PC 보관 못 함")
+	Game.pc = PCBuild.full()
+	ok(Game.shelve() == "" and Game.shelf.size() == 1 and not Game.pc.has("CASE"), "보관")
+	var fee_m := Game.money
+	ok(Game.pay_shelf_fee() == Game.SHELF_FEE and Game.money == fee_m - Game.SHELF_FEE, "보관료")
+	Game.order_mod = {"budget": 999}   # 사무용 손님 예산(80)으론 기본 PC가 비쌈 → 예산 검사는 아래에서
+	ok(Game.shelf_fits(0) and Game.unshelve(0) == "" and Game.pc.boots() and Game.shelf.is_empty(), "맞는 손님에게 꺼내기")
+	ok(Game.shelve() == "", "다시 보관")
+	Game.order_mod = {}
+	ok(Game.unshelve(0) == "손님 예산을 넘어요" and Game.shelf.size() == 1 and not Game.pc.has("CASE"), "예산 넘으면 못 꺼냄")
+	Game.order_mod = {"use": {"kind": "game", "genre": "open", "res": "4K", "fps": 240}}
+	ok(not Game.shelf_fits(0) and Game.unshelve(0) != "" and Game.shelf.size() == 1, "안 맞는 손님엔 못 꺼냄")
+	Game.order_mod = {"used": "new"}
+	Game.shelf[0]["used"] = {"GPU": {"id": "gpu2", "cond": 80, "paid": 3, "known": true}}
+	ok(not Game.shelf_fits(0), "새 제품만 손님엔 중고 든 PC 안 됨")
+	Game.order_mod = {}
+	var first_item: String = DB.ITEMS.keys()[0]
+	Game.stock[first_item] = 5
+	for k in 3:
+		ok(Game.display(first_item) == "", "전시 %d" % k)
+	ok(Game.display(first_item) != "" and Game.stock[first_item] == 2, "접이식 책상은 3칸")
+	Game.money = 100
+	ok(Game.upgrade_desk() == "" and Game.money == 70 and Game.display(first_item) == "", "책상 바꾸면 칸 늘어남")
+	Game.undisplay(0)
+	ok(Game.showcase.size() == 3 and Game.stock[first_item] == 2, "전시 빼면 상자로")
+	Game.pc_to_desk(0)
+	ok(Game.shelf.is_empty() and not Game.my_pc.is_empty() and Game.pc_off_desk() == "" and Game.shelf.size() == 1, "내 책상 PC ↔ 랙")
+	Game.save("day_end")
+	Game.new_game()
+	Game.load_save()
+	ok(Game.shelf.size() == 1 and Game.showcase.size() == 3 and Game.desk_tier == 1 and PCBuild.from_dict(Game.shelf[0]).boots(), "창고 저장 · 불러오기")
+	Game.delete_save()
+
 	print("godot rules ok" if failed == 0 else "godot rules FAILED: %d" % failed)
 	quit(1 if failed else 0)
