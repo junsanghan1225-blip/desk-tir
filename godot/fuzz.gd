@@ -17,12 +17,19 @@ func run() -> void:
 		Game.day = day
 		Game.order_index = Game.todays_requests().size() - 1
 		Game.reset_order()
+		var my: bool = day % 2 == 0   # 짝수 날은 영업 마감 뒤 내 책상 꾸미기 화면들로
+		if my:
+			Game.order_index = Game.todays_requests().size()
 		for mode in ["build", "desk", "wire", "shop", "build"]:
+			if my and not Game.mine:
+				Game.enter_mine()
 			main.go(mode)
 			for i in 400:
 				var a := [rng.randf_range(0, 1280), rng.randf_range(0, 640)]
 				var b := [rng.randf_range(0, 1280), rng.randf_range(0, 640)]
 				if main.top() != main.modes[mode] and main.top() != main.modes["diag"] and main.top() != main.modes["bench"]:
+					if my and not Game.mine:   # '창고로' 버튼을 눌러 나왔으면 다시
+						Game.enter_mine()
 					main.go(mode)
 				var r := rng.randf()
 				if r < 0.5:
@@ -32,6 +39,10 @@ func run() -> void:
 				if i % 50 == 0:
 					await process_frame
 			await process_frame
+		if Game.mine:
+			Game.exit_mine()
+		Game.order_index = Game.todays_requests().size() - 1   # 창고 테스트는 손님 주문 중으로
+		Game.reset_order()
 		for i in 300:   # 창고: 주문 중(일시정지 → 창고)에 마구 누르기
 			if main.top() != main.modes["storage"]:
 				main.go("build")

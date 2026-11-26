@@ -382,21 +382,22 @@ func _initialize() -> void:
 	Game.shelf[0]["used"] = {"GPU": {"id": "gpu2", "cond": 80, "paid": 3, "known": true}}
 	ok(not Game.shelf_fits(0), "새 제품만 손님엔 중고 든 PC 안 됨")
 	Game.order_mod = {}
-	var first_item: String = DB.ITEMS.keys()[0]
-	Game.stock[first_item] = 5
-	for k in 3:
-		ok(Game.display(first_item) == "", "전시 %d" % k)
-	ok(Game.display(first_item) != "" and Game.stock[first_item] == 2, "접이식 책상은 3칸")
-	Game.money = 100
-	ok(Game.upgrade_desk() == "" and Game.money == 70 and Game.display(first_item) == "", "책상 바꾸면 칸 늘어남")
-	Game.undisplay(0)
-	ok(Game.showcase.size() == 3 and Game.stock[first_item] == 2, "전시 빼면 상자로")
 	Game.pc_to_desk(0)
-	ok(Game.shelf.is_empty() and not Game.my_pc.is_empty() and Game.pc_off_desk() == "" and Game.shelf.size() == 1, "내 책상 PC ↔ 랙")
+	ok(Game.shelf.is_empty() and Game.my_desk["pc"]["parts"].has("CASE"), "진열대 PC → 내 책상")
+	Game.order_index = Game.todays_requests().size()   # 영업 마감 뒤
+	Game.stock["mug"] = 1
+	Game.enter_mine()
+	ok(Game.mine and Game.request()["customer"] == "내 책상" and Game.pc.boots() and Game.money_left() > 9000, "내 책상 꾸미기: 예산 제한 없음 · 내 PC")
+	Game.take("mug")
+	Rules.place_slot(Game.placed, "mug", "desk", 2)
+	Game.save("desk")
+	ok(Game.peek()["mode"] == "day_end" and Game.peek()["order"] == null, "꾸미는 중 저장은 영업 마감으로")
+	Game.exit_mine()
+	ok(not Game.mine and Game.placed.is_empty() and Game.my_desk["placed"].size() == 1, "나오면 내 책상 보관")
 	Game.save("day_end")
 	Game.new_game()
 	Game.load_save()
-	ok(Game.shelf.size() == 1 and Game.showcase.size() == 3 and Game.desk_tier == 1 and PCBuild.from_dict(Game.shelf[0]).boots(), "창고 저장 · 불러오기")
+	ok(Game.shelf.is_empty() and Game.my_desk["placed"].size() == 1 and PCBuild.from_dict(Game.my_desk["pc"]).boots() and not Game.mine, "창고 · 내 책상 저장 · 불러오기")
 	Game.delete_save()
 
 	print("godot rules ok" if failed == 0 else "godot rules FAILED: %d" % failed)

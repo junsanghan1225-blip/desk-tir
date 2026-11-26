@@ -1,26 +1,23 @@
 extends Mode
-## 창고 (영업 마감 · 일시정지에서 들어옴). 위쪽 탭으로 두 화면:
-## 창고 = 재고 상자 선반 + 완성 PC 진열대(2단, 옆모습) · 내 책상 = 남는 돈으로 꾸미는 내 방 책상 (따로 보는 화면).
-## 상자 누르기 = 내 책상에 전시 · 전시품 누르기 = 상자로. 진열대 PC: 주문 중이면 조립대로 꺼내기, 아니면 내 책상에 올리기.
+## 창고 (영업 마감 · 일시정지에서 들어옴): 재고 상자 선반 + 완성 PC 진열대(2단, 옆모습).
+## '내 책상' 탭 = 손님 의뢰와 똑같은 쇼핑 · 책상 · 조립 · 배선 화면으로 내 책상 꾸미기 (영업 마감 때, 테마만 내 방).
+## 진열대 PC: 주문 중이면 조립대로 꺼내기, 아니면 내 책상 PC로.
 
 const BTN_BACK := [880, 656, 1130, 706]
 const VIEWS := [["storage", "창고"], ["desk", "내 책상"]]
 const BTN_PREV := [20, 100, 80, 144]
 const BTN_NEXT := [400, 100, 460, 144]
-const BTN_DESK := [800, 26, 1260, 80]
 const COLS := 5
 const PER := 15
 const SHOW := [492, 140, 1262, 610]   # 완성 PC 진열대: 2단 × 3대
 const ROWS := [410, 170]              # 두 단의 판 높이
 const PC_W := 168   # 옆모습 그림 196:210 비율
 const PC_H := 180
-var view := "storage"
 var page := 0
 var toast := ""
 
 
 func enter() -> void:
-	view = "storage"
 	page = 0
 	toast = ""
 
@@ -47,19 +44,6 @@ func rack_rect(i: int) -> Array:
 	return [x, y, x + PC_W, y + PC_H]
 
 
-## 내 책상 화면 전시 칸: 앞 3칸은 책상 위, 뒤 4칸은 벽 선반
-func slot_rect(i: int) -> Array:
-	if i < 3:
-		var x := 300 + i * 150
-		return [x, 250, x + 120, 370]
-	var wx := 270 + (i - 3) * 160
-	return [wx, 470, wx + 120, 590]
-
-
-func my_pc_rect() -> Array:
-	return [800, 250, 996, 460]
-
-
 func in_order() -> bool:
 	return m.stack[0] in [m.modes["shop"], m.modes["desk"], m.modes["build"], m.modes["wire"]]
 
@@ -74,39 +58,19 @@ func down(x: float, y: float, _right: bool) -> void:
 		sfx("click")
 		m.pop()
 		return
-	for i in VIEWS.size():
-		if inside(x, y, view_rect(i)):
-			view = VIEWS[i][0]
-			sfx("click")
-			return
-	if view == "desk":
-		down_desk(x, y)
-	else:
-		down_storage(x, y)
-
-
-func down_desk(x: float, y: float) -> void:
-	if Game.desk_tier + 1 < Game.DESKS.size() and inside(x, y, BTN_DESK):
-		toast = Game.upgrade_desk()
-		if toast == "":
-			toast = "%s 들여놨어요! 전시 칸 %d개" % [Game.DESKS[Game.desk_tier][0], Game.DESKS[Game.desk_tier][2]]
-			sfx("buy")
-			saved()
+	if inside(x, y, view_rect(1)):   # 내 책상 꾸미기 (손님 책상과 같은 화면들)
+		if Game.mine:
+			toast = "지금 내 책상을 꾸미는 중이에요 (창고로 버튼)"
+		elif in_order():
+			toast = "내 책상은 영업 마감 때 꾸며요"
 		else:
-			sfx("error")
-		return
-	for i in Game.showcase.size():
-		if inside(x, y, slot_rect(i)):
-			Game.undisplay(i)
-			toast = "창고 상자로 돌려놨어요"
-			sfx("pick")
-			saved()
+			sfx("click")
+			Game.enter_mine()
+			m.go("desk")
 			return
-	if not Game.my_pc.is_empty() and inside(x, y, my_pc_rect()):
-		toast = Game.pc_off_desk()
-		if toast == "":
-			toast = "내 PC를 진열대로 옮겼어요"
-			saved()
+		sfx("error")
+		return
+	down_storage(x, y)
 
 
 func down_storage(x: float, y: float) -> void:
@@ -122,11 +86,7 @@ func down_storage(x: float, y: float) -> void:
 			if DB.PARTS.has(id):
 				toast = "%s: 부품은 조립 때 꺼내 써요" % DB.PARTS[id]["name"]
 				return
-			toast = Game.display(id)
-			if toast == "":
-				toast = "%s → 내 책상에 전시!" % DB.ITEMS[id]["name"]
-				sfx("place")
-				saved()
+			toast = "%s ×%d · 내 책상 탭에서 끌어다 놓아요" % [DB.ITEMS[id]["name"], Game.stock[id]]
 			return
 	for i in Game.SHELF_MAX:
 		if not inside(x, y, rack_rect(i)):
@@ -137,7 +97,7 @@ func down_storage(x: float, y: float) -> void:
 				toast = "진열대에 보관! 조건 맞는 손님이 오면 바로 꺼내 써요 (하루 %d만)" % Game.SHELF_FEE
 				sfx("place")
 				saved()
-		elif in_order():
+		elif in_order() and not Game.mine:
 			toast = Game.unshelve(i)
 			if toast == "":
 				toast = "조립대로 꺼냈어요 → 배선만 하면 돼요"
@@ -177,13 +137,6 @@ func draw_pc(d: Dictionary, r: Array) -> void:
 	Game.pc = PCBuild.from_dict(d)
 	m.modes["desk"].draw_side(r, false)
 	Game.pc = keep
-
-
-## 바닥에 붙여 세우기 (fit은 가운데 정렬이라 뜸)
-func stand(id: String, r: Array) -> void:
-	var sz := DB.tex(DB.skin(id)).get_size()
-	var hk: float = minf((r[2] - r[0]) / sz.x, (r[3] - r[1]) / sz.y) * sz.y
-	fit(id, (r[0] + r[2]) / 2.0, r[1] + hk / 2.0, r[2] - r[0], r[3] - r[1])
 
 
 func draw_stock() -> void:
@@ -232,59 +185,16 @@ func draw_rack() -> void:
 			text_c([r[0], r[1], r[2], r[3]], "+ 올리기" if hot else "빈 자리", 22, CYAN if hot else DIM)
 
 
-func draw_my_desk() -> void:
-	var t := Game.desk_tier
-	var slots: int = Game.DESKS[t][2]
-	box([120, 142, 1160, 620], Color8(46, 38, 66) if t < 2 else Color8(34, 20, 60))   # 내 방 벽
-	if t == 2:
-		box([120, 614, 1160, 620], PINK)   # 천장 네온
-		box([120, 142, 1160, 148], CYAN)
-	box([1000, 420, 1130, 590], Color8(70, 110, 160))   # 창문 (밤하늘)
-	box([1008, 428, 1122, 582], Color8(24, 30, 64))
-	box([1063, 428, 1067, 582], Color8(70, 110, 160))
-	circle(1100, 556, 8, Color8(255, 236, 180))
-	if slots > 3:
-		plank(240, 920, 470)   # 벽 선반
-	var top: Color = [Color8(170, 170, 182), WOOD, Color8(34, 32, 44)][t]
-	box([240, 228, 1040, 250], top)   # 상판
-	box([240, 228, 1040, 232], top.darkened(0.25))
-	for lx in [270, 996]:   # 다리
-		box([lx, 142, lx + 18, 228], top.darkened(0.35))
-	if t == 2:
-		box([240, 224, 1040, 228], CYAN)   # LED 줄
-		box([240, 142, 1040, 224], Color(CYAN, 0.05))
-	for i in slots:
-		var r := slot_rect(i)
-		if i < Game.showcase.size():
-			stand(Game.showcase[i], r)
-		else:
-			box([r[0] + 14, r[1], r[2] - 14, r[1] + 3], Color(1, 1, 1, 0.12))   # 빈 칸 표시
-	if not Game.my_pc.is_empty():
-		draw_pc(Game.my_pc, my_pc_rect())
-	else:
-		text_c(my_pc_rect(), "진열대 PC를 누르면 여기로", 22, DIM)
-	text(130, 590, "%s · 전시 %d/%d" % [Game.DESKS[t][0], Game.showcase.size(), slots], 22, GOLD)
-	if t + 1 < Game.DESKS.size():
-		var nxt: Array = Game.DESKS[t + 1]
-		button(BTN_DESK, "%s로 바꾸기 · %d만" % [nxt[0], nxt[1]], PINK)
-
-
 func draw() -> void:
 	box([0, 0, 1280, H], Color8(26, 22, 40))   # 벽
 	box([0, 0, 1280, 140], Color8(40, 36, 52))   # 바닥
 	box([0, 138, 1280, 142], Color8(60, 54, 78))
 	for i in VIEWS.size():
-		var on: bool = VIEWS[i][0] == view
-		var q := press_frame(view_rect(i), PINK if on else Color8(80, 66, 140))
-		text_c(q, VIEWS[i][1], 22, Color.WHITE if on else QUIET)
+		var q := press_frame(view_rect(i), PINK if i == 0 else Color8(80, 66, 140))
+		text_c(q, VIEWS[i][1], 22, Color.WHITE if i == 0 else QUIET)
 	text(420, 679, "가게 %d만" % Game.money, 22, GOLD)
 	button(BTN_BACK, "돌아가기", VIOLET)
-	var hint := ""
-	if view == "desk":
-		draw_my_desk()
-		hint = "전시품을 누르면 창고 상자로 돌아가요"
-	else:
-		draw_stock()
-		draw_rack()
-		hint = "상자 → 내 책상에 전시 · 진열대 PC → 내 책상"
+	draw_stock()
+	draw_rack()
+	var hint := "진열대 PC를 누르면 내 책상 PC로 · '내 책상' 탭에서 꾸미기"
 	text(20, 50, clip(toast if toast != "" else hint, 760), 22, GOLD if toast != "" else QUIET)

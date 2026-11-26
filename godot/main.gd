@@ -93,6 +93,16 @@ func photo(name: String, top := false) -> void:
 	stack = keep
 
 
+## 납품하기 버튼: 손님 주문이면 납품, 내 책상 꾸미는 중이면 저장하고 창고로
+func done() -> void:
+	if Game.mine:
+		Game.exit_mine()
+		go("day_end")
+		push("storage")
+	else:
+		deliver()
+
+
 ## 납품: 책상 사진을 찍고 결과 화면으로
 func deliver() -> void:
 	var b = modes["build"]

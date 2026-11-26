@@ -227,7 +227,7 @@ func down(x: float, y: float, right: bool) -> void:
 	if tabs(x, y):
 		return
 	if inside(x, y, BTN_DONE):
-		m.deliver()
+		m.done()
 		return
 	if inside(x, y, BTN_PHOTO):
 		take_photo()
@@ -453,7 +453,10 @@ func by_depth() -> Array:
 
 
 func draw_front() -> void:
-	spr("room_bg_" + Game.today()["weather"], 775, 325)
+	if Game.mine:
+		draw_my_room()
+	else:
+		spr("room_bg_" + Game.today()["weather"], 775, 325)
 	for p in Game.placed.filter(func(p): return p["layer"] == "wall") + by_depth():
 		if not lifted(p):
 			if Rules.mount_of(p["id"]) == "arm":
@@ -633,17 +636,30 @@ func draw_screen(p: Dictionary) -> void:
 	var win := [s[0] + sw * 0.24, s[1] + th + sh * 0.12, s[0] + sw * 0.84, s[3] - sh * 0.1]   # 열린 창 = 손님 용도 앱 (게임은 실제 FPS로)
 	draw_app(win, Bench.run(Bench.parts_of(Game.pc), Game.request().get("use", {"kind": "office"})), t, false)
 
+## 내 방 테마: 손님 가게(차가운 네온)와 달리 밤 풍경 + 따뜻한 조명 · 꼬마전구
+func draw_my_room() -> void:
+	spr("room_bg_night", 775, 325)
+	box([270, 0, 1280, 650], Color(1.0, 0.55, 0.25, 0.12))   # 따뜻한 조명
+	box([270, 0, 1280, 200], Color8(120, 76, 44, 110))   # 네온 가게 책상 대신 원목 느낌
+	var t := Time.get_ticks_msec() / 1000.0
+	line(Vector2(290, 622), Vector2(1260, 622), Color8(60, 50, 40), 2)
+	for i in 25:
+		var x := 300.0 + i * 40
+		var y := 616.0 - 6 * absf(sin(i * 0.9))
+		circle(x, y, 5, Color([Color8(255, 200, 120), Color8(255, 150, 170), Color8(170, 230, 255)][i % 3], 0.6 + 0.4 * sin(t * 2 + i)))
+
+
 func draw_top() -> void:
 	box(ROOM, Color8(14, 9, 30))
 	var d := desk_rect()
-	box([d[0], d[3], d[2], 640], Color8(40, 28, 74))   # 벽
+	box([d[0], d[3], d[2], 640], Color8(70, 44, 40) if Game.mine else Color8(40, 28, 74))   # 벽 (내 방은 따뜻한 색)
 	text(d[0] + 12, 618, "벽 (벽 장식은 정면 뷰에서)", 16, DIM)
 	frame("ui_panel", d)                               # 책상 상판
 	for i in range(1, 4):                              # 상판 나뭇결 대신 네온 격자
 		var gy: float = TOP_BACK - Rules.DESK_DEPTH * K * i / 4.0
 		line(Vector2(d[0] + 12, gy), Vector2(d[2] - 12, gy), Color8(60, 46, 110), 1)
 	box([d[0], d[1] - 4, d[2], d[1]], PINK)            # 앞쪽 가장자리 네온
-	text(d[0] + 12, d[1] - 20, "앞 (손님 자리)", 16, DIM)
+	text(d[0] + 12, d[1] - 20, "앞 (내 자리)" if Game.mine else "앞 (손님 자리)", 16, DIM)
 	for p in by_depth():
 		if lifted(p):
 			continue
@@ -717,7 +733,7 @@ func draw() -> void:
 	top_bar("desk")
 	button(BTN_PHOTO, "사진", VIOLET)
 	button(BTN_VIEW, "정면 뷰" if top_view else "탑뷰", VIOLET)
-	button(BTN_DONE, "납품하기", PINK)
+	button(BTN_DONE, "창고로" if Game.mine else "납품하기", PINK)
 	text(SHOP_W + 10, 30, "탑뷰: 앞뒤로도 배치 · 두 번 누르기: 창고로" if top_view else "누르기: 선택 · 색   두 번 누르기: 창고로", 14, QUIET)
 	if toast != "":
 		text(SHOP_W + 10, 62, toast, 16, PINK)

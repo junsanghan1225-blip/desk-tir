@@ -23,9 +23,11 @@ static var achv := {}          # 달성한 업적 -> true
 static var visits := {}        # 손님 이름 -> [방문마다 받은 별]
 static var new_achv := []      # 방금 달성한 업적 (결과 화면에 띄움)
 static var shelf := []         # 창고 랙: 미리 조립해 둔 PC (PCBuild.to_dict)
-static var showcase := []      # 창고 안 내 책상에 전시한 소품 id
-static var my_pc := {}         # 내 책상에 둔 PC (to_dict), 없으면 {}
-static var desk_tier := 0      # 내 책상 등급 (DESKS)
+static var my_desk := {}       # 내 책상 (손님 책상과 같은 방식): pack() 모양 {placed, pc, cables}
+static var mine := false       # 지금 쇼핑 · 책상 · 조립 · 배선 화면이 '내 책상'을 꾸미는 중인지 (손님 주문 대신)
+## 내 책상 꾸미는 동안의 '의뢰': 예산 제한 없음 · 성능 목표는 게임 144fps (자랑용 숫자)
+const MY_REQ := {"customer": "내 책상", "face": "dev", "budget": 99999, "required": [], "forbidden": [], "theme": [], "lines": [],
+	"use": {"kind": "game", "genre": "fps", "res": "1080p", "fps": 144}}
 
 ## 업적: id -> [이름, 설명, 보상(만 원), 조건(stats)]
 const ACHV := {
@@ -75,9 +77,8 @@ static func new_game() -> void:
 	achv = {}
 	visits = {}
 	shelf = []
-	showcase = []
-	my_pc = {}
-	desk_tier = 0
+	my_desk = {}
+	mine = false
 	start_day()
 	reset_order()
 
@@ -98,6 +99,8 @@ static func todays_requests() -> Array:
 
 ## 지금 손님 의뢰. 주문 중 걸려 온 전화(예산 깎기 · 추가 요청)가 있으면 그걸 덮어쓴 것
 static func request() -> Dictionary:
+	if mine:
+		return MY_REQ
 	var r: Dictionary = todays_requests()[order_index]
 	return r if order_mod.is_empty() else r.merged(order_mod, true)
 
@@ -484,7 +487,6 @@ static func next_customer() -> bool:
 # ---------- 창고: 미리 조립한 PC 랙 · 내 전시 책상 ----------
 const SHELF_MAX := 6   # 진열대 2단 × 3대
 const SHELF_FEE := 1   # 랙 PC 한 대당 하루 보관료(만). 공짜면 미리 조립이 의뢰 긴장감을 무너뜨려서
-const DESKS := [["접이식 책상", 0, 3], ["원목 책상", 30, 5], ["LED 게이밍 데스크", 80, 7]]   # [이름, 값(만), 전시 칸]
 
 
 static func in_order() -> bool:
@@ -493,8 +495,8 @@ static func in_order() -> bool:
 
 ## 조립대 PC를 랙에 올림 (켜지는 PC만). 못 하면 이유
 static func shelve() -> String:
-	if not in_order() or not pc.has("CASE"):
-		return "주문 중 조립대에 있는 PC를 올려요"
+	if not (in_order() or mine) or not pc.has("CASE"):
+		return "조립대에 있는 PC를 올려요 (주문 중 · 내 책상)"
 	if shelf.size() >= SHELF_MAX:
 		return "랙이 꽉 찼어요 (%d대)" % SHELF_MAX
 	if not pc.boots():
@@ -543,50 +545,58 @@ static func pay_shelf_fee() -> int:
 	return shelf_fee()
 
 
-static func display(id: String) -> String:
-	if showcase.size() >= DESKS[desk_tier][2]:
-		return "전시 칸이 꽉 찼어요 (책상을 바꾸면 늘어요)"
-	if not take(id):
-		return "재고가 없어요"
-	showcase.append(id)
-	return ""
-
-
-static func undisplay(i: int) -> void:
-	give_back(showcase[i])
-	showcase.remove_at(i)
-
-
-## 랙 PC ↔ 내 책상 PC (원래 있던 건 랙으로)
+## 진열대 PC ↔ 내 책상 PC (원래 있던 건 진열대로). 내 책상 꾸미는 중이면 지금 조립대에 바로
 static func pc_to_desk(i: int) -> void:
-	var old := my_pc
-	my_pc = shelf[i]
+	var old: Dictionary = pc.to_dict() if mine else my_desk.get("pc", {})
+	var nw: Dictionary = shelf[i]
 	shelf.remove_at(i)
-	if not old.is_empty():
+	if mine:
+		pc = PCBuild.from_dict(nw)
+		power = false
+	else:
+		my_desk = {"placed": my_desk.get("placed", []), "cables": my_desk.get("cables", []), "pc": nw}
+	if old.get("parts", {}).has("CASE"):
 		shelf.append(old)
 
 
-static func pc_off_desk() -> String:
-	if shelf.size() >= SHELF_MAX:
-		return "랙이 꽉 찼어요"
-	shelf.append(my_pc)
-	my_pc = {}
-	return ""
+## 내 책상 꾸미기 시작: 손님 주문 상태 대신 내 책상을 쇼핑 · 책상 · 조립 · 배선 화면에 올림 (영업 마감 때만)
+static func enter_mine() -> void:
+	reset_order()
+	mine = true
+	if not my_desk.is_empty():
+		unpack(my_desk)
 
 
-static func upgrade_desk() -> String:
-	if desk_tier + 1 >= DESKS.size():
-		return "이미 최고 책상이에요"
-	var nxt: Array = DESKS[desk_tier + 1]
-	if money < nxt[1]:
-		return "돈이 부족해요"
-	money -= nxt[1]
-	desk_tier += 1
-	return ""
+static func exit_mine() -> void:
+	my_desk = pack()
+	mine = false
+	reset_order()
+
+
+## 책상 · PC · 선을 저장 모양으로 (모니터에 붙은 소품의 host · 선의 기기는 번호로)
+static func pack() -> Dictionary:
+	var flat := placed.map(func(p):
+		var q: Dictionary = p.duplicate()
+		if q.has("host"):
+			q["host"] = placed.find(p["host"])
+		return q)
+	return {"placed": flat, "pc": pc.to_dict(), "cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
+
+
+static func unpack(d: Dictionary) -> void:
+	placed = d["placed"]
+	for p in placed:
+		if p.has("host"):
+			p["host"] = placed[p["host"]]
+	pc = PCBuild.from_dict(d["pc"])
+	cables = d["cables"].map(func(c): return {"dev": placed[c["dev"]], "type": c["type"], "port": c["port"]})
 
 
 # ---------- 저장 · 이어하기 ----------
 static func save(mode: String) -> void:
+	if mine:   # 내 책상 꾸미는 중: 손님 주문은 없으니 영업 마감 화면으로 이어감
+		my_desk = pack()
+		mode = "day_end"
 	var oi := order_index
 	if mode == "result":  # 정산은 끝났으니 다음 단계부터 이어간다
 		var more := oi + 1 < todays_requests().size()
@@ -594,16 +604,10 @@ static func save(mode: String) -> void:
 		oi += 1 if more else 0
 	var order = null
 	if mode in ["shop", "desk", "build", "wire"]:
-		var flat := placed.map(func(p):   # 모니터에 붙은 소품의 host는 번호로
-			var q: Dictionary = p.duplicate()
-			if q.has("host"):
-				q["host"] = placed.find(p["host"])
-			return q)
-		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(), "mod": order_mod,
-			"cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
+		order = pack().merged({"cart": cart, "mod": order_mod})
 	var d := {"mode": mode, "money": money, "day": day, "stock": stock, "upgrades": upgrades.keys(), "stars_total": stars_total,
 		"history": history, "streak": streak, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv, "visits": visits,
-		"shelf": shelf, "showcase": showcase, "my_pc": my_pc, "desk_tier": desk_tier}
+		"shelf": shelf, "my_desk": my_desk}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -640,18 +644,12 @@ static func load_save() -> String:
 	achv = d.get("achv", {})
 	visits = d.get("visits", {})
 	shelf = d.get("shelf", [])
-	showcase = d.get("showcase", [])
-	my_pc = d.get("my_pc", {})
-	desk_tier = d.get("desk_tier", 0)
+	my_desk = d.get("my_desk", {})
+	mine = false
 	reset_order()
 	if d["order"] != null:
 		cart = d["order"]["cart"]
-		placed = d["order"]["placed"]
-		for p in placed:
-			if p.has("host"):
-				p["host"] = placed[p["host"]]
-		pc = PCBuild.from_dict(d["order"]["pc"])
-		cables = d["order"]["cables"].map(func(c): return {"dev": placed[c["dev"]], "type": c["type"], "port": c["port"]})
+		unpack(d["order"])
 		order_mod = d["order"].get("mod", {})
 	return d["mode"]
 

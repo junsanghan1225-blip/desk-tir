@@ -30,7 +30,7 @@ func down(x: float, y: float, right: bool) -> void:
 	if tabs(x, y):
 		return
 	if inside(x, y, BTN_DONE):
-		m.deliver()
+		m.done()
 		return
 	if inside(x, y, BTN_AUTO):
 		var before := Game.cables.size()
@@ -188,4 +188,4 @@ func draw() -> void:
 		box([30, 62, 40 + text_w(toast, 22) + 20, 100], Color(0, 0, 0, 0.75))
 		text(40, 81, toast, 22, PINK)
 	button(BTN_AUTO, "한 번에 꽂기", VIOLET)
-	button(BTN_DONE, "납품하기", PINK)
+	button(BTN_DONE, "창고로" if Game.mine else "납품하기", PINK)

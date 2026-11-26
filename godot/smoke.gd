@@ -229,22 +229,25 @@ func run() -> void:
 	on("day_end")
 	await shot("11_day_end")
 	Game.shelf = [PCBuild.full().to_dict(), PCBuild.full({"case": "case1", "mb": "mb1", "cpu": "cpu1", "gpu": "", "ram": ["ram1"]}).to_dict()]   # 창고: 랙 PC 두 대
-	var deco: String = DB.ITEMS.keys().filter(func(i): return i != "monitor")[3]
-	Game.stock[deco] = Game.stock.get(deco, 0) + 1
-	for id in ["ram2", "gpu2", "psu2", DB.ITEMS.keys()[5], DB.ITEMS.keys()[9]]:   # 캡처용 재고 상자
+	for id in ["ram2", "gpu2", "psu2", "monitor", "keyboard", "lamp_warm", "mug"]:   # 캡처용 재고 상자
 		Game.stock[id] = 2
 	tap(main.modes["day_end"].BTN_STORAGE)
 	on("storage")
 	var st = main.modes["storage"]
-	var at: int = st.ids().find(deco)
-	tap(st.box_rect(at))
-	check(Game.showcase == [deco], "상자 → 내 책상 전시")
 	tap(st.rack_rect(0))
-	check(not Game.my_pc.is_empty() and Game.shelf.size() == 1, "랙 PC → 내 책상")
+	check(Game.my_desk.get("pc", {}).get("parts", {}).has("CASE") and Game.shelf.size() == 1, "진열대 PC → 내 책상")
 	await shot("13_storage")
-	tap(st.view_rect(1))
-	check(st.view == "desk", "내 책상 화면")
+	tap(st.view_rect(1))                       # 내 책상: 손님 책상과 같은 화면 (테마만 내 방)
+	on("desk")
+	check(Game.mine and Game.pc.has("CASE"), "내 책상 꾸미기 시작")
+	var dk = main.modes["desk"]
+	for d in [["monitor", 640, 250], ["keyboard", 820, 250], ["lamp_warm", 520, 250], ["mug", 980, 250]]:
+		drag(dk.row_rect(dk.rows().find(d[0])), [d[1], d[2], d[1], d[2]])
+	check(Game.placed.size() == 4, "내 책상 배치 %s" % dk.toast)
 	await shot("13b_my_desk")
+	tap(dk.BTN_DONE)
+	on("storage")
+	check(not Game.mine and Game.my_desk["placed"].size() == 4 and Game.placed.is_empty(), "내 책상 저장하고 창고로")
 	tap(st.BTN_BACK)
 	on("day_end")
 	var fee_before := Game.money
