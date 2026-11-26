@@ -143,29 +143,44 @@ def plant_hang(d):   # 줄에 매달린 화분 + 양옆으로 늘어진 덩굴(�
     d.polygon([(46, 66), (82, 66), (82, 72), (46, 72)], fill=(190, 190, 204))
 
 
-def cat_lucky(d):   # 앞에서 본 행운 고양이: 흰 몸, 든 왼발, 빨간 목걸이와 금 방울, 금화
-    W, Wd = (246, 244, 240), (200, 196, 204)
-    d.ellipse([34, 58, 94, 118], fill=W)                             # 몸
-    d.ellipse([40, 100, 88, 120], fill=Wd)
-    d.polygon([(38, 34), (42, 10), (58, 26)], fill=W)                # 귀
-    d.polygon([(90, 34), (86, 10), (70, 26)], fill=W)
-    d.polygon([(43, 28), (45, 16), (53, 26)], fill=(255, 160, 170))
-    d.polygon([(85, 28), (83, 16), (75, 26)], fill=(255, 160, 170))
-    d.ellipse([32, 20, 96, 70], fill=W)                              # 머리
-    d.rounded_rectangle([94, 14, 112, 66], 8, fill=W, outline=Wd, width=2)   # 든 발 (머리 옆으로)
-    d.ellipse([98, 18, 108, 26], fill=(255, 160, 170))
-    d.line([38, 66, 90, 66], fill=Wd, width=2)                       # 머리 · 몸 경계
-    d.arc([44, 38, 56, 48], 200, 340, fill=(30, 24, 40), width=3)    # 웃는 눈
-    d.arc([72, 38, 84, 48], 200, 340, fill=(30, 24, 40), width=3)
-    d.ellipse([61, 50, 67, 54], fill=(240, 110, 130))                # 코
-    d.ellipse([38, 50, 46, 56], fill=(255, 190, 200))                # 볼
-    d.ellipse([82, 50, 90, 56], fill=(255, 190, 200))
-    d.rectangle([40, 68, 88, 73], fill=(220, 50, 60))                # 목걸이
-    d.ellipse([58, 70, 70, 82], fill=GOLD)                           # 방울
-    d.line([60, 77, 68, 77], fill=GOLD_D, width=1)
-    d.ellipse([44, 82, 72, 106], fill=GOLD)                          # 금화
-    d.ellipse([48, 86, 68, 102], outline=GOLD_D, width=2)
-    d.ellipse([47, 84, 55, 90], fill=(255, 236, 150))
+def cat_lucky(d):   # 앞에서 본 행운 고양이: 빨간 방석 위에 앉아 오른발을 귀 옆까지 들고, 왼발로 금화를 안음
+    W, Wd, PINK = (248, 246, 242), (206, 200, 210), (255, 168, 180)
+    d.rounded_rectangle([22, 108, 106, 122], 6, fill=(200, 48, 64))   # 방석
+    d.rectangle([22, 108, 106, 110], fill=(236, 90, 100))
+    d.ellipse([30, 58, 98, 116], fill=W)                                # 몸
+    d.arc([30, 58, 98, 116], 20, 160, fill=Wd, width=3)                 # 몸 아래 그림자
+    d.rounded_rectangle([84, 34, 104, 84], 10, fill=W, outline=Wd, width=2)   # 든 팔
+    d.ellipse([82, 20, 106, 44], fill=W, outline=Wd, width=2)           # 든 발
+    for x in (88, 94, 100):
+        d.line([x, 22, x, 28], fill=Wd, width=1)                        # 발가락
+    d.ellipse([89, 31, 99, 39], fill=PINK)
+    d.polygon([(30, 34), (34, 6), (56, 22)], fill=W)                    # 귀
+    d.polygon([(86, 34), (82, 6), (60, 22)], fill=W)
+    d.polygon([(35, 28), (37, 13), (49, 23)], fill=PINK)
+    d.polygon([(81, 28), (79, 13), (67, 23)], fill=PINK)
+    d.ellipse([24, 16, 92, 68], fill=W)                                 # 머리
+    d.ellipse([30, 18, 50, 34], fill=(240, 150, 60))                    # 얼룩(주황 · 검정)
+    d.ellipse([68, 18, 78, 26], fill=(50, 44, 56))
+    d.arc([36, 36, 50, 46], 200, 340, fill=(30, 24, 40), width=3)      # 웃는 눈
+    d.arc([66, 36, 80, 46], 200, 340, fill=(30, 24, 40), width=3)
+    d.polygon([(55, 48), (61, 48), (58, 52)], fill=(236, 100, 120))     # 코
+    d.arc([51, 50, 59, 56], 20, 160, fill=(120, 80, 90), width=1)       # 입(ω)
+    d.arc([57, 50, 65, 56], 20, 160, fill=(120, 80, 90), width=1)
+    for y in (48, 53):                                                  # 수염
+        d.line([24, y - 2, 40, y], fill=(170, 164, 180), width=1)
+        d.line([76, y, 92, y - 2], fill=(170, 164, 180), width=1)
+    d.ellipse([32, 48, 40, 54], fill=(255, 200, 208))                   # 볼
+    d.ellipse([76, 48, 84, 54], fill=(255, 200, 208))
+    d.chord([30, 54, 86, 76], 30, 150, fill=(220, 50, 60))              # 목걸이
+    d.chord([30, 58, 86, 74], 30, 150, fill=W)
+    d.ellipse([52, 66, 64, 78], fill=GOLD)                              # 방울
+    d.line([54, 73, 62, 73], fill=GOLD_D, width=1)
+    d.ellipse([56, 68, 59, 71], fill=(255, 240, 170))
+    d.ellipse([38, 80, 68, 108], fill=GOLD)                             # 금화
+    d.ellipse([42, 84, 64, 104], outline=GOLD_D, width=2)
+    d.rectangle([51, 89, 55, 99], fill=GOLD_D)
+    d.ellipse([41, 82, 49, 88], fill=(255, 236, 150))
+    d.ellipse([60, 94, 76, 108], fill=W, outline=Wd, width=2)           # 금화를 받친 왼발
 
 
 DRAW = {f.__name__: f for f in [gpu_low, ram_rgb, ssd_m2, ssd_sata, psu, mouse_gaming, light_bar, plant_hang, cat_lucky]}
