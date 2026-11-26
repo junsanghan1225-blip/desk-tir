@@ -1,5 +1,5 @@
 # PixelLab 그림 모아보기: resource/pixellab/*.png → build/pixellab_sheet.png
-# 어두운 배경(#18122C), 2배 nearest 확대, 아래에 id. 목록(json) 순서대로, 없는 건 빈칸.
+# 목록 순서 다음에 나머지 파일. 어두운 배경(#18122C), 2배 nearest 확대, 아래에 id. 목록(json) 순서대로, 없는 건 빈칸.
 import json, os
 from PIL import Image, ImageDraw, ImageFont
 
@@ -9,6 +9,7 @@ OUT = os.path.join(ROOT, "build", "pixellab_sheet.png")
 CELL, LABEL, COLS = 256, 34, 8
 
 ids = [it["id"] for it in json.load(open(os.path.join(ROOT, "tools", "pixellab_list.json"), encoding="utf-8"))]
+ids += sorted(f[:-4] for f in os.listdir(SRC) if f.endswith(".png") and f[:-4] not in ids)   # 직접 그리거나 바꾼 것
 rows = (len(ids) + COLS - 1) // COLS
 sheet = Image.new("RGBA", (COLS * CELL, rows * (CELL + LABEL)), "#18122C")
 draw = ImageDraw.Draw(sheet)

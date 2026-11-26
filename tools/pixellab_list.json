@@ -26,7 +26,7 @@
   {"id": "speaker_book", "prompt": "pair of small wooden bookshelf speakers, front view"},
   {"id": "lamp_warm", "prompt": "warm desk lamp with fabric shade glowing orange, side view"},
   {"id": "light_bar", "prompt": "monitor light bar lamp clipped on top, glowing white, side view"},
-  {"id": "neon_sign", "prompt": "pink neon sign shaped like a heart, glowing"},
+  {"id": "neon_heart", "prompt": "pink neon sign shaped like a heart, glowing"},
   {"id": "mug", "prompt": "white coffee mug with steam, side view"},
   {"id": "book_stand", "prompt": "wooden book stand holding an open book, side view"},
   {"id": "plant_hang", "prompt": "hanging pothos plant in a small pot with long green vines"},

@@ -61,17 +61,23 @@ const PX := {
 	"monitor_oled": "mon_27", "monitor_4k": "mon_27", "monitor_curve": "mon_curved",
 	"keyboard": "kb_office", "gaming_kb": "kb_gaming", "mouse_gaming": "mouse_gaming",
 	"headset": "headset", "speaker": "speaker_book", "lamp_warm": "lamp_warm",
-	"monitor_bar": "light_bar", "neon_heart": "neon_sign", "mug": "mug",
+	"monitor_bar": "light_bar", "mug": "mug",
 	"book": "book_stand", "hanging_plant": "plant_hang", "lucky_cat": "cat_lucky",
 	"mini_plant": "plant_mini",
 }
 const PX_TYPE := {"CPU": "cpu", "MB": "mb_atx", "RAM": "ram", "SSD": "ssd_m2", "PSU": "psu"}   # 종류 전체가 한 그림
 
 
-## 아이콘 그림 이름: PixelLab 그림이 있으면 "pixellab/<id>", 없으면 ""
+## 아이콘 그림 이름: PixelLab 그림(또는 같은 화풍으로 바꾼 그림)이 있으면 "pixellab/<id>", 없으면 ""
 static func px(id: String) -> String:
-	var pid: String = PX.get(id, PX_TYPE.get(PARTS[id]["type"], "") if PARTS.has(id) else "")
-	return "pixellab/" + pid if pid != "" and ResourceLoader.exists("res://resource/pixellab/%s.png" % pid) else ""
+	var pid: String = PX.get(id, "")
+	if pid == "" or not _px_has(pid):   # 대응표 → 같은 이름 파일(같은 화풍으로 바꾼 것) → 종류 공통 그림
+		pid = id if _px_has(id) else PX_TYPE.get(PARTS[id]["type"], "") if PARTS.has(id) else ""
+	return "pixellab/" + pid if pid != "" and _px_has(pid) else ""
+
+
+static func _px_has(pid: String) -> bool:
+	return ResourceLoader.exists("res://resource/pixellab/%s.png" % pid)
 
 
 static func tex(name: String) -> Texture2D:
