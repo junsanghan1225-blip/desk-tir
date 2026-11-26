@@ -6,7 +6,7 @@ const SHOP_W := 270
 const ROW_H := 31
 const ROW_TOP := 600
 const ROOM := [270, 0, 1280, 650]
-const PC_RECT := [1160, 210, 1260, 420]   # 책상 오른쪽 PC (앞면이 보임. 옆모습은 조립 탭의 "완성 모습")
+const PC_RECT := [1166, 210, 1256, 394]   # 책상 오른쪽 PC (앞면이 보임. 옆모습은 조립 탭의 "완성 모습")
 const BTN_POWER := [1198, 388, 1222, 412]
 const CASE_BODY := {"case1": Color8(42, 35, 80), "case2": Color8(232, 230, 242), "case3": Color8(20, 16, 42), "case4": Color8(232, 230, 242), "case5": Color8(42, 35, 80)}
 ## 모니터 그림 속 화면 위치 [x1, y1, x2, y2, 그림 너비, 그림 높이] (위에서부터, 원래 그림 기준)
@@ -17,8 +17,8 @@ const BTN_PHOTO := [800, 10, 910, 50]
 const PER := 16
 const BTN_PREV := [14, 66, 64, 96]
 const BTN_NEXT := [206, 66, 256, 96]
-# 탑뷰: 책상 x 300~1070 · 앞뒤 0~DESK_DEPTH 를 K배로 크게
-const K := 1.2
+# 탑뷰: 책상 x 300~1150 · 앞뒤 0~DESK_DEPTH 를 K배로 크게
+const K := 1.1
 const TOP_BACK := 590.0   # 책상 뒤쪽(벽) 가장자리 화면 높이
 
 var top_view := false

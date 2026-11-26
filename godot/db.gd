@@ -121,5 +121,7 @@ static func look(id: String) -> String:
 	return PARTS[id].get("look", id) if PARTS.has(id) else id
 
 
+## 소품은 실제 비율 그림(5.5px/cm)을 책상 축척(Rules.UNIT)에 맞춰 줄인 크기
 static func size_of(name: String) -> Vector2i:
-	return Vector2i(tex(name).get_size())
+	var s := tex(name).get_size()
+	return Vector2i((s * Rules.UNIT / 5.5).round()) if ITEMS.has(name.get_slice("__", 0)) else Vector2i(s)

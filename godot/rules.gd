@@ -4,14 +4,14 @@ class_name Rules
 
 # ---------- 배치 ----------
 const AREA_X1 := 300
-const AREA_X2 := 1070      # 오른쪽은 PC 자리
+const AREA_X2 := 1150      # 오른쪽은 PC 자리
 const DESK_Y := 210        # 책상 상판 높이
 const WALL_Y1 := 400
 const WALL_Y2 := 640
 const SLOT_X0 := 300
 const SLOT_W := 110
 const COLORS := 4
-const UNIT := 5.5          # 책상 좌표 1cm. 책상 = 770 x 380 = 140 x 69cm
+const UNIT := 4.6          # 책상 좌표 1cm. 책상 = 850 x 380 = 185 x 83cm (그림은 5.5px/cm로 그려져 DB.size_of에서 줄임)
 const DESK_DEPTH := 380   # 책상 앞뒤 깊이 (탑뷰). z = 0이 벽쪽, 클수록 앞
 const Z_STEP := 10
 const LAYER_NAMES := {"wall": "벽", "desk": "책상 위"}

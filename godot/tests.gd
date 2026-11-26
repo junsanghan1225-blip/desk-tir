@@ -55,7 +55,7 @@ func _initialize() -> void:
 	placed.append(book)
 	var mz := {"id": "monitor", "layer": "desk", "x": 400, "y": Rules.DESK_Y, "z": 0}
 	ok(not Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, 30) and Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, Rules.depth_of("monitor")), "탑뷰: 앞뒤로 비키면 같은 x에 놓임")
-	ok(Rules.free_z([mz], "monitor", 400) == Rules.depth_of("monitor") and not Rules.fits_at([], "monitor", "desk", 400, Rules.DESK_Y, null, 350), "빈 앞뒤 자리 · 책상 밖")
+	ok(absi(Rules.free_z([mz], "monitor", 400) - Rules.depth_of("monitor")) < Rules.Z_STEP and not Rules.fits_at([], "monitor", "desk", 400, Rules.DESK_Y, null, 350), "빈 앞뒤 자리 · 책상 밖")
 	ok(not Rules.fits_at([], "monitor_curve", "desk", Rules.AREA_X2 - 100, Rules.DESK_Y) and Rules.drop_target("keyboard", 0, Rules.DESK_Y) != null and Rules.fits_at([], "keyboard", "desk", Rules.drop_target("keyboard", 0, Rules.DESK_Y)[1], Rules.DESK_Y), "실제 크기도 책상 안에")
 	# 현실적인 배치: 키보드는 모니터 앞, 마우스는 키보드 오른쪽, 라이트바는 모니터 위 (모니터 따라 이동)
 	var mn := {"id": "monitor", "layer": "desk", "x": 500, "y": Rules.DESK_Y, "z": 0}
