@@ -133,7 +133,7 @@ class Request extends Mode:
 		if req.has("repair"):
 			info = ["맡긴 PC를 진단 화면에서 살펴보고 원인을 찾아요.", "손님 부품은 공짜, 새로 산 부품만 비용이에요."]
 		else:
-			info = ["PC도 맞추고 책상도 꾸며요: 성능 · 분위기 · 소품 · 모니터 모두 점수예요.", "예산이 빠듯해요. PC와 소품에 돈을 잘 나눠야 해요."]
+			info = ["PC도 맞추고 책상도 꾸며요: 성능 · 분위기 · 소품 · 배치 · 모니터 모두 점수예요.", "예산이 빠듯해요. PC와 소품에 돈을 잘 나눠야 해요."]
 		y = minf(y - 10, 160.0)
 		for ln in info:
 			for w in wrap_text(ln, 820, 22):
@@ -177,12 +177,16 @@ class Result extends Mode:
 		text(120, 575, "★".repeat(result["stars"]) + "☆".repeat(3 - result["stars"]), 60, GOLD)
 		text(420, 575, "%d점" % result["total"], 48, Color.WHITE)
 		var i := 0
-		for k in result["parts"]:
-			text(120, 490 - i * 40, k, 19, Color8(200, 192, 240))
-			text(320, 490 - i * 40, "%d / %d" % [round(result["parts"][k]), result["max"][k]], 19, Color.WHITE)
+		var nrow: int = ceili(result["parts"].size() / 2.0)
+		for k in result["parts"]:   # 두 줄로: 항목이 많아도 아래 정산과 안 겹치게
+			var cx := 120 + (i / nrow) * 230
+			var cy := 500 - (i % nrow) * 36
+			text(cx, cy, k, 22, Color8(200, 192, 240))
+			text(cx + 140, cy, "%d/%d" % [round(result["parts"][k]), result["max"][k]], 22, Color.WHITE)
 			i += 1
-		text(120, 290, "달성 시너지: " + (", ".join(result["synergies"]) if not result["synergies"].is_empty() else "없음"), 22, GREEN)
-		var y := 250.0   # 정산 내역: 무엇 때문에 깎이고 더해졌는지
+		var sy := 500 - nrow * 36 - 4
+		text(120, sy, clip("달성 시너지: " + (", ".join(result["synergies"]) if not result["synergies"].is_empty() else "없음"), 460, 22), 22, GREEN)
+		var y := sy - 42.0   # 정산 내역: 무엇 때문에 깎이고 더해졌는지
 		var margin := 0
 		for b in Game.bill:
 			if b[0] == "손님 예산" or b[1] != 0:
@@ -800,7 +804,7 @@ class BenchView extends Mode:
 
 
 class Trial extends Mode:
-	## 납품: 손님 앞에서 전원을 켜고(부팅) → 손님 용도대로 써 보면서 성능 · 온도 · 소음 · 모니터 Hz까지 같이 확인 → 손님 반응.
+	## 납품: 손님이 책상 정면 → 탑뷰를 둘러보고(수리는 건너뜀) → 전원을 켜고(부팅) → 손님 용도대로 써 보면서 성능 · 온도 · 소음 · 모니터 Hz까지 같이 확인 → 손님 반응.
 	## 게임은 계산된 FPS(모니터 Hz까지만 보임)만큼 부드럽거나 끊기고, 렌더 · 빌드는 진행 막대, 사무는 화상회의.
 	const SCREEN := [380, 170, 1240, 610]
 	const BOOT := 2.6   # 부팅 연출 시간(초)
@@ -810,9 +814,16 @@ class Trial extends Mode:
 	var hz := 0
 	var boot := true
 	var beeped := false
+	var stage := 2   # 0 책상 정면 · 1 탑뷰 · 2 부팅
+	var views := [null, null]   # 납품 때 찍은 [정면, 탑뷰] 사진
+	var sc := {}   # 점수 (정면 · 탑뷰 반응용)
 
 	func enter() -> void:
-		t0 = Time.get_ticks_msec()
+		stage = 2 if Game.request().has("repair") else 0
+		var names := ["%s/day%d_%d.png" % [Main.PHOTOS, Game.day, Game.order_index + 1], Main.PHOTOS + "/_top.png"]
+		for i in 2:
+			views[i] = ImageTexture.create_from_image(Image.load_from_file(names[i])) if stage == 0 and FileAccess.file_exists(names[i]) else null
+		sc = Rules.score(Game.request(), Game.placed, Game.computer(), Game.cables)
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
 		var cp := Game.computer()
 		boot = cp.picture() and "GPU" not in cp.loose()
@@ -828,8 +839,45 @@ class Trial extends Mode:
 		return (Time.get_ticks_msec() - t0) / 1000.0
 
 	func down(_x: float, _y: float, _right: bool) -> void:
-		if t() > 1.0:
+		if t() <= 1.0:
+			return
+		if stage < 2:
+			stage += 1
+			t0 = Time.get_ticks_msec()   # 부팅 연출은 이 단계에 들어올 때부터
+			beeped = false
+			sfx("click")
+		else:
 			m.go("result")
+
+	## 책상 둘러보기: 정면은 분위기, 탑뷰는 배치를 보고 한마디
+	func draw_view() -> void:
+		var req := Game.request()
+		var tt := t()
+		var key: String = ["테마 일치", "배치"][stage]
+		var f: float = sc["parts"][key] / sc["max"][key]
+		var rx: Array = (["happy", "분위기 좋네요! 여기서 일하고 싶어요."] if f >= 0.8 else ["neutral", "음… 분위기가 조금 아쉬워요."] if f >= 0.5 else ["sad", "제가 말한 분위기랑 많이 달라요…"]) if stage == 0 			else (["happy", "손 닿는 데 딱딱 놓였네요. 쓰기 편하겠어요."] if f >= 0.8 else ["neutral", "몇 개는 쓰기 좀 불편하게 놓였네요."] if f >= 0.5 else ["sad", "이렇게 놓으면 쓰기 불편하겠어요…"])
+		var r2 := [380, 110, 1240, 610]
+		box([0, 0, 1280, 720], BG)
+		text(40, 670, "%s 님이 책상을 %s 보는 중" % [req["customer"], ["앞에서", "위에서"][stage]], 33, PINK)
+		chip(40, 628, ["1/3 책상 정면", "2/3 탑뷰"][stage], CYAN)
+		frame("ui_panel", [r2[0] - 14, r2[1] - 14, r2[2] + 14, r2[3] + 14])
+		if views[stage]:
+			m.draw_texture_rect(views[stage], _rect(r2), false)
+		else:
+			box(r2, Color8(30, 24, 50))
+			text_c(r2, ["책상 정면 사진", "탑뷰 사진"][stage], 22, QUIET)
+		if stage == 0:
+			box(r2, Color(0.02, 0.01, 0.05, clamp(1.0 - (tt - 0.3) / 1.2, 0.0, 1.0) * 0.92))   # 불 켜지기
+		var shown := tt > 1.2
+		panel([40, 270, 340, 570], true)
+		put("face_%s_%s" % [req["face"], rx[0] if shown else "neutral"], [60, 290, 320, 550])
+		if shown:
+			panel([40, 100, 340, 250], true)
+			var y := 212.0
+			for ln in wrap_text(rx[1], 270):
+				text(56, y, ln, 22, INK)
+				y -= 30
+			text_c([380, 50, 1240, 100], "누르면 " + ["탑뷰 보기", "전원 켜기"][stage], 22, QUIET)
 
 	func reaction() -> Array:   # [기분, 한마디]
 		if not boot or r.get("shutdown", false):
@@ -873,6 +921,9 @@ class Trial extends Mode:
 		text(sc[0] + 16, sc[1] + 17, "시작", 22, INK)
 
 	func draw() -> void:
+		if stage < 2:
+			draw_view()
+			return
 		box([0, 0, 1280, 720], BG)
 		var req := Game.request()
 		var tt := t()

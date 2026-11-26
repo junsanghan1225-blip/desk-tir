@@ -204,6 +204,15 @@ func run() -> void:
 	for i in 10:                               # 납품 사진 찍고 넘어갈 때까지
 		await process_frame
 	on("trial")
+	check(main.modes["trial"].stage == 0, "납품: 책상 정면부터")
+	main.modes["trial"].t0 -= 2000
+	await shot("10b_view_front")
+	tap([0, 0, 100, 100])
+	check(main.modes["trial"].stage == 1, "정면 → 탑뷰")
+	main.modes["trial"].t0 -= 2000
+	await shot("10c_view_top")
+	tap([0, 0, 100, 100])
+	check(main.modes["trial"].stage == 2 and main.top() == main.modes["trial"], "탑뷰 → 부팅")
 	main.modes["trial"].t0 -= 4000
 	await shot("10a_trial")
 	tap([0, 0, 100, 100])

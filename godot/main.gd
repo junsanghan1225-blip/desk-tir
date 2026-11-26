@@ -71,15 +71,15 @@ func _notification(what: int) -> void:
 		back()
 
 
-## 지금 책상(정면 뷰)을 사진으로 저장. 화면이 없는 테스트 환경에선 건너뜀.
-func photo(name: String) -> void:
+## 지금 책상(정면 뷰, top이면 탑뷰)을 사진으로 저장. 화면이 없는 테스트 환경에선 건너뜀.
+func photo(name: String, top := false) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	var desk = modes["desk"]
 	var keep: Array = stack
 	var view: bool = desk.top_view
 	stack = [desk]
-	desk.top_view = false
+	desk.top_view = top
 	desk.held = ""
 	desk.selected = null
 	desk.capturing = true
@@ -102,6 +102,8 @@ func deliver() -> void:
 		go("build")
 		return
 	await photo("day%d_%d" % [Game.day, Game.order_index + 1])
+	if not Game.request().has("repair"):   # 손님에게 보여 줄 탑뷰도 (앨범엔 정면만)
+		await photo("_top", true)
 	sfx("photo")
 	go("trial")
 

@@ -322,7 +322,29 @@ const LINES := {
 	"성능": "고쳐지긴 했는데 좀 아쉬워요.",
 	"조립 마감": "나사가 덜 조여졌는지 덜컹거려요…",
 	"모니터": "모니터가 PC 성능을 못 따라가요. 화면이 아쉬워요.",
+	"배치": "물건은 좋은데… 쓰기 불편하게 놓였어요.",
 }
+
+
+## 배치 0~1: 놓는 건 자유, 쓰기 편하게 놓았는지만 본다 (해당하는 것만 평균).
+## 모니터는 벽 쪽 · 키보드는 모니터 바로 앞 · 마우스는 키보드 옆 · 책상 위 물건이 한쪽에 몰리지 않게
+static func layout_score(placed: Array) -> float:
+	var desk := placed.filter(func(p): return p["layer"] == "desk" and not is_mounted(p))
+	if desk.is_empty():
+		return 0.0
+	var checks := []
+	var mons := desk.filter(func(p): return is_monitor(p["id"]))
+	for mon in mons:
+		checks.append(1.0 if mon.get("z", 0) <= DESK_DEPTH * 0.4 else 0.0)
+	for kb in desk.filter(func(p): return p["id"] in KEYBOARDS):
+		checks.append(1.0 if mons.any(func(mon): return absf(center_x(kb) - center_x(mon)) <= 70 and kb.get("z", 0) > mon.get("z", 0)) else 0.0)
+	for ms in desk.filter(func(p): return p["id"] in MICE):
+		checks.append(1.0 if desk.any(func(kb): return kb["id"] in KEYBOARDS and adjacent(ms, kb, 60) and absf(ms.get("z", 0) - kb.get("z", 0)) <= 100) else 0.0)
+	if desk.size() >= 3:   # 좌우 균형: 무게중심이 책상 가운데 1/4 안쪽이면 만점
+		var mid := (AREA_X1 + AREA_X2) / 2.0
+		var cx: float = desk.map(func(p): return center_x(p)).reduce(func(a, b): return a + b, 0.0) / desk.size()
+		checks.append(clampf(1.0 - (absf(cx - mid) - (AREA_X2 - AREA_X1) / 8.0) / ((AREA_X2 - AREA_X1) / 4.0), 0.0, 1.0))
+	return 1.0 if checks.is_empty() else checks.reduce(func(a, b): return a + b, 0.0) / checks.size()
 
 
 static func synergies(placed: Array, pc: PCBuild) -> Array:
@@ -408,8 +430,8 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 	# PC + 데스크 의뢰: PC도 맞추고 책상도 꾸밈 (성능 · 분위기 · 소품 · 모니터 · 배선)
 	var fin := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0   # 나사를 다 조였는지
 	var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0,
-		"테마 일치": theme_s / 25.0, "조합 시너지": minf(1.0, syn.size() / 2.0)}
-	var w := {"PC 성능": 30, "조립 마감": 10, "모니터": 10, "테마 일치": 20, "필수 · 금지": 15, "조합 시너지": 10, "배선": 5}
+		"테마 일치": theme_s / 25.0, "조합 시너지": minf(1.0, syn.size() / 2.0), "배치": layout_score(placed)}
+	var w := {"PC 성능": 30, "조립 마감": 5, "모니터": 10, "테마 일치": 15, "필수 · 금지": 15, "조합 시너지": 10, "배선": 5, "배치": 10}
 	var pp := {}
 	for k in w:
 		pp[k] = fr[k] * w[k]

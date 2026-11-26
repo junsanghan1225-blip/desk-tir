@@ -512,7 +512,7 @@ static func need_text(req: Dictionary) -> String:
 		if hit.size() >= r["count"]:
 			parts.append("✓ " + _name(hit[0]))
 		else:
-			parts.append("? %s: %s%s%s" % [cat, mask(_name(first)), " 같은 것" if r["any"].size() > 1 else "", " %d개" % r["count"] if r["count"] > 1 else ""])
+			parts.append("%s %d개 (%s %s)" % [cat, r["count"], "예:" if r["any"].size() > 1 else "힌트:", mask(_name(first))])   # 예) 조명 1개 (예: 따OO OOO)
 	return " · ".join(parts)
 
 

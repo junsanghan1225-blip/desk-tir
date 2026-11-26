@@ -125,6 +125,12 @@ func _initialize() -> void:
 	var bad := Rules.score(dev, placed, PCBuild.full({"psu": "psu1"}), wired)
 	ok(bad["parts"]["PC 성능"] == 0 and bad["parts"]["필수 · 금지"] == 7.5 and "VGA" in bad["line"], "금지 소품 · 부팅 실패")
 
+	# --- 배치: 모니터는 벽 쪽 · 키보드는 그 앞 ---
+	var arr := [{"id": "monitor", "layer": "desk", "x": 600, "y": Rules.DESK_Y, "z": 0}, {"id": "keyboard", "layer": "desk", "x": 600 + (DB.size_of("monitor").x - DB.size_of("keyboard").x) / 2, "y": Rules.DESK_Y, "z": 250}]
+	ok(Rules.layout_score(arr) == 1.0, "키보드가 모니터 바로 앞이면 배치 만점")
+	arr[1]["x"] = Rules.AREA_X1
+	ok(Rules.layout_score(arr) == 0.5 and Rules.layout_score([]) == 0.0, "키보드가 모니터와 떨어지면 감점")
+
 	# --- 가게 (state.py) ---
 	Game.new_game()
 	ok(Game.money == 200 and Game.todays_requests().size() == 3 and not Game.add_to_cart("cpu3"), "새 게임 · 잠긴 상품")
