@@ -122,6 +122,7 @@ func run() -> void:
 	var b = main.modes["build"]
 	var part := func(id: String, to: Array): drag(b.inv_row(b.inv_ids().find(id)), to)
 	Game.pc = PCBuild.new()   # 첫 손님은 데스크테리어(손님 PC 있음) → 조립 테스트는 빈 케이스부터
+	check("케이스" in b.next_step()[0], "다음 할 일 안내: " + b.next_step()[0])
 	part.call("case1", b.CASE_AREA)
 	part.call("mb1", b.mb_rect())
 	tap(b.lever_rect())
@@ -145,6 +146,7 @@ func run() -> void:
 	check(b.post[0] == 3 and "SSD" in b.post[1], "나사 안 조이면 SSD 들뜸: %s" % [b.post])
 	screw_all(b)
 	check(Game.pc.loose().is_empty(), "나사 다 조임 %s %s" % [Game.pc.screws, b.screw_points()])
+	check("전원" in b.next_step()[0], "다 조립하면 안내는 전원: " + b.next_step()[0])
 	tap(b.BTN_POST)
 	check(b.post[0] == 4, "부팅 실패: %s / %s" % [b.post, b.toast])
 	on("boot")

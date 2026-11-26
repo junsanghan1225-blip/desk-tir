@@ -216,6 +216,7 @@ func down(x: float, y: float, right: bool) -> void:
 		return
 	if tabs(x, y):
 		return
+	toast = ""   # 지난 안내는 다음 손길에 지움 (엉뚱한 때 남아 있지 않게)
 	if pc.has("CASE") and inside(x, y, BTN_SHOW):
 		showcase = true
 		sfx("boot_ok" if pc.boots() else "click")
@@ -475,6 +476,63 @@ func draw_clicks() -> void:
 		text(c.x - 20, c.y + 24 + t * 40, "딸깍", 22, Color(1, 1, 0.7, a))
 
 
+## 다음에 할 일 [안내, 반짝일 자리, 같이 반짝일 것: 부품 종류 · "paste" · "driver" · ""]
+func next_step() -> Array:
+	var pc := Game.pc
+	var n: Array
+	if not seat.is_empty():
+		n = ["반짝이는 곳을 눌러 딸깍", seat_rect(seat.keys()[0]), ""]
+	elif not pc.has("CASE"):
+		n = ["케이스를 가운데로", CASE_AREA, "CASE"]
+	elif not pc.has("MB"):
+		n = ["메인보드를 케이스에", mb_rect(), "MB"]
+	elif not pc.has("CPU"):
+		n = ["CPU를 소켓에", cpu_rect(), "CPU"] if pc.lever_open else ["소켓 레버를 눌러 열기", lever_rect(), ""]
+	elif pc.lever_open:
+		n = ["소켓 레버를 눌러 닫기", lever_rect(), ""]
+	elif not pc.paste and not pc.has("COOLER"):
+		n = ["서멀 구리스를 CPU 위에", cpu_rect(), "paste"]
+	elif not pc.has("COOLER"):
+		n = ["쿨러를 CPU 위에", cooler_rect(), "COOLER"]
+	elif pc.ram.all(func(r): return r == ""):
+		n = ["RAM을 반짝이는 슬롯에", ram_rect(1 if pc.ram_slots() == 4 else 0), "RAM"]   # 4슬롯은 A2부터 (듀얼 채널)
+	elif not pc.has("SSD"):
+		n = ["M.2 SSD를 슬롯에", ssd_rect(), "SSD"]
+	elif not pc.has("GPU") and not pc.igpu():
+		n = ["그래픽카드를 긴 슬롯에", gpu_rect(), "GPU"]
+	elif not pc.has("PSU"):
+		n = ["파워를 왼쪽 아래 칸에", PSU_BAY, "PSU"]
+	else:
+		var left := pc.cable_targets().filter(func(c): return not pc.cables.has(c))
+		if not left.is_empty():
+			n = ["선 꽂기: " + CABLE_NAMES[left[0]], psu_port(left[0]), ""]
+		elif not pc.loose().is_empty():
+			n = ["나사 조이기: " + TYPE_NAMES[pc.loose()[0]], zone(pc.loose()[0]), "driver"]
+		else:
+			n = ["전원을 눌러 확인!", BTN_POST, ""]
+	if n[2] in TYPE_NAMES and not inv_all().any(func(k): return DB.PARTS[pid_of(k)]["type"] == n[2]):
+		n[0] = "%s 재고 없음 · 쇼핑에서" % TYPE_NAMES[n[2]]
+	return n
+
+
+## 다음 할 자리 · 집을 재고 줄을 금색으로 깜빡 (들고 있거나 딸깍 대기 중엔 안 보임)
+func draw_guide() -> void:
+	if not held.is_empty() or tool != "" or not seat.is_empty():
+		return
+	var n := next_step()
+	var col := Color(GOLD, 0.45 + 0.45 * sin(Time.get_ticks_msec() / 260.0))
+	outline(grow(n[1], 4), col, 3)
+	if n[2] == "paste":
+		outline(grow(PASTE_ROW, 2), col, 2)
+	elif n[2] == "driver":
+		outline(grow(BTN_DRIVER, 2), col, 3)
+	elif n[2] != "":
+		var ids := inv_ids()
+		for i in ids.size():
+			if DB.PARTS[pid_of(ids[i])]["type"] == n[2]:
+				outline(grow(inv_row(i), 2), col, 2)
+
+
 # ---------- 그리기 ----------
 func draw_case() -> void:
 	var pc := Game.pc
@@ -646,11 +704,7 @@ func draw_hover() -> void:
 		spots.append([ram_rect(i), "RAM 슬롯 %d" % (i + 1) + (" · " + DB.PARTS[pc.ram[i]]["name"] if pc.ram[i] != "" else "")])
 	for s in spots:
 		if inside(m.mouse.x, m.mouse.y, grow(s[0], 4)):
-			var w: float = m.font.get_string_size(s[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x + 16
-			var r := [m.mouse.x + 14, m.mouse.y + 10, m.mouse.x + 14 + w, m.mouse.y + 34]
-			box(r, Color(0.04, 0.02, 0.09, 0.86))
-			outline(r, CYAN)
-			text(r[0] + 8, m.mouse.y + 22, s[1], 13)
+			hover_tip(m.mouse.x + 14, m.mouse.y + 26, s[1])
 			return
 
 
@@ -737,7 +791,7 @@ func draw_drag() -> void:
 func draw_side() -> void:
 	var pc := Game.pc
 	var x0 := 930
-	panel([912, 130, 1276, 638])
+	panel([912, 122, 1276, 638])
 	text(x0, 610, "조립 순서", 18, PINK)
 	var steps := [["케이스", pc.has("CASE")], ["메인보드", pc.has("MB")], ["CPU (레버 닫기)", pc.has("CPU") and not pc.lever_open],
 		["서멀 구리스", pc.paste], ["쿨러", pc.has("COOLER")], ["RAM", pc.ram.any(func(r): return r != "")], ["M.2 SSD", pc.has("SSD")],
@@ -754,8 +808,9 @@ func draw_side() -> void:
 		extra.append("듀얼 채널 +1")
 	if pc.throttled():
 		extra.append("쿨러 부족 -3")
-	text(x0, 316, "  ·  ".join(extra), 14, GOLD)
-	text(x0, 238, "디버그 LED", 15, QUIET)
+	text(x0, 322, "  ·  ".join(extra), 14, GOLD)
+	text(x0, 294, clip("다음: " + next_step()[0], 1270 - x0), 22, GOLD)
+	text(x0, 256, "디버그 LED", 15, QUIET)
 	var stage: int = post[0] if not post.is_empty() else -9
 	for i in 4:
 		var c := Color8(40, 32, 70)
@@ -765,11 +820,12 @@ func draw_side() -> void:
 			c = Color8(60, 120, 90)
 		elif stage != -9 and i == max(stage, 0):
 			c = PINK
-		frame("ui_button", [x0 + i * 84, 176, x0 + i * 84 + 74, 220], c)
-		text(x0 + i * 84 + 10, 199, PCBuild.POST_STAGES[i], 16, Color.WHITE)
+		frame("ui_button", [x0 + i * 84, 190, x0 + i * 84 + 74, 232], c)
+		text(x0 + i * 84 + 10, 212, PCBuild.POST_STAGES[i], 16, Color.WHITE)
 	if not post.is_empty():
-		text(x0, 154, post[1].left(22), 15, GREEN if stage == 4 else PINK)
-		text(x0, 132, post[1].substr(22), 15, GREEN if stage == 4 else PINK)
+		var pl := wrap_text(post[1], 1270 - x0)
+		for i in min(pl.size(), 2):
+			text(x0, 168 - i * 25, pl[i], 22, GREEN if stage == 4 else PINK)
 	button(BTN_POST, "전원", GOLD)
 	button(BTN_DIAG, "진단", PINK if Game.request().has("repair") else VIOLET)
 	button(BTN_BENCH, "성능 테스트", CYAN)
@@ -781,7 +837,7 @@ func draw_inventory() -> void:
 	button(BTN_DRIVER, "드라이버", GOLD if tool == "driver" else VIOLET)
 	frame("ui_slot", PASTE_ROW)
 	circle(26, 585, 9, Color8(200, 200, 210))
-	text(46, 585, "서멀 구리스 (CPU 위로)", 16)
+	text(46, 585, clip("서멀 구리스 → CPU", PASTE_ROW[2] - 52), 16)
 	var ids := inv_ids()
 	if ids.is_empty():
 		text(14, ROW_TOP - 56, "부품 재고가 없어요", 15, QUIET)
@@ -823,6 +879,7 @@ func draw() -> void:
 		draw_clicks()
 	draw_inventory()
 	draw_side()
+	draw_guide()
 	draw_drag()
 	draw_hover()
 	draw_tool_cursor()
