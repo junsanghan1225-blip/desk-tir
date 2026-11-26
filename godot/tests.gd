@@ -131,6 +131,17 @@ func _initialize() -> void:
 	arr[1]["x"] = Rules.AREA_X1
 	ok(Rules.layout_score(arr) == 0.5 and Rules.layout_score([]) == 0.0, "키보드가 모니터와 떨어지면 감점")
 
+	# --- 특이 조건 ---
+	var tw := [{"id": "keyboard", "layer": "desk", "x": 600, "y": Rules.DESK_Y, "z": 250}, {"id": "mouse_vertical", "layer": "desk", "x": 500, "y": Rules.DESK_Y, "z": 250}]
+	ok(Rules.twist_ok({"kind": "left"}, tw) and Rules.twist_ok({"kind": "few", "n": 2}, tw) and not Rules.twist_ok({"kind": "few", "n": 1}, tw), "왼손잡이 · 좁은 책상")
+	tw[1]["x"] = 800
+	ok(not Rules.twist_ok({"kind": "left"}, tw) and not Rules.twist_ok({"kind": "dual"}, tw) and Rules.twist_ok({"kind": "no_wall"}, tw), "오른쪽 마우스 · 모니터 1대 · 벽 비움")
+	tw.append({"id": "mug", "layer": "desk", "x": 400, "y": Rules.DESK_Y, "z": 0, "color": 2})
+	tw.append({"id": "tumbler", "layer": "desk", "x": 900, "y": Rules.DESK_Y, "z": 0, "color": 2})
+	ok(Rules.twist_ok({"kind": "one_color"}, tw), "색 맞춤")
+	tw[3]["color"] = 1
+	ok(not Rules.twist_ok({"kind": "one_color"}, tw), "색 다름")
+
 	# --- 가게 (state.py) ---
 	Game.new_game()
 	ok(Game.money == 200 and Game.todays_requests().size() == 3 and not Game.add_to_cart("cpu3"), "새 게임 · 잠긴 상품")
@@ -148,8 +159,8 @@ func _initialize() -> void:
 	Game.placed = [{"id": "lamp_warm", "layer": "desk", "x": 306, "y": 210}]
 	var before := Game.money
 	var paid_now := Game.settle({"stars": 2})
-	ok(paid_now[0] == 70 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
-	ok(Game.settle({"stars": 0}) == [28, 0] and Game.settle({"stars": 1})[0] == 56, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
+	ok(paid_now[0] == 80 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
+	ok(Game.settle({"stars": 0}) == [32, 0] and Game.settle({"stars": 1})[0] == 64, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
 	ok(Game.bill.any(func(b): return b[0] == "물건 값"), "정산 내역")
 	Game.history["자취 1년차 대학생"] = 3
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
@@ -316,6 +327,29 @@ func _initialize() -> void:
 	for id in DB.ITEMS:   # 모든 소품이 새 화풍 (쇼핑 아이콘 = 책상 배치 그림)
 		ok(DB.skin(id) != id, "새 화풍 그림 없음: " + id)
 	ok(DB.skin("mug__c1") == "styled/mug__c1" and DB.skin("mug") == "styled/mug", "색 있는 소품은 색마다 같은 화풍")
+
+	# --- 손님 전화 (돌발): 첫날은 없고, 둘째 날부터 가끔. 전화 내용이 의뢰에 반영되고 다음 손님 땐 사라짐 ---
+	Game.new_game()
+	var calls := 0
+	for d in [1, 2, 3, 4, 5]:
+		Game.day = d
+		for i in Game.todays_requests().size():
+			Game.order_index = i
+			Game.reset_order()
+			ok(not Game.call_due(), "결제 전엔 전화 없음")
+			Game.checkouts = 1
+			if not Game.call_due():
+				continue
+			ok(d >= 2, "첫날은 전화 없음")
+			calls += 1
+			var base: Dictionary = Game.todays_requests()[i]
+			Game.take_call()
+			var now := Game.request()
+			ok(now["budget"] < base["budget"] or now["required"].size() > base["required"].size() or now["used"] == "new", "전화 반영: %s" % now["call"])
+			ok(not Game.call_due() and Game.need_text(now) != "", "전화는 한 번만")
+			Game.reset_order()
+			ok(not Game.request().has("call"), "다음 주문엔 원래대로")
+	ok(calls >= 4, "전화가 여러 번 옴: %d" % calls)
 
 	print("godot rules ok" if failed == 0 else "godot rules FAILED: %d" % failed)
 	quit(1 if failed else 0)

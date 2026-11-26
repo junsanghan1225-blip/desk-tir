@@ -326,6 +326,29 @@ const LINES := {
 }
 
 
+## 특이 조건 (의뢰마다 하나, 날이 갈수록 자주): 놓는 방식 자체를 바꾸게 만드는 퍼즐 같은 요청
+static func twist_ok(t: Dictionary, placed: Array) -> bool:
+	var desk := placed.filter(func(p): return p["layer"] == "desk" and not is_mounted(p))
+	var wall := placed.filter(func(p): return p["layer"] == "wall")
+	match t["kind"]:
+		"few":   # 좁은 책상: 책상 위 물건 n개까지
+			return desk.size() <= t["n"]
+		"no_wall":   # 벽에 못을 못 박음
+			return wall.is_empty()
+		"wall_n":   # 벽 장식 n개 이상
+			return wall.size() >= t["n"]
+		"left":   # 왼손잡이: 마우스가 키보드 왼쪽
+			var kbs := desk.filter(func(p): return p["id"] in KEYBOARDS)
+			var ms := desk.filter(func(p): return p["id"] in MICE)
+			return not kbs.is_empty() and not ms.is_empty() and ms.all(func(m): return kbs.any(func(k): return center_x(m) < center_x(k)))
+		"dual":   # 모니터 두 대
+			return placed.filter(func(p): return is_monitor(p["id"])).size() >= 2
+		"one_color":   # 색 바꿀 수 있는 소품 2개 이상을 같은 색으로 (기본색 말고)
+			var cs := placed.filter(func(p): return DB.ITEMS[p["id"]].get("tint", false)).map(func(p): return p.get("color", 0))
+			return cs.size() >= 2 and cs[0] > 0 and cs.all(func(c): return c == cs[0])
+	return true
+
+
 ## 배치 0~1: 놓는 건 자유, 쓰기 편하게 놓았는지만 본다 (해당하는 것만 평균).
 ## 모니터는 벽 쪽 · 키보드는 모니터 바로 앞 · 마우스는 키보드 옆 · 책상 위 물건이 한쪽에 몰리지 않게
 const KEYBOARDS := ["keyboard", "gaming_kb", "kb_white", "kb_mini"]
@@ -398,7 +421,8 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		theme_s = 25.0 * objects.filter(func(t): return _hits(t, req["theme"])).size() / objects.size()
 
 	var req_s := 25.0
-	if not req["required"].is_empty():
+	var n_req: int = req["required"].size() + (1 if req.has("twist") else 0)   # 특이 조건도 '꼭 필요' 하나로 침
+	if n_req > 0:
 		var met := 0.0
 		for r in req["required"]:
 			var have := 0
@@ -407,7 +431,9 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 			if "monitor" in r["any"]:   # '모니터'는 어떤 모니터든
 				have = ids.filter(is_monitor).size()
 			met += min(1.0, float(have) / r["count"])
-		req_s = 25.0 * met / req["required"].size()
+		if req.has("twist"):
+			met += 1.0 if twist_ok(req["twist"], placed) else 0.0
+		req_s = 25.0 * met / n_req
 	for f in req["forbidden"]:
 		req_s -= 12.5 * ids.count(f)
 	req_s = max(0.0, req_s)

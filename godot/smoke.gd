@@ -243,5 +243,23 @@ func run() -> void:
 	check(Game.load_save() == "news")
 	for n in ["door", "click", "cart", "buy", "pick", "place", "lever", "paste", "plug", "boot_ok"]:   # 그 순간에 실제 소리 파일을 불러와 틀었는지
 		check(main.sounds.get(n) != null, "소리 " + n)
+	Game.day = 3                               # 셋째 날: 특이 조건 있는 의뢰 → 결제 뒤 책상에 가면 손님 전화
+	for i in Game.todays_requests().size():   # 특이 조건이 있고 전화도 오는 손님
+		Game.order_index = i
+		Game.reset_order()
+		Game.checkouts = 1
+		if Game.request().has("twist") and Game.call_due():
+			break
+	main.go("request")
+	await shot("3b_request_twist")
+	Game.checkouts = 1
+	main.go("desk")
+	check(Game.call_due() or main.top() == main.modes["call"], "셋째 날 전화")
+	if main.top() == main.modes["call"]:
+		await shot("7k_call")
+		main.modes["call"].t0 -= 1000
+		tap([0, 0, 100, 100])
+		on("desk")
+		check(Game.request().has("call"), "전화 내용이 의뢰에 반영")
 	print("godot smoke ok  (가게 돈 %d만)" % money)
 	quit()

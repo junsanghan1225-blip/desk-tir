@@ -114,6 +114,8 @@ class Request extends Mode:
 			rows.append(["용도 메모: " + Bench.describe(req["use"]), CYAN])
 		if Game.need_text(req) != "":
 			rows.append(["꼭 필요: " + Game.need_text(req), GOLD])
+		if Game.twist_text(req) != "":
+			rows.append(["특이 조건: " + Game.twist_text(req), Color8(190, 150, 255)])
 		if Game.dislike_text(req) != "":
 			rows.append([Game.dislike_text(req), PINK])
 		for rw in rows:
@@ -133,7 +135,7 @@ class Request extends Mode:
 		if req.has("repair"):
 			info = ["맡긴 PC를 진단 화면에서 살펴보고 원인을 찾아요.", "손님 부품은 공짜, 새로 산 부품만 비용이에요."]
 		else:
-			info = ["PC도 맞추고 책상도 꾸며요: 성능 · 분위기 · 소품 · 배치 · 모니터 모두 점수예요.", "예산이 빠듯해요. PC와 소품에 돈을 잘 나눠야 해요."]
+			info = ["성능 · 분위기 · 소품 · 배치 · 모니터 모두 점수예요. 예산이 빠듯해요."]
 		y = minf(y - 10, 160.0)
 		for ln in info:
 			for w in wrap_text(ln, 820, 22):
@@ -161,6 +163,8 @@ class Result extends Mode:
 		wanted = ["분위기: " + " · ".join(req["theme"].map(func(t): return DB.THEME_NAMES[t]))]   # 숨겨져 있던 조건 공개
 		for r in req["required"]:
 			wanted.append("꼭 필요: %s %d개" % ["/".join(r["any"].map(func(i): return DB.ITEMS[i]["name"])), r["count"]])
+		if req.has("twist"):
+			wanted.append("특이 조건: " + Game.twist_text(req))
 		if not req["forbidden"].is_empty():
 			wanted.append("싫어함: " + ", ".join(req["forbidden"].map(func(i): return DB.ITEMS[i]["name"])))
 		if req.has("use"):
@@ -547,6 +551,8 @@ class Pause extends Mode:
 				y = row(y, "용도", Bench.describe(req["use"]), GOLD)
 			if Game.need_text(req) != "":
 				y = row(y, "꼭 필요", Game.need_text(req), GOLD)
+			if Game.twist_text(req) != "":
+				y = row(y, "특이 조건", Game.twist_text(req), Color8(190, 150, 255))
 			if Game.dislike_text(req) != "":
 				y = row(y, "싫어함", Game.dislike_text(req), PINK)
 			if req.has("used"):
@@ -966,6 +972,41 @@ class Trial extends Mode:
 				text(56, y, ln, 22, INK)
 				y -= 30
 			text_c([380, 50, 1240, 100], "누르면 결과 보기", 22, QUIET)
+
+
+class Call extends Mode:
+	## 돌발: 주문 중에 손님이 전화 (예산 깎기 · 추가 요청 · 새 제품만). 누르면 닫힘
+	var said := ""
+	var t0 := 0
+
+	func _init() -> void:
+		overlay = true
+
+	func enter() -> void:
+		said = Game.take_call()
+		t0 = Time.get_ticks_msec()
+		sfx("door")
+
+	func down(_x: float, _y: float, _right: bool) -> void:
+		if Time.get_ticks_msec() - t0 > 600:   # 실수로 바로 닫히지 않게
+			m.pop()
+
+	func draw() -> void:
+		dim()
+		var req := Game.request()
+		var r := [240, 170, 1040, 560]
+		panel(r, true)
+		var shake := sin(Time.get_ticks_msec() / 40.0) * 3.0 if Time.get_ticks_msec() - t0 < 700 else 0.0   # 전화벨 흔들림
+		chip(r[0] + 30 + shake, r[3] - 40, "따르릉! 손님 전화", PINK)
+		put("face_%s_neutral" % req["face"], [r[0] + 30, r[1] + 60, r[0] + 230, r[1] + 260])
+		text(r[0] + 260, r[3] - 100, req["customer"], 22, CYAN)
+		var y: float = r[3] - 150
+		for ln in wrap_text("\"%s\"" % said, r[2] - r[0] - 300, 24):
+			text(r[0] + 260, y, ln, 24, INK)
+			y -= 34
+		var after := {"budget": "예산이 %d만으로 줄었어요." % req["budget"], "extra": "꼭 필요한 게 하나 늘었어요.", "new_only": "이제 중고 부품을 쓰면 안 돼요."}
+		text(r[0] + 260, y - 10, after[req["call"]], 22, GOLD)
+		text_c([r[0], r[1] + 10, r[2], r[1] + 50], "누르면 계속", 22, QUIET)
 
 
 class Dex extends Mode:

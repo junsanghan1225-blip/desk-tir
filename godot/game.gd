@@ -39,6 +39,7 @@ const DAILY := [["별 3개 2번 받기", 20, "three"], ["오늘 마진 합계 80
 	["수리 의뢰를 별 3개로", 20, "repair3"], ["모든 손님에게 별 2개 이상", 25, "all2"]]
 
 static var cart := {}
+static var order_mod := {}   # 주문 중 손님 전화로 바뀐 의뢰 내용 (request()가 덮어씀)
 static var placed := []
 static var pc := PCBuild.new()
 static var cables := []
@@ -84,8 +85,60 @@ static func todays_requests() -> Array:
 	return DB.REQUESTS.filter(func(r): return r["day"] == day)
 
 
+## 지금 손님 의뢰. 주문 중 걸려 온 전화(예산 깎기 · 추가 요청)가 있으면 그걸 덮어쓴 것
 static func request() -> Dictionary:
-	return todays_requests()[order_index]
+	var r: Dictionary = todays_requests()[order_index]
+	return r if order_mod.is_empty() else r.merged(order_mod, true)
+
+
+## ---------- 주문 중 손님 전화 (돌발 이벤트) ----------
+## 둘째 날부터, 한 번이라도 결제한 뒤 책상 · 조립 · 배선으로 가면 가끔 손님이 전화한다. 날이 갈수록 자주.
+const CALL_CHANCE := [0, 0, 35, 50, 65, 75]   # 날짜별 %
+static func call_due() -> bool:
+	if order_mod.has("call") or checkouts < 1 or order_index >= todays_requests().size() or request().has("repair"):
+		return false
+	var rng := RandomNumberGenerator.new()
+	rng.seed = day * 1009 + order_index * 31 + 7   # 같은 날 같은 손님이면 늘 같음 (다시 해도 공평)
+	return rng.randi() % 100 < CALL_CHANCE[mini(day, CALL_CHANCE.size() - 1)]
+
+
+## 전화 내용을 정하고 의뢰에 반영. 손님 말을 돌려줌
+static func take_call() -> String:
+	var req := request()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = day * 7717 + order_index
+	var kinds := ["budget", "extra"]
+	if req.get("used", "") == "ok":
+		kinds.append("new_only")
+	var k: String = kinds[rng.randi() % kinds.size()]
+	if k == "extra":
+		var have := []
+		for r in req["required"]:
+			have += r["any"]
+		var pool := DB.ITEMS.keys().filter(func(i): return DB.ITEMS[i]["price"] <= 6 and not DB.ITEMS[i].has("line") and not DB.ITEMS[i].has("hz") and DB.ITEMS[i]["tags"].has(req["theme"][0]) and i not in have and i not in req["forbidden"])
+		if pool.is_empty():
+			k = "budget"
+		else:
+			var id: String = pool[rng.randi() % pool.size()]
+			order_mod = {"call": k, "required": req["required"] + [{"any": [id], "count": 1, "named": true}]}
+			return "아 참, %s도 하나 놓아 주실 수 있어요? 예산은 그대로라 죄송해요!" % _name(id)
+	if k == "new_only":
+		order_mod = {"call": k, "used": "new"}
+		return "가족이 중고는 불안하대요… 새 제품으로만 부탁해도 될까요?"
+	var cut: int = maxi(5, roundi(req["budget"] * 0.08 / 5.0) * 5)
+	order_mod = {"call": "budget", "budget": req["budget"] - cut}
+	return "죄송해요, 갑자기 돈 들 데가 생겨서… 예산을 %d만 줄여도 될까요?" % cut
+
+
+## 특이 조건 한 줄 (책상에서 맞추면 ✓)
+const TWIST_TEXT := {"few": "책상이 좁아요: 책상 위 물건 %d개까지", "no_wall": "세입자라 벽에 못을 못 박아요 (벽 장식 없이)", "wall_n": "벽이 허전해요: 벽 장식 %d개 이상",
+	"left": "왼손잡이예요: 마우스는 키보드 왼쪽에", "dual": "화면 두 개로 써요: 모니터 2대", "one_color": "색을 맞춰 주세요: 색 바꾸는 소품 2개 이상을 같은 색으로"}
+static func twist_text(req: Dictionary) -> String:
+	if not req.has("twist"):
+		return ""
+	var t: Dictionary = req["twist"]
+	var s: String = TWIST_TEXT[t["kind"]] % t["n"] if "%d" in TWIST_TEXT[t["kind"]] else TWIST_TEXT[t["kind"]]
+	return ("✓ " if Rules.twist_ok(t, placed) else "") + s
 
 
 ## 손님 대사. 다시 온 단골은 지난번 별점(2개 이상이면 좋은 기억)에 따라 말이 달라진다.
@@ -102,6 +155,7 @@ static func today() -> Dictionary:
 
 
 static func reset_order() -> void:
+	order_mod = {}
 	hints_used = 0
 	last_gift = ""
 	checkouts = 0
@@ -157,6 +211,7 @@ static func difficulty(req: Dictionary) -> int:
 	var u: Dictionary = req.get("use", {})
 	var s := 0 if u.get("kind", "office") == "office" else 1
 	s += 1 if u.has("quiet") else 0
+	s += 1 if req.has("twist") else 0   # 특이 조건
 	s += 1 if u.get("stream", false) or u.get("fps", 0) >= 240 or u.get("res", "") != "1080p" and u.has("res") else 0
 	return clampi(s, 1, 3)
 
@@ -430,7 +485,7 @@ static func save(mode: String) -> void:
 			if q.has("host"):
 				q["host"] = placed.find(p["host"])
 			return q)
-		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(),
+		order = {"cart": cart, "placed": flat, "pc": pc.to_dict(), "mod": order_mod,
 			"cables": cables.map(func(c): return {"dev": placed.find(c["dev"]), "type": c["type"], "port": c["port"]})}
 	var d := {"mode": mode, "money": money, "day": day, "stock": stock, "upgrades": upgrades.keys(), "stars_total": stars_total,
 		"history": history, "streak": streak, "ledger": ledger, "order_index": oi, "order": order, "used": used, "bought": bought, "dex": dex, "stats": stats, "achv": achv, "visits": visits}
@@ -478,6 +533,7 @@ static func load_save() -> String:
 				p["host"] = placed[p["host"]]
 		pc = PCBuild.from_dict(d["order"]["pc"])
 		cables = d["order"]["cables"].map(func(c): return {"dev": placed[c["dev"]], "type": c["type"], "port": c["port"]})
+		order_mod = d["order"].get("mod", {})
 	return d["mode"]
 
 
@@ -511,6 +567,8 @@ static func need_text(req: Dictionary) -> String:
 		var cat: String = CAT_LABEL.get(DB.ITEMS[first]["cat"], "소품") if first != "monitor" else "화면"
 		if hit.size() >= r["count"]:
 			parts.append("✓ " + _name(hit[0]))
+		elif r.get("named", false):   # 전화로 추가된 건 이름을 말해 줌
+			parts.append(_name(first))
 		else:
 			parts.append("%s %d개 (%s %s)" % [cat, r["count"], "예:" if r["any"].size() > 1 else "힌트:", mask(_name(first))])   # 예) 조명 1개 (예: 따OO OOO)
 	return " · ".join(parts)
