@@ -82,3 +82,12 @@ keytool -genkey -v -keystore deskterior-release.keystore -alias deskterior -keya
 ## 막히면
 
 에러 창이나 Godot 아래쪽 **출력** 패널의 빨간 글씨를 캡처해서 보내 주세요.
+
+## 빠른 테스트용 (Play 업로드 아님)
+
+Android 빌드 템플릿 · Gradle 없이 내보내기 템플릿만 있으면 돼요. 디버그 키로 서명된 APK가 나와요.
+
+```
+Godot_v4.7.2-stable_win64_console.exe --headless --export-debug "Android APK (테스트)" build/desk-tir-test.apk
+Godot_v4.7.2-stable_win64_console.exe --headless --export-release "Windows" build/windows/desk-tir.exe
+```
