@@ -328,6 +328,8 @@ const LINES := {
 
 ## 배치 0~1: 놓는 건 자유, 쓰기 편하게 놓았는지만 본다 (해당하는 것만 평균).
 ## 모니터는 벽 쪽 · 키보드는 모니터 바로 앞 · 마우스는 키보드 옆 · 책상 위 물건이 한쪽에 몰리지 않게
+const KEYBOARDS := ["keyboard", "gaming_kb", "kb_white", "kb_mini"]
+const MICE := ["mouse_gaming", "mouse_vertical"]
 static func layout_score(placed: Array) -> float:
 	var desk := placed.filter(func(p): return p["layer"] == "desk" and not is_mounted(p))
 	if desk.is_empty():
