@@ -30,6 +30,20 @@ var selected = null
 var toast := ""
 var page := 0
 var fail_t := -100000   # 전원이 안 켜졌을 때 LED 깜빡임
+# 소품 기믹: 놓인 소품을 누르면 반응. 조명은 껐다 켜기(p["off"], 저장됨), 나머지는 잠깐 효과
+const LIGHTS := ["lamp_warm", "lamp_cool", "monitor_bar", "mood_lamp", "moon_lamp", "salt_lamp", "candle", "rgb_cube",
+	"wall_light", "neon_sign", "neon_heart", "neon_gg", "rgb_bar", "hex_light"]
+const GLOW := {"lamp_warm": Color8(255, 200, 120), "lamp_cool": Color8(190, 225, 255), "moon_lamp": Color8(255, 236, 180),
+	"salt_lamp": Color8(255, 150, 90), "candle": Color8(255, 180, 90), "mood_lamp": Color8(200, 140, 255)}   # 켜진 탁상 조명 주변 빛
+const FX := {"mini_plant": "drops", "cactus": "drops", "monstera": "drops", "terrarium": "drops", "succulents": "drops",
+	"bonsai": "drops", "hanging_plant": "drops", "moss_frame": "drops",
+	"speaker": "notes", "speaker_bt": "notes", "soundbar": "notes", "turntable": "notes", "headphones": "notes", "headset": "notes",
+	"mug": "steam", "tumbler": "steam", "humidifier": "steam", "diffuser": "steam",
+	"lucky_cat": "coin", "globe": "wobble", "rubik": "wobble", "figure": "wobble", "block_ship": "wobble",
+	"desk_fan": "wobble", "gamepad": "wobble", "desk_clock": "time", "wall_clock": "time", "calendar": "date"}
+const FX_SEC := 1.4
+var poked = null        # 마지막으로 누른 소품 (효과 하나만)
+var poke_t := -100000
 
 
 func enter() -> void:
@@ -84,15 +98,18 @@ func depth_key(p: Dictionary) -> float:
 	return p.get("z", 0) + (0.5 if Rules.is_mounted(p) else 0.0)
 
 
+## 겹치면 위에 그려진 것 (벽 장식 < 책상 뒤 < 앞 < 모니터에 붙은 것)
 func hit(x: float, y: float):
-	if not top_view:
-		return Rules.item_at(Game.placed, x, y)
-	var best = null   # 겹치면 앞에 있는 것(z 큰 것)
+	var best = null
 	for p in Game.placed:
 		var r := shown_rect(p)
-		if not r.is_empty() and inside(x, y, r) and (best == null or depth_key(p) > depth_key(best)):
+		if not r.is_empty() and inside(x, y, r) and (best == null or hit_key(p) >= hit_key(best)):
 			best = p
 	return best
+
+
+func hit_key(p: Dictionary) -> float:
+	return -1.0 if p["layer"] == "wall" else depth_key(p)
 
 
 ## 놓일 자리 {layer, x, y, z, ok}. 근처가 아니면 {}.
@@ -303,7 +320,7 @@ func up(x: float, y: float) -> void:
 	moving = null
 	if mv != null and abs(x - origin.x) + abs(y - origin.y) < 6:   # 움직이지 않은 누름 = 선택
 		selected = null if is_same(selected, mv) else mv
-		sfx("click")
+		poke(mv)
 		return
 	var ok: bool = not t.is_empty() and t["ok"]
 	sfx("place" if ok else "error")
@@ -338,6 +355,91 @@ func up(x: float, y: float) -> void:
 		toast = "%s은(는) '%s'의 빈 곳에 놓아 주세요" % [DB.ITEMS[id]["name"], Rules.LAYER_NAMES[DB.ITEMS[id]["layer"]]]
 
 
+## 놓인 소품 누르기: 조명 껐다 켜기 · 물 주기 · 음표 · 김 · 금화 · 흔들 · 시각
+func poke(p: Dictionary) -> void:
+	poked = p
+	poke_t = Time.get_ticks_msec()
+	var id: String = p["id"]
+	if id in LIGHTS:
+		if p.has("off"):
+			p.erase("off")
+		else:
+			p["off"] = true
+		sfx("click")
+		toast = "%s을(를) %s" % [DB.ITEMS[id]["name"], "껐어요" if p.has("off") else "켰어요"]
+		return
+	var kind: String = FX.get(id, "")
+	sfx("star" if kind == "coin" else "pick" if kind != "" else "click")
+	toast = {"drops": "물을 줬어요. 잎이 반짝여요", "coin": "냥! 복이 들어와요"}.get(kind, "")
+
+
+func poke_age(p: Dictionary) -> float:
+	return (Time.get_ticks_msec() - poke_t) / 1000.0 if is_same(p, poked) else 99.0
+
+
+## 흔들리는 소품 (누른 직후 좌우로 흔들)
+func shake(p: Dictionary, r: Array) -> Array:
+	var a := poke_age(p)
+	if a >= 0.8 or not FX.get(p["id"], "") in ["wobble", "coin"]:
+		return r
+	var dx := sin(a * 30.0) * 5.0 * (1.0 - a / 0.8)
+	return [r[0] + dx, r[1], r[2] + dx, r[3]]
+
+
+func tint_of(p: Dictionary) -> Color:
+	return Color(0.42, 0.4, 0.55) if p.has("off") else Color.WHITE
+
+
+## 켜진 탁상 조명: 주변으로 번지는 은은한 빛 (소품보다 먼저 그려 뒤에 깔림)
+func draw_glow(p: Dictionary, r: Array) -> void:
+	if p.has("off") or not GLOW.has(p["id"]):
+		return
+	var c: Color = GLOW[p["id"]]
+	var w: float = r[2] - r[0]
+	var flick := 1.0 + (0.08 * sin(Time.get_ticks_msec() / 90.0) if p["id"] == "candle" else 0.0)
+	for i in 5:
+		circle((r[0] + r[2]) / 2.0, r[3] - (r[3] - r[1]) * 0.3, w * (0.5 + i * 0.22) * flick, Color(c, 0.05))
+
+
+## 누른 소품 위로 뜨는 효과 (물방울 · 음표 · 김 · 금화 · 시각)
+func draw_fx() -> void:
+	if poked == null or not Game.placed.has(poked) or shown_rect(poked).is_empty():
+		return
+	var a := poke_age(poked)
+	var kind: String = FX.get(poked["id"], "")
+	if a > FX_SEC or kind == "":
+		return
+	var r := shown_rect(poked)
+	var cx: float = (r[0] + r[2]) / 2.0
+	var w: float = r[2] - r[0]
+	var fade := 1.0 - a / FX_SEC
+	match kind:
+		"drops":   # 위에서 떨어지는 물방울
+			for i in 5:
+				var y: float = r[3] + 50 - fmod(a * 160.0 + i * 23.0, 70.0)
+				circle(cx - w * 0.3 + i * w * 0.15, y, 4, Color(0.45, 0.8, 1.0, fade))
+		"notes":   # 올라가는 음표 (머리 + 기둥)
+			for i in 3:
+				var t2: float = a - i * 0.25
+				if t2 > 0:
+					var c: Color = Color([CYAN, PINK, GOLD][i], fade)
+					var p2 := Vector2(cx - 20 + i * 20 + sin(t2 * 6.0) * 6, r[3] + 10 + t2 * 70)
+					circle(p2.x, p2.y, 5, c)
+					line(p2 + Vector2(4, 0), p2 + Vector2(4, 18), c, 2)
+		"steam":   # 모락모락 김
+			for i in 4:
+				var t3: float = fmod(a + i * 0.3, FX_SEC)
+				circle(cx + sin(t3 * 5.0 + i) * 6, r[3] + 4 + t3 * 50, 5 + t3 * 6, Color(1, 1, 1, 0.35 * (1.0 - t3 / FX_SEC) * fade))
+		"coin":   # 튀어 오르는 금화
+			var y2: float = r[3] + 10 + sin(min(a, 1.0) * PI) * 50
+			circle(cx, y2, 10, Color(GOLD, fade))
+			circle(cx, y2, 6, Color(Color8(255, 240, 160), fade))
+		"time", "date":   # 지금 시각 · 오늘 날짜 딱지
+			var s: String = Time.get_time_string_from_system().left(5) if kind == "time" else "의뢰 %d일째" % Game.day
+			var cw := text_w(s, 22) + 24
+			chip(clampf(cx - cw / 2.0, ROOM[0] + 4, ROOM[2] - cw - 4), minf(r[3] + 26, BAR - 24), s, CYAN)
+
+
 # ---------- 그리기 ----------
 ## 들고 있는 소품 (모니터를 들면 위에 끼운 것도 같이 들림)
 func lifted(p: Dictionary) -> bool:
@@ -360,7 +462,8 @@ func draw_front() -> void:
 			if armed(p):   # 암에 달린 모니터는 받침대를 떼어 냄
 				draw_without_stand(p)
 			else:
-				put(art(p), Rules.rect_of(p))
+				draw_glow(p, Rules.rect_of(p))
+				put(art(p), shake(p, Rules.rect_of(p)), tint_of(p))
 			if SCREEN.has(p["id"]):
 				draw_screen(p)   # 앞에 놓인 소품이 화면을 가리도록 모니터 바로 다음에
 	draw_pc()
@@ -546,7 +649,7 @@ func draw_top() -> void:
 			continue
 		var r := shown_rect(p)
 		if top_art(art(p)) != "":
-			put(top_art(art(p)), r)
+			put(top_art(art(p)), r, tint_of(p))
 		else:   # ponytail: 위에서 본 그림이 아직 없는 소품은 정면 그림을 칸에 넣어 임시로
 			frame("ui_slot", r)
 			fit(art(p), (r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0, r[2] - r[0] - 6, r[3] - r[1] - 6)
@@ -561,6 +664,7 @@ func draw_room() -> void:
 		var t := target(held, m.mouse.x, m.mouse.y)
 		if not t.is_empty():
 			outline(preview_rect(held, t), CYAN if t["ok"] else PINK, 2)
+	draw_fx()
 	if capturing:
 		return
 	if selected != null and Game.placed.has(selected) and not shown_rect(selected).is_empty():

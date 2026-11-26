@@ -106,6 +106,16 @@ func run() -> void:
 	check(Game.placed.size() == 5, "%s %s" % [desk.toast, Game.placed.map(func(p): return p["id"])])
 	await shot("7b_desk_top")
 	tap(desk.BTN_VIEW)
+	var lamp: Dictionary = Game.placed.filter(func(p): return p["id"] == "lamp_warm")[0]   # 소품 기믹: 조명 끄기 · 머그 김
+	tap(Rules.rect_of(lamp))
+	check(lamp.get("off", false), "조명 끄기: " + desk.toast)
+	tap(Rules.rect_of(lamp))
+	check(not lamp.has("off"), "조명 다시 켜기")
+	tap(Rules.rect_of(lamp))
+	tap(Rules.rect_of(Game.placed.filter(func(p): return p["id"] == "mug")[0]))
+	await shot("7c_desk_gimmick")
+	desk.selected = null   # 머그 색 칩이 조명을 가리지 않게
+	tap(Rules.rect_of(lamp))
 
 	main.go("build")   # 첫 손님은 데스크테리어라 조립 탭이 없음 → 조립 화면 테스트는 바로 이동
 	on("build")
