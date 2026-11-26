@@ -104,6 +104,10 @@ func put(name: String, r: Array, tint := Color.WHITE) -> void:
 func fit(name: String, cx: float, cy: float, mw: float, mh: float) -> void:
 	var s := DB.tex(DB.skin(name)).get_size()
 	var k: float = min(mw / s.x, mh / s.y)
+	if s.y * k < mh * 0.5 and DB.ITEMS.has(name) and DB.PX.has(name) and DB._has("pixellab/" + DB.PX[name]):
+		name = "pixellab/" + DB.PX[name]   # 가로로 긴 정면 그림(키보드 · 마우스)은 작은 칸에서 실선이 됨 → 비스듬히 본 아이콘
+		s = DB.tex(name).get_size()
+		k = min(mw / s.x, mh / s.y)
 	put(name, [cx - s.x * k / 2, cy - s.y * k / 2, cx + s.x * k / 2, cy + s.y * k / 2])
 
 

@@ -159,7 +159,7 @@ func run() -> void:
 	tap(b.zone("GPU"), true)                   # 나사가 조여져 있으면 안 빠짐
 	check(Game.pc.has("GPU") and "나사" in b.toast)
 	screw_all(b, "GPU")
-	tap(b.zone("GPU"), true)                   # 두 번 누르기 = 빼기 → 다시 꽂기
+	drag(b.zone("GPU"), b.inv_row(0))          # 재고 쪽으로 끌어내기 = 빼기 → 다시 꽂기
 	check(not Game.pc.has("GPU") and Game.stock["gpu1"] == 1)
 	part.call("gpu1", b.gpu_rect())
 	screw_all(b)

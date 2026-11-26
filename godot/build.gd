@@ -34,6 +34,8 @@ const SEAT_MS := 240.0
 const SEAT_SFX := {"GPU": "latch", "SSD": "snap", "24pin": "push"}   # RAM은 걸쇠 두 번(latch), 나머지 선은 snap
 var spin := {}         # 나사 키 -> 돌리기 시작한 시각 (돌아가는 연출)
 var showcase := false  # 완성 모습 보는 중
+var hold_t := 0        # 누르기 시작한 시각 · 자리 (폰: 길게 누르면 부품 이름)
+var hold_at := Vector2.ZERO
 
 
 func enter() -> void:
@@ -217,6 +219,8 @@ func down(x: float, y: float, right: bool) -> void:
 	if tabs(x, y):
 		return
 	toast = ""   # 지난 안내는 다음 손길에 지움 (엉뚱한 때 남아 있지 않게)
+	hold_t = Time.get_ticks_msec()
+	hold_at = Vector2(x, y)
 	if pc.has("CASE") and inside(x, y, BTN_SHOW):
 		showcase = true
 		sfx("boot_ok" if pc.boots() else "click")
@@ -306,24 +310,35 @@ func down(x: float, y: float, right: bool) -> void:
 				tool = ""
 				return
 	var hit := placed_at(x, y)
-	if right and not hit.is_empty():   # 빼기는 두 번 누르기만 (실수로 조립이 풀리지 않게)
-		var kids := pc.blockers(hit[0])
-		if not kids.is_empty():   # 위에 꽂힌 부품부터 (케이스 · 보드를 통째로 빼서 조립이 날아가지 않게)
-			toast = "%s부터 빼 주세요" % ", ".join(kids.map(func(k): return TYPE_NAMES[k]))
-			sfx("error")
-			return
-		if pc.tight(hit[0]) > 0:
-			toast = "나사 %d개를 먼저 풀어요 (드라이버)" % pc.tight(hit[0])
-			sfx("error")
-			return
-		var pid: String = pc.ram[hit[1]] if hit[0] == "RAM" else pc.parts[hit[0]]
-		for id in pc.remove(hit[0], hit[1]):
-			if id is Dictionary:   # 중고는 상태째로 중고 창고에
-				Game.used.append(id)
-			else:
-				Game.give_back(id)
-		post = []
-		toast = "%s을(를) 뺐어요" % DB.PARTS[pid]["name"]
+	if hit.is_empty():
+		return
+	if right:   # 두 번 누르기(우클릭) = 바로 빼기
+		take_out(hit)
+	elif tool == "":   # 끌어서 재고 쪽에 놓으면 빼기 (실수로 조립이 풀리지 않게 놓는 곳이 정해짐)
+		held = ["out", hit[0], hit[1]]
+
+
+## 꽂힌 부품을 빼서 재고로 [자리, RAM 슬롯]
+func take_out(hit: Array) -> void:
+	var pc := Game.pc
+	var kids := pc.blockers(hit[0])
+	if not kids.is_empty():   # 위에 꽂힌 부품부터 (케이스 · 보드를 통째로 빼서 조립이 날아가지 않게)
+		toast = "%s부터 빼 주세요" % ", ".join(kids.map(func(k): return TYPE_NAMES[k]))
+		sfx("error")
+		return
+	if pc.tight(hit[0]) > 0:
+		toast = "나사 %d개를 먼저 풀어요 (드라이버)" % pc.tight(hit[0])
+		sfx("error")
+		return
+	var pid: String = pc.ram[hit[1]] if hit[0] == "RAM" else pc.parts[hit[0]]
+	for id in pc.remove(hit[0], hit[1]):
+		if id is Dictionary:   # 중고는 상태째로 중고 창고에
+			Game.used.append(id)
+		else:
+			Game.give_back(id)
+	post = []
+	toast = "%s을(를) 뺐어요" % DB.PARTS[pid]["name"]
+	sfx("pick")
 
 
 ## 선을 꽂을 수 없는 이유를 구체적으로
@@ -357,6 +372,10 @@ func up(x: float, y: float) -> void:
 			sfx("paste" if toast == "" else "error")
 			if toast == "":
 				toast = "서멀 구리스를 발랐어요"
+		return
+	if h[0] == "out":
+		if x < INV_W:
+			take_out([h[1], h[2]])
 		return
 	if h[0] == "cable":
 		if inside(x, y, grow(socket_rect(h[1]), 16)):
@@ -771,6 +790,14 @@ func draw_drag() -> void:
 		outline(grow(socket_rect(held[1]), 6), CYAN, 2)
 		line(cable_start(held[1]), m.mouse, GOLD, 4)
 		return
+	if held[0] == "out":   # 꽂힌 부품을 재고 쪽으로
+		var oid: String = pc.ram[held[2]] if held[1] == "RAM" else pc.parts[held[1]]
+		if m.mouse.distance_to(hold_at) > 12:
+			outline([2, 2, INV_W - 2, 640], CYAN if x < INV_W else Color(CYAN, 0.5), 3)
+			text_c([0, 300, INV_W, 340], "여기 놓으면 빼기", 22, CYAN)
+			fit(icon_of(oid), x, y, 56, 56)
+		hold_tip(oid)
+		return
 	var hid := pid_of(held[1])
 	var t: String = DB.PARTS[hid]["type"]   # 갈 수 있는 자리 미리 보기
 	var zones := []
@@ -786,30 +813,42 @@ func draw_drag() -> void:
 		if reason != "" and inside(x, y, grow(z[1], 20)):
 			text(x + 20, y - 30, reason, 14, PINK)
 	fit(icon_of(hid), x, y, 56, 56)
+	hold_tip(hid)
+
+
+## 폰엔 마우스 올림이 없어서: 제자리에서 길게 누르면 부품 이름
+func hold_tip(pid: String) -> void:
+	if m.held_down and Time.get_ticks_msec() - hold_t > 450 and m.mouse.distance_to(hold_at) < 12:
+		var s: String = DB.PARTS[pid]["name"]
+		hover_tip(clampf(m.mouse.x + 34, 0, 1270 - text_w(s, 22) - 20), m.mouse.y + 40, s)
 
 
 func draw_side() -> void:
 	var pc := Game.pc
 	var x0 := 930
 	panel([912, 122, 1276, 638])
-	text(x0, 610, "조립 순서", 18, PINK)
 	var steps := [["케이스", pc.has("CASE")], ["메인보드", pc.has("MB")], ["CPU (레버 닫기)", pc.has("CPU") and not pc.lever_open],
 		["서멀 구리스", pc.paste], ["쿨러", pc.has("COOLER")], ["RAM", pc.ram.any(func(r): return r != "")], ["M.2 SSD", pc.has("SSD")],
 		["그래픽 (내장 OK)" if pc.igpu() and not pc.has("GPU") else "그래픽카드", pc.has("GPU") or pc.igpu()], ["파워", pc.has("PSU")],
 		["전원선", pc.has("PSU") and pc.cable_targets().all(func(c): return c == "front" or pc.cables.has(c))], ["전원 버튼선", pc.cables.has("front")],
 		["나사 조이기", not pc.screws.is_empty() and pc.loose().is_empty()]]
-	for i in steps.size():
-		text(x0 + (i / 6) * 176, 578 - (i % 6) * 30, ("● " if steps[i][1] else "○ ") + steps[i][0].replace(" (레버 닫기)", ""), 15, GREEN if steps[i][1] else QUIET)
+	var done := steps.filter(func(s): return s[1]).size()   # 진행 막대 (할 일은 아래 '다음'이 알려 줌)
+	text(x0, 610, "조립 %d / %d" % [done, steps.size()], 22, PINK)
+	box([x0, 566, 1258, 584], DARK)
+	box([x0, 566, x0 + (1258 - x0) * done / steps.size(), 584], GREEN)
+	outline([x0, 566, 1258, 584], DIM, 2)
+	var nl := wrap_text("다음: " + next_step()[0], 1270 - x0)
+	for i in min(nl.size(), 2):
+		text(x0, 536 - i * 26, nl[i], 22, GOLD)
 	var b := Bench.run(Bench.parts_of(pc), Game.request().get("use", {}))
-	text(x0, 376, "예상 " + Bench.short(b), 22, GREEN if b["ok"] else GOLD)
-	text(x0, 346, "전력 %dW / %sW" % [pc.watt(), pc.capacity() if pc.capacity() else "?"], 16, PINK if pc.capacity() and pc.watt() > pc.capacity() else INK)
+	text(x0, 456, "예상 " + Bench.short(b), 22, GREEN if b["ok"] else GOLD)
+	text(x0, 426, "전력 %dW / %sW" % [pc.watt(), pc.capacity() if pc.capacity() else "?"], 16, PINK if pc.capacity() and pc.watt() > pc.capacity() else INK)
 	var extra := []
 	if pc.dual_channel():
 		extra.append("듀얼 채널 +1")
 	if pc.throttled():
 		extra.append("쿨러 부족 -3")
-	text(x0, 322, "  ·  ".join(extra), 14, GOLD)
-	text(x0, 294, clip("다음: " + next_step()[0], 1270 - x0), 22, GOLD)
+	text(x0, 396, "  ·  ".join(extra), 14, GOLD)
 	text(x0, 256, "디버그 LED", 15, QUIET)
 	var stage: int = post[0] if not post.is_empty() else -9
 	for i in 4:
@@ -892,6 +931,6 @@ func draw() -> void:
 		m.modes["desk"].draw_side([382, 50, 898, 603], on)
 		text(382, 624, ("완성! 전원이 켜진 모습" if on else "아직 안 켜져요 (전원 테스트로 확인)") + "  ·  누르면 닫기", 22, GREEN if on else GOLD)
 	top_bar("build")
-	text(INV_W + 20, 30, "끌어다 꽂기 · 두 번 누르면 빼기", 13, QUIET)
+	text(INV_W + 20, 30, "끌어다 꽂기 · 재고로 끌어내면 빼기", 13, QUIET)
 	if toast != "":
 		text(INV_W + 20, 54, toast, 16, PINK)
