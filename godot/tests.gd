@@ -305,5 +305,10 @@ func _initialize() -> void:
 		and is_same(Game.cables[0]["dev"], Game.placed[0]) and Game.placed[0]["x"] is int, "저장 · 이어하기")
 	Game.delete_save()
 
+	# --- PixelLab 아이콘 대응표: 모든 id가 실제 물건이고 그림이 있으면 그걸 씀 ---
+	for id in DB.PX:
+		ok(DB.ITEMS.has(id) or DB.PARTS.has(id), "PX 대응표 id: " + id)
+	ok(DB.px("gpu6") in ["", "pixellab/gpu_high"] and DB.px("case4") == "" and DB.px("cactus") == "", "PX 대응 · 없는 건 빈칸")
+
 	print("godot rules ok" if failed == 0 else "godot rules FAILED: %d" % failed)
 	quit(1 if failed else 0)

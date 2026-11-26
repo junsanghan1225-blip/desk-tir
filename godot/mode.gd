@@ -274,6 +274,8 @@ func dim() -> void:
 
 
 func icon_of(id: String) -> String:
+	if DB.px(id) != "":
+		return DB.px(id)
 	if DB.ITEMS.has(id):
 		return id
 	if DB.PARTS[id]["type"] == "CASE":
