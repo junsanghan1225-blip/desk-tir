@@ -17,7 +17,7 @@ const VIOLET := Color8(124, 92, 255)
 const PANEL := Color8(34, 24, 70)
 const BG := Color8(18, 12, 38)
 const DARK := Color8(24, 16, 52)
-const TABS := [["shop", "쇼핑"], ["desk", "책상"], ["build", "조립"], ["wire", "배선"]]
+const TABS := [["shop", "쇼핑"], ["desk", "책상"], ["build", "조립"], ["wire", "배선"], ["storage", "창고"]]   # 창고는 위에 겹쳐 열림
 
 var m: Main          # main.gd (그리기 대상 · 화면 전환)
 var overlay := false    # true면 아래 화면 위에 겹쳐 그린다
@@ -296,8 +296,8 @@ func icon_of(id: String) -> String:
 
 # ---------- 주문 작업 화면 공통: 상단 바 + 탭 ----------
 func tab_rect(i: int) -> Array:
-	var x := 452 + i * 168
-	return [x, 648, x + 160, 714]
+	var x := 452 + i * 137
+	return [x, 648, x + 130, 714]
 
 
 func tab_at(x: float, y: float) -> String:
@@ -331,7 +331,10 @@ func top_bar(current: String) -> void:
 ## 탭을 눌렀으면 그 화면으로 가고 true
 func tabs(x: float, y: float) -> bool:
 	var tab := tab_at(x, y)
-	if tab != "":
+	if tab == "storage":
+		sfx("click")
+		m.push("storage")
+	elif tab != "":
 		sfx("click")
 		m.go(tab)
 	return tab != ""

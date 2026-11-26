@@ -235,9 +235,12 @@ class DayEnd extends Mode:
 		return [120 + i * 420, 110, 520 + i * 420, 200]
 
 	var daily_paid := 0
+	var first_storage := false
 
 	func enter() -> void:
 		toast = ""
+		first_storage = not Game.stats.has("seen_storage")
+		Game.stats["seen_storage"] = 1
 		daily_paid = Game.claim_daily()
 		if daily_paid:
 			sfx("star")
@@ -272,7 +275,9 @@ class DayEnd extends Mode:
 		box([0, 0, 1280, H], BG)
 		text(120, 684, "%d일차 영업 마감" % Game.day, 34, PINK)
 		var tz := Game.teaser()   # 계속할 이유: 내일 올 손님 예고
-		if tz[0] > 0:
+		if first_storage:   # 처음 한 번만: 창고 안내
+			text(120, 56, clip("창고가 열렸어요! 남는 돈으로 내 책상 꾸미기 · PC 미리 조립해 보관", 760), 22, GOLD)
+		elif tz[0] > 0:
 			text(120, 56, clip("내일 예약 %d명 · 그중 한 분: \"%s\"" % [tz[0], tz[1]], 760), 18, GOLD)
 		News.goal_line(self, 630, 120)
 		var lv := Game.level()
@@ -319,6 +324,8 @@ class DayEnd extends Mode:
 			text(120, 60, toast, 16, PINK)
 		button(BTN_NEXT, "엔딩 보기" if Game.day >= Game.last_day() else "다음 날 영업", PINK)
 		button(BTN_STORAGE, "창고 · 내 책상", CYAN)
+		if first_storage and Time.get_ticks_msec() / 400 % 2:
+			outline(grow(BTN_STORAGE, 4), GOLD, 3)
 		if Game.shelf_fee() > 0:
 			text(BTN_STORAGE[0], BTN_STORAGE[1] - 22, "보관료 -%d만/일" % Game.shelf_fee(), 22, QUIET)
 
