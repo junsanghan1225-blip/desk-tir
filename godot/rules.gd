@@ -130,11 +130,7 @@ static func is_monitor(id: String) -> bool:   # 화면 있는 기기 중 노트�
 
 static func monitor_ids() -> Array:
 	return DB.ITEMS.keys().filter(is_monitor)
-const KEYBOARDS := ["keyboard", "gaming_kb", "kb_white", "kb_mini"]
-const MICE := ["mouse_gaming", "mouse_vertical"]
-const SPEAKERS := ["speaker", "speaker_bt"]
 const MOUNT_TOP := {"monitor_bar": 14.0 / 34, "webcam": 26.0 / 40}   # 그림 윗변이 모니터 윗변보다 (그림 높이의) 얼마나 위인지
-const MAGNET := 230
 const ARM_REACH := 160.0   # 모니터 암이 집게에서 뻗을 수 있는 가로 거리(px)    # 이 거리 안이면 짝 소품 옆 제자리로 끌려감
 
 
@@ -209,54 +205,18 @@ static func edge_fits(placed: Array, id: String, x: int, ignore = null) -> bool:
 	return true
 
 
-static func _nearest(placed: Array, ids: Array, cx: float, ignore = null):
-	var best = null
-	for p in placed:
-		if p["id"] in ids and not is_same(p, ignore) and abs(center_x(p) - cx) < MAGNET and (best == null or abs(center_x(p) - cx) < abs(center_x(best) - cx)):
-			best = p
-	return best
-
-
-## 놓을 자리 후보 [x, z] (앞쪽이 우선). x = 정면 그림 왼쪽. z < 0 이면 정면 뷰(앞뒤 정보 없음).
-## 짝 소품 옆 제자리 → 앞뒤 구역(뒤 = 벽쪽, 앞 = 손 닿는 곳) → 손가락 위치 그대로.
-static func magnet(placed: Array, id: String, x: int, z: int, ignore = null) -> Array:
-	var s := DB.size_of(id)
+## 놓을 자리 후보 [x, z]. 탑뷰(z >= 0)는 놓은 자리 그대로 (키보드는 모니터 앞 같은 강제 자리 없음).
+## 정면 뷰(z < 0)는 앞뒤 정보가 없어 구역(뒤 = 벽쪽, 앞 = 손 닿는 곳)으로 앞뒤만 정함.
+static func magnet(_placed: Array, id: String, x: int, z: int, _ignore = null) -> Array:
+	if z >= 0:
+		return [[x, z]]
 	var f := foot_of(id)
-	var cx := x + s.x / 2.0
 	var out := []
-	var at := func(ncx: float, nz: float): out.append([int(ncx - s.x / 2.0), int(nz)])
-	if id in KEYBOARDS:   # 모니터 바로 앞 가운데
-		var m = _nearest(placed, monitor_ids(), cx, ignore)
-		if m != null:
-			at.call(center_x(m), m.get("z", 0) + depth_of(m["id"]) + 10)
-	elif id in MICE:      # 키보드 오른쪽
-		var k = _nearest(placed, KEYBOARDS, cx, ignore)
-		if k != null:
-			var mx: float = foot_x(k["id"], k["x"]).y + 8 + f.x / 2.0
-			var kz: int = k.get("z", 0)
-			for mz in [kz + depth_of(k["id"]) / 2.0 - f.y / 2.0, kz, kz + depth_of(k["id"]) - f.y]:   # 키보드와 가운데 · 뒷선 · 앞선 맞춤
-				at.call(mx, mz)
-	elif id in SPEAKERS:  # 모니터 양옆 (가까운 쪽 먼저)
-		var m = _nearest(placed, monitor_ids(), cx, ignore)
-		if m != null:
-			var mr := foot_x(m["id"], m["x"])
-			var sides := [mr.x - 8 - f.x / 2.0, mr.y + 8 + f.x / 2.0]
-			sides.sort_custom(func(a, b): return abs(a - cx) < abs(b - cx))
-			for side in sides:
-				at.call(side, m.get("z", 0))
-	elif id == "soundbar":  # 모니터 받침 바로 앞
-		var m = _nearest(placed, monitor_ids(), cx, ignore)
-		if m != null:
-			at.call(center_x(m), m.get("z", 0) + depth_of(m["id"]))
 	match DB.ITEMS[id].get("zone", ""):
 		"back":
 			out.append([x, 0])
-			if z >= 0:
-				out.append([x, min(z, DESK_DEPTH / 2)])
 		"front":
-			out.append([x, z if z >= DESK_DEPTH * 0.45 else DESK_DEPTH - f.y - 20])
-	if z >= 0:
-		out.append([x, z])
+			out.append([x, DESK_DEPTH - f.y - 20])
 	return out
 
 

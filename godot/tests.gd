@@ -57,14 +57,11 @@ func _initialize() -> void:
 	ok(not Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, 30) and Rules.fits_at([mz], "monitor", "desk", 400, Rules.DESK_Y, null, Rules.depth_of("monitor")), "탑뷰: 앞뒤로 비키면 같은 x에 놓임")
 	ok(absi(Rules.free_z([mz], "monitor", 400) - Rules.depth_of("monitor")) < Rules.Z_STEP and not Rules.fits_at([], "monitor", "desk", 400, Rules.DESK_Y, null, 350), "빈 앞뒤 자리 · 책상 밖")
 	ok(not Rules.fits_at([], "monitor_curve", "desk", Rules.AREA_X2 - 100, Rules.DESK_Y) and Rules.drop_target("keyboard", 0, Rules.DESK_Y) != null and Rules.fits_at([], "keyboard", "desk", Rules.drop_target("keyboard", 0, Rules.DESK_Y)[1], Rules.DESK_Y), "실제 크기도 책상 안에")
-	# 현실적인 배치: 키보드는 모니터 앞, 마우스는 키보드 오른쪽, 라이트바는 모니터 위 (모니터 따라 이동)
+	# 배치는 강제 자리 없음: 탑뷰는 놓은 자리 그대로, 정면은 구역으로 앞뒤만
 	var mn := {"id": "monitor", "layer": "desk", "x": 500, "y": Rules.DESK_Y, "z": 0}
-	var kc: Array = Rules.magnet([mn], "keyboard", 470, -1)[0]
-	ok(absf(kc[0] + DB.size_of("keyboard").x / 2.0 - Rules.center_x(mn)) < 1 and kc[1] == Rules.depth_of("monitor") + 10, "키보드 → 모니터 앞 가운데")
-	var kbd := {"id": "keyboard", "layer": "desk", "x": kc[0], "y": Rules.DESK_Y, "z": kc[1]}
-	var mc: Array = Rules.magnet([mn, kbd], "mouse_vertical", kc[0] + 200, -1)[0]
-	ok(Rules.foot_x("mouse_vertical", mc[0]).x > Rules.foot_x("keyboard", kbd["x"]).y, "마우스 → 키보드 오른쪽")
-	ok(Rules.magnet([], "monitor", 600, 250)[0][1] == 0, "모니터는 벽쪽으로 끌림")
+	ok(Rules.magnet([mn], "keyboard", 470, 40) == [[470, 40]], "탑뷰: 키보드도 놓은 자리 그대로")
+	ok(Rules.magnet([], "monitor", 600, -1)[0][1] == 0 and Rules.magnet([], "keyboard", 470, -1)[0][0] == 470, "정면: 모니터는 벽쪽, x는 그대로")
+	var kbd := {"id": "keyboard", "layer": "desk", "x": 470, "y": Rules.DESK_Y, "z": Rules.depth_of("monitor") + 10}
 	var bar := {"id": "monitor_bar", "layer": "desk", "host": mn, "slot": 0}
 	var cam := {"id": "webcam", "layer": "desk", "host": mn, "slot": 1}
 	var lay := [mn, kbd, bar, cam]
