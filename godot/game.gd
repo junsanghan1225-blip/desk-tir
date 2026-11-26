@@ -482,7 +482,7 @@ static func next_customer() -> bool:
 
 
 # ---------- 창고: 미리 조립한 PC 랙 · 내 전시 책상 ----------
-const SHELF_MAX := 3
+const SHELF_MAX := 6   # 진열대 2단 × 3대
 const SHELF_FEE := 1   # 랙 PC 한 대당 하루 보관료(만). 공짜면 미리 조립이 의뢰 긴장감을 무너뜨려서
 const DESKS := [["접이식 책상", 0, 3], ["원목 책상", 30, 5], ["LED 게이밍 데스크", 80, 7]]   # [이름, 값(만), 전시 칸]
 

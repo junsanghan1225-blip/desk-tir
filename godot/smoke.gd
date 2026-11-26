@@ -242,6 +242,9 @@ func run() -> void:
 	tap(st.rack_rect(0))
 	check(not Game.my_pc.is_empty() and Game.shelf.size() == 1, "랙 PC → 내 책상")
 	await shot("13_storage")
+	tap(st.view_rect(1))
+	check(st.view == "desk", "내 책상 화면")
+	await shot("13b_my_desk")
 	tap(st.BTN_BACK)
 	on("day_end")
 	var fee_before := Game.money
