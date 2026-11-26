@@ -445,24 +445,18 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		var b := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
 		var rp := {"증상 해결": 50.0 if b["ok"] and pc.faults.is_empty() and pc.picture() else 0.0, "성능": pc_s * 2.5}
 		return _total(rp, {"증상 해결": 50, "성능": 50}, [], boot, 0)
-	if kind_of(req) in ["pc", "full"]:   # PC 조립(성능 위주) · PC + 데스크(둘 다 반반)
-		var fin := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0   # 나사를 다 조였는지
-		var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0,
-			"테마 일치": theme_s / 25.0, "조합 시너지": minf(1.0, syn.size() / 2.0)}
-		var w := {"PC 성능": 50, "조립 마감": 15, "모니터": 15, "배선": 10, "필수 · 금지": 10}
-		if kind_of(req) == "full":
-			w = {"PC 성능": 30, "조립 마감": 10, "모니터": 10, "테마 일치": 20, "필수 · 금지": 15, "조합 시너지": 10, "배선": 5}
-		var pp := {}
-		for k in w:
-			pp[k] = fr[k] * w[k]
-		var res := _total(pp, w, syn, boot, wire[1])
-		if used_bad and boot == "ok":
-			res["line"] = "새 제품만 부탁드렸는데… 중고 부품이 들어갔네요."
-		return res
-	# 데스크테리어 의뢰: 손님 PC는 그대로, 책상 분위기 · 필수 소품 · 조합 · 배선
-	var w2 := {"테마 일치": 30, "필수 · 금지": 30, "조합 시너지": 20, "배선": 20}
-	var dp := {"테마 일치": theme_s / 25.0 * 30, "필수 · 금지": req_s / 25.0 * 30, "조합 시너지": minf(20.0, 10.0 * syn.size()), "배선": wire[0] * 2.0}
-	return _total(dp, w2, syn, "ok", wire[1])
+	# PC + 데스크 의뢰: PC도 맞추고 책상도 꾸밈 (성능 · 분위기 · 소품 · 모니터 · 배선)
+	var fin := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0   # 나사를 다 조였는지
+	var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0,
+		"테마 일치": theme_s / 25.0, "조합 시너지": minf(1.0, syn.size() / 2.0)}
+	var w := {"PC 성능": 30, "조립 마감": 10, "모니터": 10, "테마 일치": 20, "필수 · 금지": 15, "조합 시너지": 10, "배선": 5}
+	var pp := {}
+	for k in w:
+		pp[k] = fr[k] * w[k]
+	var res := _total(pp, w, syn, boot, wire[1])
+	if used_bad and boot == "ok":
+		res["line"] = "새 제품만 부탁드렸는데… 중고 부품이 들어갔네요."
+	return res
 
 
 static func _total(parts: Dictionary, mx: Dictionary, syn: Array, boot: String, unplugged: int) -> Dictionary:
@@ -474,9 +468,9 @@ static func _total(parts: Dictionary, mx: Dictionary, syn: Array, boot: String, 
 		"synergies": syn, "boot": boot, "line": _reaction(parts, mx, boot, unplugged)}
 
 
-## 의뢰 종류: repair(수리) · pc(PC 조립) · desk(데스크테리어) · full(PC 조립 + 데스크테리어)
+## 의뢰 종류는 둘: repair(고장 수리) · full(PC 조립 + 데스크테리어)
 static func kind_of(req: Dictionary) -> String:
-	return "repair" if req.has("repair") else req.get("type", "desk")
+	return "repair" if req.has("repair") else "full"
 
 
 const RES_RANK := {"1080p": 0, "1440p": 1, "UW1440": 1, "4K": 2}

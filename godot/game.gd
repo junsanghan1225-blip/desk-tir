@@ -4,7 +4,7 @@ class_name Game
 
 const START_MONEY := 200
 const LEVELS := [0, 3, 9, 17, 27]     # 가게 레벨 n이 되려면 필요한 누적 별
-const TIP_RATE := [5, 6, 8, 10, 12]   # 레벨별 별 1개당 팁 (예산의 %)
+const TIP_RATE := [3, 4, 5, 6, 7]   # 레벨별 별 1개당 팁 (예산의 %). 예산이 빠듯해서 팁 · 알뜰 구매가 마진
 static var SAVE_PATH := "user://save.json"   # 테스트는 test_save.json을 써서 실제 저장을 안 건드림
 
 static var money := START_MONEY
@@ -111,10 +111,6 @@ static func reset_order() -> void:
 	placed = []
 	pc = repair_pc()
 	cables = []
-	if order_index < todays_requests().size() and Rules.kind_of(request()) == "desk":   # 데스크테리어: 손님이 쓰던 모니터 · 키보드가 이미 책상에 (선도 꽂혀 있음)
-		placed = [{"id": "monitor_22", "layer": "desk", "x": 600, "y": 210, "z": 0, "own": true},
-			{"id": "keyboard", "layer": "desk", "x": 617, "y": 210, "z": 283, "own": true}]
-		cables = [{"dev": placed[0], "type": "HDMI", "port": 0}, {"dev": placed[1], "type": "USB", "port": 0}]
 
 
 ## 수리 의뢰면 손님이 맡긴 고장 난 PC, 아니면 빈 케이스
@@ -122,8 +118,6 @@ static func repair_pc() -> PCBuild:
 	if order_index >= todays_requests().size():   # 영업 마감 뒤 등 손님이 없을 때
 		return PCBuild.new()
 	var rep: Dictionary = request().get("repair", {})
-	if rep.is_empty() and request().has("own_pc"):   # 데스크테리어 의뢰: 손님이 쓰던 PC가 이미 있음
-		rep = {"pc": request()["own_pc"], "break": []}
 	if rep.is_empty():
 		return PCBuild.new()
 	var b := PCBuild.full(rep["pc"])
@@ -283,7 +277,7 @@ static func give_back(id: String) -> void:
 static func spent() -> int:
 	var total := 0
 	for p in placed:
-		total += 0 if p.get("own", false) else price_of(p["id"])   # 손님이 원래 쓰던 물건은 공짜
+		total += price_of(p["id"])
 	for t in pc.parts:   # 중고는 산 값(손님 부품은 0원), 새것은 정가
 		total += pc.used[t]["paid"] if pc.used.has(t) else price_of(pc.parts[t])
 	for i in 4:
@@ -325,17 +319,16 @@ static func settle(result: Dictionary) -> Array:
 	var n_used := pc.used.values().filter(func(e): return e["paid"] > 0).size()   # 직접 사 온 중고만
 	ledger[-1].merge({"used": n_used, "noise": b.get("noise", 99), "repair": request().has("repair")})
 	if result["stars"] > 0:   # 도감 · 업적 기록
-		var built := Rules.kind_of(request()) != "desk"   # 데스크테리어는 손님 PC 그대로라 기록 안 함
-		for id in (computer().ids() if built else []):
+		for id in computer().ids():
 			dex["p:" + id] = true
 		for f in request().get("repair", {}).get("break", []):
 			dex["f:" + f] = true
 		_add("deliver", 1)
 		_add("three", 1 if result["stars"] == 3 else 0)
 		_add("used", n_used)
-		if built and b.get("noise", 99) <= 28:
+		if b.get("noise", 99) <= 28:
 			stats["silent"] = 1
-		if built and b["kind"] == "game" and b["value"] >= 240:
+		if b["kind"] == "game" and b["value"] >= 240:
 			stats["speed"] = 1
 	check_achv()
 	return [pay, tip]   # 교체하고 남은 헌 부품은 중고 창고에 남음 (손님이 처분해 달래요)
