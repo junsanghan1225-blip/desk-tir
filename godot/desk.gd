@@ -47,6 +47,7 @@ var poke_t := -100000
 
 
 func enter() -> void:
+	Game.cables = Rules.auto_plug(Game.cables, Game.placed, Game.computer())   # 배선 화면 없이 자동 연결
 	held = ""
 	moving = null
 	selected = null
@@ -283,6 +284,7 @@ func down(x: float, y: float, right: bool) -> void:
 
 ## 케이스 전원 버튼: 부팅되면 켜지고(연결된 모니터가 켜짐), 안 되면 LED가 빨갛게 깜빡이며 이유를 알려 줌
 func press_power() -> void:
+	Game.cables = Rules.auto_plug(Game.cables, Game.placed, Game.computer())
 	if Game.power:
 		Game.power = false
 		sfx("click")

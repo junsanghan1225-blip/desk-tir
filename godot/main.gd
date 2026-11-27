@@ -114,6 +114,7 @@ func deliver() -> void:
 		b.toast = "덜 꽂힌 곳을 눌러 끝까지 (딸깍)"
 		go("build")
 		return
+	Game.cables = Rules.auto_plug(Game.cables, Game.placed, Game.computer())   # 책상 선은 납품할 때 알아서 깔끔하게
 	await photo("day%d_%d" % [Game.day, Game.order_index + 1])
 	if Rules.kind_of(Game.request()) == "full":   # 손님에게 보여 줄 탑뷰도 (앨범엔 정면만)
 		await photo("_top", true)

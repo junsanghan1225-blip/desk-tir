@@ -151,6 +151,11 @@ func screw_points() -> Array:
 	return out
 
 
+## 조립이 마지막 단계라 여기서도 바로 납품 (수리 의뢰는 같은 자리에 '수리' 버튼)
+func deliver_here() -> bool:
+	return not Game.mine and Game.order_index < Game.todays_requests().size() and not Game.request().has("repair")
+
+
 func use_tool(x: float, y: float) -> bool:
 	var pc := Game.pc
 	if tool == "driver":
@@ -229,7 +234,7 @@ func down(x: float, y: float, right: bool) -> void:
 		sfx("boot_ok" if pc.boots() else "click")
 		return
 	prune_seat()
-	if not seat.is_empty() and (inside(x, y, BTN_BENCH) or inside(x, y, BTN_POST) or (Game.request().has("repair") and inside(x, y, BTN_DIAG))):
+	if not seat.is_empty() and (inside(x, y, BTN_BENCH) or inside(x, y, BTN_POST) or ((Game.request().has("repair") or deliver_here()) and inside(x, y, BTN_DIAG))):
 		toast = "덜 꽂힌 곳을 눌러 끝까지 (딸깍)"
 		sfx("error")
 		return
@@ -252,6 +257,9 @@ func down(x: float, y: float, right: bool) -> void:
 			sfx("click")
 			return
 	if tool != "" and inside(x, y, CASE_AREA) and use_tool(x, y):
+		return
+	if deliver_here() and inside(x, y, BTN_DIAG):
+		m.done()
 		return
 	if Game.request().has("repair") and inside(x, y, BTN_DIAG):
 		sfx("click")
@@ -864,6 +872,8 @@ func draw_side() -> void:
 	button(BTN_POST, "전원", GOLD)
 	if Game.request().has("repair"):   # 수리 화면은 수리 의뢰에서만
 		button(BTN_DIAG, "수리", PINK)
+	elif deliver_here():
+		button(BTN_DIAG, "납품하기", PINK)
 	button(BTN_BENCH, "성능 테스트", CYAN)
 
 

@@ -17,7 +17,8 @@ const VIOLET := Color8(124, 92, 255)
 const PANEL := Color8(34, 24, 70)
 const BG := Color8(18, 12, 38)
 const DARK := Color8(24, 16, 52)
-const TABS := [["shop", "쇼핑"], ["desk", "책상"], ["build", "조립"], ["wire", "배선"], ["storage", "창고"]]   # 앞 4개는 작업 순서, 창고는 따로 (위에 겹쳐 열림)
+const TABS := [["shop", "쇼핑"], ["desk", "책상"], ["build", "조립"], ["storage", "창고"]]   # 앞 3개는 작업 순서, 창고는 따로 (위에 겹쳐 열림). 책상 선은 자동으로 꽂힘
+const STORAGE := 3
 
 var m: Main          # main.gd (그리기 대상 · 화면 전환)
 var overlay := false    # true면 아래 화면 위에 겹쳐 그린다
@@ -296,7 +297,7 @@ func icon_of(id: String) -> String:
 
 # ---------- 주문 작업 화면 공통: 상단 바 + 탭 ----------
 func tab_rect(i: int) -> Array:
-	if i == 4:
+	if i == STORAGE:
 		return [1044, 648, 1136, 714]   # 창고: 일시정지 · 소리 옆 보조 버튼
 	var x := 452 + i * 140
 	return [x, 648, x + 120, 714]
@@ -304,14 +305,14 @@ func tab_rect(i: int) -> Array:
 
 ## 지금 의뢰의 작업 단계 (창고 빼고 · PC 조립만 하는 의뢰엔 책상 · 배선이 없음)
 func tabs_now() -> Array:
-	var steps := TABS.slice(0, 4)
+	var steps := TABS.slice(0, STORAGE)
 	if Game.mine or Game.order_index >= Game.todays_requests().size() or Rules.kind_of(Game.request()) not in ["pc", "upgrade"]:
 		return steps
-	return steps.filter(func(t): return t[0] not in ["desk", "wire"])
+	return steps.filter(func(t): return t[0] != "desk")
 
 
 func tab_at(x: float, y: float) -> String:
-	if inside(x, y, tab_rect(4)):
+	if inside(x, y, tab_rect(STORAGE)):
 		return "storage"
 	var tb := tabs_now()
 	for i in tb.size():
@@ -331,7 +332,6 @@ func top_bar(current: String) -> void:
 	circle(mx, H - 56, 9, GOLD)
 	circle(mx, H - 56, 5, Color8(200, 150, 40))
 	text(mx + 16, H - 56, "가게 %d만" % Game.money, 22, GOLD)
-	var wire := Rules.wiring_score(Game.cables, Game.placed)
 	var tb := tabs_now()
 	var at: int = tb.map(func(t): return t[0]).find(current)
 	for i in tb.size():   # 작업 단계: 번호 + 화살표로 순서, 지금 단계만 분홍
@@ -342,12 +342,10 @@ func top_bar(current: String) -> void:
 			poly([Vector2(ax - 5, 690), Vector2(ax + 5, 681), Vector2(ax - 5, 672)], CYAN if i <= at else DIM)
 		var q := press_frame(r, PINK if on else (Color8(60, 48, 110) if i > at else Color8(80, 66, 140)))
 		text_c(q, "%d %s" % [i + 1, tb[i][1]], 22, Color.WHITE if on else (INK if i < at else QUIET))
-		if tb[i][0] == "wire" and (wire[1] > 0 or wire[2] > 0):
-			box([r[2] - 22, r[3] - 22, r[2] - 10, r[3] - 10], PINK)  # 미연결 · 꼬임이 있으면 빨간 점
 	box([1028, 656, 1030, 706], DIM)   # 구분선: 여기부터 보조 버튼
-	var sr := tab_rect(4)
+	var sr := tab_rect(STORAGE)
 	frame("ui_button", sr, Color8(80, 66, 140))   # 일시정지 · 소리와 같은 모양
-	text_c(sr, TABS[4][1], 22, GOLD)
+	text_c(sr, TABS[STORAGE][1], 22, GOLD)
 
 
 ## 탭을 눌렀으면 그 화면으로 가고 true

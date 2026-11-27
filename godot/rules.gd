@@ -476,9 +476,9 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		return pr
 	# PC + 데스크 의뢰: PC도 맞추고 책상도 꾸밈 (성능 · 분위기 · 소품 · 모니터 · 배선)
 	var fin := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0   # 나사를 다 조였는지
-	var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0,
+	var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "필수 · 금지": req_s / 25.0,
 		"테마 일치": theme_s / 25.0, "조합 시너지": minf(1.0, syn.size() / 2.0), "배치": layout_score(placed)}
-	var w := {"PC 성능": 30, "조립 마감": 5, "모니터": 10, "테마 일치": 15, "필수 · 금지": 15, "조합 시너지": 10, "배선": 5, "배치": 10}
+	var w := {"PC 성능": 30, "조립 마감": 5, "모니터": 10, "테마 일치": 15, "필수 · 금지": 15, "조합 시너지": 10, "배치": 15}
 	var pp := {}
 	for k in w:
 		pp[k] = fr[k] * w[k]

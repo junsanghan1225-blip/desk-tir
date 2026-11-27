@@ -198,22 +198,9 @@ func run() -> void:
 		tap(b.seat_rect(k))
 	check(Game.pc.boots() and b.seat.is_empty())
 
-	tap(b.tab_rect(3))
-	on("wire")
-	var w = main.modes["wire"]
-	var used := {}
-	for p in w.devices():
-		var pos := Rules.plug_pos(p, Game.placed)
-		var t: String = DB.ITEMS[p["id"]]["port"]
-		used[t] = used.get(t, -1) + 1
-		var port := Rules.port_pos(t, used[t])
-		drag([pos.x, 470, pos.x, 470], [port.x, port.y, port.x, port.y])
-	check(Game.cables.size() == 3 and Rules.wiring_score(Game.cables, Game.placed)[1] == 0, w.toast)
-	await shot("9_wire")
-
 	var saved := Game.peek()                   # 자동 저장 → 이어하기
 	check(saved["day"] == 1)
-	tap(w.tab_rect(1))                         # 책상에서 PC 전원 → 모니터가 켜짐
+	tap(b.tab_rect(1))                         # 책상에서 PC 전원 → 선은 알아서 꽂히고 모니터가 켜짐
 	on("desk")
 	check(not Game.power)
 	tap(desk.BTN_POWER)
@@ -222,14 +209,13 @@ func run() -> void:
 	await shot("7g_power_boot")
 	Game.power_t -= 5000
 	await shot("7h_power_desktop")
-	tap(desk.tab_rect(3))
-	on("wire")
+	check(Game.cables.size() == 3 and Rules.wiring_score(Game.cables, Game.placed)[1] == 0, "책상 선 자동 연결")
 	main.back()                                # 뒤로 = 일시정지 (주문 다시 보기)
 	on("pause")
 	await shot("9b_pause")
 	tap(main.modes["pause"].btn_rect(0))
-	on("wire")
-	tap(w.BTN_DONE)
+	on("desk")
+	tap(desk.BTN_DONE)
 	for i in 10:                               # 납품 사진 찍고 넘어갈 때까지
 		await process_frame
 	if main.top() == main.modes["burn"]:       # 번인 테스트: 초록 구간 가운데서 멈추기
@@ -336,6 +322,10 @@ func run() -> void:
 	Game.pc = PCBuild.full({"case": "case1", "mb": "mb1", "cpu": "cpu1", "gpu": "", "ram": ["ram1"]})
 	main.go("build")
 	await shot("3d_build_pc")
+	tap(main.modes["build"].BTN_DIAG)          # 본체만: 조립 화면에서 바로 납품
+	for i in 10:
+		await process_frame
+	check(main.top() in [main.modes["burn"], main.modes["trial"]], "본체만 납품 버튼")
 	Game.day = 3                               # 업그레이드: 쓰던 PC가 조립대에 올라온 채로 시작 → 성능 테스트로 발목 찾기
 	Game.order_index = Game.todays_requests().find(Game.todays_requests().filter(func(q): return q.has("upgrade"))[0])
 	main.go("request")
