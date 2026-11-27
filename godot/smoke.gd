@@ -315,7 +315,7 @@ func run() -> void:
 	await shot("3c_request_pc")
 	tap([0, 0, 100, 100])
 	on("shop")
-	check(main.modes["shop"].tabs_now().size() == 3 and main.modes["shop"].tab_at(main.modes["shop"].tab_rect(1)[0] + 5, 680) == "build", "본체만: 쇼핑 · 조립 · 창고 탭")
+	check(main.modes["shop"].tabs_now().size() == 2 and main.modes["shop"].tab_at(main.modes["shop"].tab_rect(1)[0] + 5, 680) == "build", "본체만: 1 쇼핑 · 2 조립 단계 (창고는 따로)")
 	Game.pc = PCBuild.full({"case": "case1", "mb": "mb1", "cpu": "cpu1", "gpu": "", "ram": ["ram1"]})
 	main.go("build")
 	await shot("3d_build_pc")
