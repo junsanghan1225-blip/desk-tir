@@ -115,7 +115,7 @@ func deliver() -> void:
 		go("build")
 		return
 	await photo("day%d_%d" % [Game.day, Game.order_index + 1])
-	if not Game.request().has("repair"):   # 손님에게 보여 줄 탑뷰도 (앨범엔 정면만)
+	if Rules.kind_of(Game.request()) == "full":   # 손님에게 보여 줄 탑뷰도 (앨범엔 정면만)
 		await photo("_top", true)
 	sfx("photo")
 	go("burn" if modes["burn"].can_run() else "trial")   # 켜지지도 않는 PC는 번인 없이 바로 손님 앞으로

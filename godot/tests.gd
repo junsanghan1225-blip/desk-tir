@@ -162,6 +162,9 @@ func _initialize() -> void:
 	ok(paid_now[0] == 100 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
 	ok(Game.settle({"stars": 0}) == [40, 0] and Game.settle({"stars": 1})[0] == 80, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
 	ok(Game.bill.any(func(b): return b[0] == "물건 값"), "정산 내역")
+	var pc_req: Dictionary = DB.REQUESTS.filter(func(q): return q.get("type") == "pc")[0]
+	var pr := Rules.score(pc_req, [], PCBuild.full(), [])
+	ok(Rules.kind_of(pc_req) == "pc" and pr["parts"].keys() == ["PC 성능", "조립 마감"] and pr["parts"]["조립 마감"] == 30 and pr["total"] > 50, "PC 조립만 의뢰: 성능 + 조립 마감만 채점 %s" % [pr])
 	var burn_cool := Game.burn_zone(50, 0.0)
 	var burn_hot := Game.burn_zone(88, 0.0)
 	ok(burn_cool[1] - burn_cool[0] > burn_hot[1] - burn_hot[0] and Game.burn_grade(0.3, burn_cool) == "early" and Game.burn_grade(0.6, burn_cool) == "good" and Game.burn_grade(0.6, burn_hot) == "hot", "번인: 뜨거우면 적정 구간이 좁음")

@@ -110,7 +110,7 @@ static func request() -> Dictionary:
 ## 둘째 날부터, 한 번이라도 결제한 뒤 책상 · 조립 · 배선으로 가면 가끔 손님이 전화한다. 날이 갈수록 자주. 특이 조건이 있는 의뢰엔 안 옴.
 const CALL_CHANCE := [0, 0, 25, 35, 45, 55]   # 날짜별 %. 매번 오면 놀랍지 않으니 절반쯤만
 static func call_due() -> bool:
-	if order_mod.has("call") or checkouts < 1 or order_index >= todays_requests().size() or request().has("repair") or request().has("twist"):   # 한 주문엔 신경 쓸 거리 하나만
+	if order_mod.has("call") or checkouts < 1 or order_index >= todays_requests().size() or request().has("repair") or request().has("twist") or request().get("type") == "pc":   # 한 주문엔 신경 쓸 거리 하나만
 		return false
 	var rng := RandomNumberGenerator.new()
 	rng.seed = day * 1009 + order_index * 31 + 7   # 같은 날 같은 손님이면 늘 같음 (다시 해도 공평)

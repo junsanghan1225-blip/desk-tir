@@ -300,10 +300,18 @@ func tab_rect(i: int) -> Array:
 	return [x, 648, x + 130, 714]
 
 
+## 지금 의뢰에서 보이는 탭 (PC 조립만 하는 의뢰엔 책상 · 배선이 없음)
+func tabs_now() -> Array:
+	if Game.mine or Game.order_index >= Game.todays_requests().size() or Rules.kind_of(Game.request()) != "pc":
+		return TABS
+	return TABS.filter(func(t): return t[0] not in ["desk", "wire"])
+
+
 func tab_at(x: float, y: float) -> String:
-	for i in TABS.size():
+	var tb := tabs_now()
+	for i in tb.size():
 		if inside(x, y, tab_rect(i)):
-			return TABS[i][0]
+			return tb[i][0]
 	return ""
 
 
@@ -319,12 +327,13 @@ func top_bar(current: String) -> void:
 	circle(mx, H - 56, 5, Color8(200, 150, 40))
 	text(mx + 16, H - 56, "가게 %d만" % Game.money, 22, GOLD)
 	var wire := Rules.wiring_score(Game.cables, Game.placed)
-	for i in TABS.size():
+	var tb := tabs_now()
+	for i in tb.size():
 		var r := tab_rect(i)
-		var on: bool = TABS[i][0] == current
+		var on: bool = tb[i][0] == current
 		var q := press_frame(r, PINK if on else Color8(80, 66, 140))
-		text_c(q, TABS[i][1], 22, Color.WHITE if on else QUIET)
-		if TABS[i][0] == "wire" and (wire[1] > 0 or wire[2] > 0):
+		text_c(q, tb[i][1], 22, Color.WHITE if on else QUIET)
+		if tb[i][0] == "wire" and (wire[1] > 0 or wire[2] > 0):
 			box([r[2] - 22, r[3] - 22, r[2] - 10, r[3] - 10], PINK)  # 미연결 · 꼬임이 있으면 빨간 점
 
 

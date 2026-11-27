@@ -462,6 +462,12 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		var b := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
 		var rp := {"증상 해결": 50.0 if b["ok"] and pc.faults.is_empty() and pc.picture() else 0.0, "성능": pc_s * 2.5}
 		return _total(rp, {"증상 해결": 50, "성능": 50}, [], boot, 0)
+	if req.get("type") == "pc":   # PC 조립만 (본체만): 성능 + 조립 마감(나사)만 본다
+		var fin1 := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0
+		var pr := _total({"PC 성능": pc_s / 20.0 * 70.0, "조립 마감": fin1 * 30.0}, {"PC 성능": 70, "조립 마감": 30}, [], boot, 0)
+		if used_bad and boot == "ok":
+			pr["line"] = "새 제품만 부탁드렸는데… 중고 부품이 들어갔네요."
+		return pr
 	# PC + 데스크 의뢰: PC도 맞추고 책상도 꾸밈 (성능 · 분위기 · 소품 · 모니터 · 배선)
 	var fin := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0   # 나사를 다 조였는지
 	var fr := {"PC 성능": pc_s / 20.0, "조립 마감": fin, "모니터": screen_fit(placed, req.get("use", {})), "배선": wire[0] / 10.0, "필수 · 금지": req_s / 25.0,
@@ -487,7 +493,7 @@ static func _total(parts: Dictionary, mx: Dictionary, syn: Array, boot: String, 
 
 ## 의뢰 종류는 둘: repair(고장 수리) · full(PC 조립 + 데스크테리어)
 static func kind_of(req: Dictionary) -> String:
-	return "repair" if req.has("repair") else "full"
+	return "repair" if req.has("repair") else "pc" if req.get("type") == "pc" else "full"
 
 
 const RES_RANK := {"1080p": 0, "1440p": 1, "UW1440": 1, "4K": 2}

@@ -309,6 +309,16 @@ func run() -> void:
 		tap([0, 0, 100, 100])
 		on("desk")
 		check(Game.request().has("call"), "전화 내용이 의뢰에 반영")
+	Game.day = 2                               # PC 조립만 (본체만) 의뢰: 책상 · 배선 탭 없음
+	Game.order_index = Game.todays_requests().find(Game.todays_requests().filter(func(q): return q.get("type") == "pc")[0])
+	main.go("request")
+	await shot("3c_request_pc")
+	tap([0, 0, 100, 100])
+	on("shop")
+	check(main.modes["shop"].tabs_now().size() == 3 and main.modes["shop"].tab_at(main.modes["shop"].tab_rect(1)[0] + 5, 680) == "build", "본체만: 쇼핑 · 조립 · 창고 탭")
+	Game.pc = PCBuild.full({"case": "case1", "mb": "mb1", "cpu": "cpu1", "gpu": "", "ram": ["ram1"]})
+	main.go("build")
+	await shot("3d_build_pc")
 	Game.day = 4                               # 수리: 진단 화면을 3곳 열면 무료 2곳을 넘어 점검비
 	Game.order_index = Game.todays_requests().find(Game.todays_requests().filter(func(q): return q.has("repair"))[0])
 	main.go("request")

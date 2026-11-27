@@ -133,10 +133,12 @@ class Request extends Mode:
 			y -= 46
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
-		var badge: Array = {"repair": ["고장 수리 의뢰", PINK], "full": ["PC 조립 + 데스크테리어 의뢰", GREEN]}[kind]
+		var badge: Array = {"repair": ["고장 수리 의뢰", PINK], "pc": ["PC 조립 의뢰 (본체만)", CYAN], "full": ["PC 조립 + 데스크테리어 의뢰", GREEN]}[kind]
 		chip(76, 131, badge[0], badge[1])
 		var info := []
-		if req.has("repair"):
+		if kind == "pc":
+			info = ["본체만 맡기는 손님이에요. 성능과 조립 솜씨(구리스 · 나사 · 번인)만 봐요."]
+		elif req.has("repair"):
 			info = ["맡긴 PC를 수리 화면에서 살펴보고 원인을 찾아요.", "손님 부품은 공짜, 새로 산 부품만 비용이에요."]
 		else:
 			info = ["성능 · 분위기 · 소품 · 배치 · 모니터 모두 점수예요. 예산이 빠듯해요."]
@@ -164,7 +166,7 @@ class Result extends Mode:
 		pay = paid[0]
 		tip = paid[1]
 		sfx("star" if result["stars"] else "sad")
-		wanted = ["분위기: " + " · ".join(req["theme"].map(func(t): return DB.THEME_NAMES[t]))]   # 숨겨져 있던 조건 공개
+		wanted = [] if req["theme"].is_empty() else ["분위기: " + " · ".join(req["theme"].map(func(t): return DB.THEME_NAMES[t]))]   # 숨겨져 있던 조건 공개
 		for r in req["required"]:
 			wanted.append("꼭 필요: %s %d개" % ["/".join(r["any"].map(func(i): return DB.ITEMS[i]["name"])), r["count"]])
 		if req.has("twist"):
@@ -566,7 +568,7 @@ class Pause extends Mode:
 			panel(MEMO, true)
 			text(MEMO[0] + 30, MEMO[3] - 38, "의뢰 메모  ·  " + req["customer"], 33, PINK)
 			var y: float = MEMO[3] - 100
-			var kinds := {"repair": "고장 수리", "full": "PC 조립 + 데스크테리어"}
+			var kinds := {"repair": "고장 수리", "pc": "PC 조립 (본체만)", "full": "PC 조립 + 데스크테리어"}
 			y = row(y, "종류", kinds[kind], CYAN)
 			if req.has("use"):
 				y = row(y, "용도", Bench.describe(req["use"]), GOLD)
@@ -846,7 +848,7 @@ class Trial extends Mode:
 	var sc := {}   # 점수 (정면 · 탑뷰 반응용)
 
 	func enter() -> void:
-		stage = 2 if Game.request().has("repair") else 0
+		stage = 2 if Game.request().has("repair") or Game.request().get("type") == "pc" else 0   # 본체만 · 수리는 책상 구경 없이 바로 전원
 		var names := ["%s/day%d_%d.png" % [Main.PHOTOS, Game.day, Game.order_index + 1], Main.PHOTOS + "/_top.png"]
 		for i in 2:
 			views[i] = ImageTexture.create_from_image(Image.load_from_file(names[i])) if stage == 0 and FileAccess.file_exists(names[i]) else null
