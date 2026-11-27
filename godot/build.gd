@@ -162,9 +162,6 @@ func use_tool(x: float, y: float) -> bool:
 		var near := screw_points().filter(func(q): return Vector2(x, y).distance_to(q[2]) < 24)
 		near.sort_custom(func(a, b): return Vector2(x, y).distance_to(a[2]) < Vector2(x, y).distance_to(b[2]))
 		for s in near.slice(0, 1):   # 가장 가까운 나사 하나
-			if s[0] == "COOLER" and not pc.screws["COOLER"].all(func(v): return v):   # 쿨러는 확대 팝업에서 순서대로
-				m.push("mount")
-				return true
 			var on: bool = pc.turn(s[0], s[1])
 			spin["%s%d" % [s[0], s[1]]] = Time.get_ticks_msec()
 			sfx("screw" if ResourceLoader.exists("res://resource/sfx/screw.wav") else "place")

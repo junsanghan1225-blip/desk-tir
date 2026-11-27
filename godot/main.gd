@@ -4,7 +4,7 @@ extends Control
 ## 터치는 마우스로 들어온다 (Godot 기본: 터치 → 마우스 에뮬레이션). 더블탭 = 우클릭(빼기).
 
 const H := 720
-const SCREENS := {"title": "Title", "news": "News", "request": "Request", "result": "Result", "day_end": "DayEnd", "product": "Product", "receipt": "Receipt", "boot": "Boot", "pause": "Pause", "album": "Album", "bench": "BenchView", "trial": "Trial", "dex": "Dex", "ending": "Ending", "call": "Call", "burn": "Burn", "paste": "Paste", "mount": "Mount", "bios": "Bios"}
+const SCREENS := {"title": "Title", "news": "News", "request": "Request", "result": "Result", "day_end": "DayEnd", "product": "Product", "receipt": "Receipt", "boot": "Boot", "pause": "Pause", "album": "Album", "bench": "BenchView", "trial": "Trial", "dex": "Dex", "ending": "Ending", "call": "Call", "burn": "Burn", "paste": "Paste", "bios": "Bios"}
 const SAVED := ["news", "request", "shop", "desk", "build", "wire", "result", "day_end"]
 
 var font: Font = load("res://resource/font.ttf")

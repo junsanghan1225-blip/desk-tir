@@ -45,17 +45,6 @@ func check(cond: bool, what := "") -> void:
 ## 드라이버로 아직 안 조인 나사를 전부 조인다 (slot을 주면 그 자리만 풀기 · 조이기 전환)
 func screw_all(b, only := "") -> void:
 	tap(b.BTN_DRIVER)
-	if only == "" and Game.pc.screws.has("COOLER") and not Game.pc.screws["COOLER"].all(func(v): return v):   # 쿨러는 확대 팝업에서 X자로
-		var p: Vector2 = b.screw_points().filter(func(s): return s[0] == "COOLER")[0][2]
-		tap([p.x - 1, p.y - 1, p.x + 1, p.y + 1])
-		var mt = main.modes["mount"]
-		for i in [0, 3, 1, 2]:
-			var q: Vector2 = mt.pts()[i]
-			tap([q.x - 1, q.y - 1, q.x + 1, q.y + 1])
-		check(Game.pc.cooler_even() and Game.pc.mount_heat() == 0, "쿨러 X자")
-		await shot("6r_mount_x")
-		mt.done_t -= 1000
-		tap([0, 0, 10, 10])
 	for s in b.screw_points():
 		if only != "" and s[0] == only or only == "" and not Game.pc.screws[s[0]][s[1]]:
 			var p: Vector2 = s[2]
@@ -250,7 +239,7 @@ func run() -> void:
 	tap([0, 0, 100, 100])
 	on("result")
 	check(main.modes["result"].result["boot"] == "" or true)
-	check(main.modes["result"].craft().size() == 5, "솜씨표 %s" % [main.modes["result"].craft()])
+	check(main.modes["result"].craft().size() == 4, "솜씨표 %s" % [main.modes["result"].craft()])
 	await shot("10_result")
 	var money := Game.money
 	tap([0, 0, 100, 100])

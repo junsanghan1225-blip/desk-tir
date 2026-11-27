@@ -31,8 +31,6 @@ func _initialize() -> void:
 	b.remove("COOLER"); b.apply_paste(0.1); b.place("cool1")
 	ok(b.paste_heat() == 12 and PCBuild.paste_grade(0.5)[0] < 0 and PCBuild.paste_grade(1.0)[1] == "넘침", "구리스 양: 적으면 뜨겁고 콩알이 가장 시원")
 	b.paste_amt = 0.5
-	b.cooler_order = [0, 1, 3, 2]
-	ok(not b.cooler_even() and b.mount_heat() == 6, "쿨러 한쪽부터 조이면 +6°C")
 	var b_mid := Bench.run(Bench.parts_of(PCBuild.full()), {"kind": "code", "sec": 60})
 	var good_chip := PCBuild.full()
 	good_chip.chip = 1
@@ -47,8 +45,6 @@ func _initialize() -> void:
 	oc_pc.xmp = false
 	oc_pc.oc = 0
 	ok(Bench.run(Bench.parts_of(oc_pc), {"kind": "code", "sec": 60})["value"] > b_mid["value"], "XMP 끄면 느림")
-	b.cooler_order = [2, 1, 0, 3]
-	ok(b.cooler_even() and b.mount_heat() == 0, "쿨러 X자")
 	ok(b.post()[0] == 1, "RAM 없음")
 	b.place("ram1", 0); b.place("gpu1")
 	ok(b.post()[0] == 3 and "SSD" in b.post()[1], "SSD 없음")

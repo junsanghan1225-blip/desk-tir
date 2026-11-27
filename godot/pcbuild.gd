@@ -19,7 +19,6 @@ const CHIP_NAMES := {-1: "하급 칩", 0: "보통 칩", 1: "상급 칩!"}
 var bios_done := true         # 첫 부팅 BIOS 설정을 마쳤는지 (직접 CPU를 꽂으면 다시 해야 함)
 var xmp := true               # RAM 제 속도(XMP). 끄면 기본 속도라 조금 느림
 var oc := 0                   # CPU 클럭 다이얼 0~3칸: 칸마다 +4% · +5°C. 칩 한계(하급 1 · 보통 2 · 상급 3)를 넘으면 불안정
-var cooler_order := []        # 쿨러 나사를 조인 순서 (번호 0~3: 0↔3 · 1↔2가 대각선)
 var paste_amt := 0.5           # 짠 서멀 구리스 양 0~1 (0.4~0.65 = 콩알만큼이 가장 시원함)
 var screws := {}               # 자리 -> [조였나, …] (끼우면 헐거운 상태로 시작, 드라이버로 하나씩 조임)
 var ties := {}                 # 케이블 타이로 묶은 전원선: 이름 -> true
@@ -139,8 +138,6 @@ func place(pid: String, ram_slot := -1) -> String:
 			ram[ram_slot] = pid
 		else:
 			parts[t] = pid
-		if t == "COOLER":
-			cooler_order = []
 		if SCREWS.has(t):
 			var s := []
 			s.resize(SCREWS[t])
@@ -287,14 +284,6 @@ func unstable() -> bool:   # 칩이 못 버티는 클럭
 	return oc > chip + 2
 
 
-func cooler_even() -> bool:
-	return cooler_order.size() < 2 or cooler_order[1] == 3 - cooler_order[0]
-
-
-func mount_heat() -> int:   # 한쪽부터 조이면 쿨러가 기울어 CPU에 덜 닿음
-	return 0 if cooler_even() or not has("COOLER") else 6
-
-
 func paste_check() -> String:
 	if not has("CPU"):
 		return "CPU 위에 발라야 해요"
@@ -422,7 +411,7 @@ static func level_of(fs: Array) -> int:
 
 
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "cooler_order": cooler_order, "chip": chip, "chip_known": chip_known, "bios_done": bios_done, "xmp": xmp, "oc": oc, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "chip": chip, "chip_known": chip_known, "bios_done": bios_done, "xmp": xmp, "oc": oc, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -434,7 +423,6 @@ static func from_dict(d: Dictionary) -> PCBuild:
 	b.lever_open = d["lever_open"]
 	b.paste = d["paste"]
 	b.paste_amt = d.get("paste_amt", 0.5)
-	b.cooler_order = d.get("cooler_order", [])
 	b.chip = d.get("chip", 0)
 	b.chip_known = d.get("chip_known", false)
 	b.bios_done = d.get("bios_done", true)
