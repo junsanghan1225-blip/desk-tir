@@ -226,7 +226,7 @@ func down(x: float, y: float, right: bool) -> void:
 		sfx("boot_ok" if pc.boots() else "click")
 		return
 	prune_seat()
-	if not seat.is_empty() and (inside(x, y, BTN_BENCH) or inside(x, y, BTN_POST) or inside(x, y, BTN_DIAG)):
+	if not seat.is_empty() and (inside(x, y, BTN_BENCH) or inside(x, y, BTN_POST) or (Game.request().has("repair") and inside(x, y, BTN_DIAG))):
 		toast = "덜 꽂힌 곳을 눌러 끝까지 (딸깍)"
 		sfx("error")
 		return
@@ -250,7 +250,7 @@ func down(x: float, y: float, right: bool) -> void:
 			return
 	if tool != "" and inside(x, y, CASE_AREA) and use_tool(x, y):
 		return
-	if inside(x, y, BTN_DIAG):
+	if Game.request().has("repair") and inside(x, y, BTN_DIAG):
 		sfx("click")
 		m.push("diag")
 		return
@@ -866,7 +866,8 @@ func draw_side() -> void:
 		for i in min(pl.size(), 2):
 			text(x0, 168 - i * 25, pl[i], 22, GREEN if stage == 4 else PINK)
 	button(BTN_POST, "전원", GOLD)
-	button(BTN_DIAG, "진단", PINK if Game.request().has("repair") else VIOLET)
+	if Game.request().has("repair"):   # 수리 화면은 수리 의뢰에서만
+		button(BTN_DIAG, "수리", PINK)
 	button(BTN_BENCH, "성능 테스트", CYAN)
 
 

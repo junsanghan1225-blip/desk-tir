@@ -81,7 +81,11 @@ class Request extends Mode:
 
 	func down(_x: float, _y: float, _right: bool) -> void:
 		m.modes["shop"].cat = "parts"
-		m.go("build" if Game.request().has("repair") else "shop")   # 수리는 맡긴 PC부터 열어 봄
+		if Game.request().has("repair"):   # 수리 의뢰: 맡긴 PC를 수리 화면에서 바로 살펴봄
+			m.go("build")
+			m.push("diag")
+		else:
+			m.go("shop")
 
 	func mood() -> String:
 		var req := Game.request()
@@ -133,7 +137,7 @@ class Request extends Mode:
 		chip(76, 131, badge[0], badge[1])
 		var info := []
 		if req.has("repair"):
-			info = ["맡긴 PC를 진단 화면에서 살펴보고 원인을 찾아요.", "손님 부품은 공짜, 새로 산 부품만 비용이에요."]
+			info = ["맡긴 PC를 수리 화면에서 살펴보고 원인을 찾아요.", "손님 부품은 공짜, 새로 산 부품만 비용이에요."]
 		else:
 			info = ["성능 · 분위기 · 소품 · 배치 · 모니터 모두 점수예요. 예산이 빠듯해요."]
 		y = minf(y - 10, 160.0)
@@ -818,7 +822,7 @@ class BenchView extends Mode:
 			var with_mb: String = " + %s" % DB.PARTS[fixit["mb"]]["name"] if fixit.get("mb", "") != "" else ""
 			tip = "추천: %s → %s%s%s (%d만)" % [what, p["name"], " ×2" if fixit["type"] == "RAM" else "", with_mb, fixit["cost"]]
 		elif not r["ok"] and Game.request().has("repair"):
-			tip = "원인은 진단 화면(조립 → 진단)에서 찾아보세요"
+			tip = "원인은 수리 화면(조립 → 수리)에서 찾아보세요"
 		elif not r["ok"]:
 			tip = r["notes"][0].split(" →")[0] if not r["notes"].is_empty() else "빨간 막대(발목)부터 바꿔 보세요"
 		for ln in wrap_text(tip, 800):

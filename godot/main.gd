@@ -87,7 +87,10 @@ func photo(name: String, top := false) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
 	DirAccess.make_dir_recursive_absolute(PHOTOS)
-	img.get_region(Rect2i(270, 70, 1010, 590)).save_png("%s/%s.png" % [PHOTOS, name])   # 방 부분만 (버튼 · 재고 빼고)
+	var rr := get_viewport().get_final_transform() * Rect2(270, 70, 1010, 590)   # 방 부분만 (버튼 · 재고 빼고). 창 크기 · 여백 반영
+	img = img.get_region(Rect2i(rr).intersection(Rect2i(Vector2i.ZERO, img.get_size())))
+	img.resize(1010, 590)
+	img.save_png("%s/%s.png" % [PHOTOS, name])
 	desk.capturing = false
 	desk.top_view = view
 	stack = keep
