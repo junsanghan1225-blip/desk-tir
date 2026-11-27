@@ -45,6 +45,17 @@ func check(cond: bool, what := "") -> void:
 ## 드라이버로 아직 안 조인 나사를 전부 조인다 (slot을 주면 그 자리만 풀기 · 조이기 전환)
 func screw_all(b, only := "") -> void:
 	tap(b.BTN_DRIVER)
+	if only == "" and Game.pc.screws.has("COOLER") and not Game.pc.screws["COOLER"].all(func(v): return v):   # 쿨러는 확대 팝업에서 X자로
+		var p: Vector2 = b.screw_points().filter(func(s): return s[0] == "COOLER")[0][2]
+		tap([p.x - 1, p.y - 1, p.x + 1, p.y + 1])
+		var mt = main.modes["mount"]
+		for i in [0, 3, 1, 2]:
+			var q: Vector2 = mt.pts()[i]
+			tap([q.x - 1, q.y - 1, q.x + 1, q.y + 1])
+		check(Game.pc.cooler_even() and Game.pc.mount_heat() == 0, "쿨러 X자")
+		await shot("6r_mount_x")
+		mt.done_t -= 1000
+		tap([0, 0, 10, 10])
 	for s in b.screw_points():
 		if only != "" and s[0] == only or only == "" and not Game.pc.screws[s[0]][s[1]]:
 			var p: Vector2 = s[2]
@@ -156,7 +167,7 @@ func run() -> void:
 	check(b.seat.is_empty())
 	tap(b.BTN_POST)
 	check(b.post[0] == 3 and "SSD" in b.post[1], "나사 안 조이면 SSD 들뜸: %s" % [b.post])
-	screw_all(b)
+	await screw_all(b)
 	check(Game.pc.loose().is_empty(), "나사 다 조임 %s %s" % [Game.pc.screws, b.screw_points()])
 	check("전원" in b.next_step()[0], "다 조립하면 안내는 전원: " + b.next_step()[0])
 	tap(b.BTN_POST)
@@ -170,11 +181,11 @@ func run() -> void:
 	await shot("8_build")
 	tap(b.zone("GPU"), true)                   # 나사가 조여져 있으면 안 빠짐
 	check(Game.pc.has("GPU") and "나사" in b.toast)
-	screw_all(b, "GPU")
+	await screw_all(b, "GPU")
 	drag(b.zone("GPU"), b.inv_row(0))          # 재고 쪽으로 끌어내기 = 빼기 → 다시 꽂기
 	check(not Game.pc.has("GPU") and Game.stock["gpu1"] == 1)
 	part.call("gpu1", b.gpu_rect())
-	screw_all(b)
+	await screw_all(b)
 	for c in Game.pc.cable_targets():
 		drag(b.psu_port(c), b.socket_rect(c))
 	for k in b.seat.keys():

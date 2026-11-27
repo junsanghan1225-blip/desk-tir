@@ -13,6 +13,7 @@ var ram := ["", "", "", ""]    # 슬롯 0~3, 빈 칸은 ""
 var cables := {}               # 꽂힌 선: 이름 -> true ('24pin', 'cpu8', 'pcie0', 'pcie1', 'front')
 var lever_open := false
 var paste := false
+var cooler_order := []        # 쿨러 나사를 조인 순서 (번호 0~3: 0↔3 · 1↔2가 대각선)
 var paste_amt := 0.5           # 짠 서멀 구리스 양 0~1 (0.4~0.65 = 콩알만큼이 가장 시원함)
 var screws := {}               # 자리 -> [조였나, …] (끼우면 헐거운 상태로 시작, 드라이버로 하나씩 조임)
 var ties := {}                 # 케이블 타이로 묶은 전원선: 이름 -> true
@@ -132,6 +133,8 @@ func place(pid: String, ram_slot := -1) -> String:
 			ram[ram_slot] = pid
 		else:
 			parts[t] = pid
+		if t == "COOLER":
+			cooler_order = []
 		if SCREWS.has(t):
 			var s := []
 			s.resize(SCREWS[t])
@@ -261,6 +264,15 @@ func paste_heat() -> int:
 	return paste_grade(paste_amt)[0] if paste else 0
 
 
+## 쿨러를 대각선(X자)으로 조였는지: 두 번째 나사가 첫 나사의 맞은편이면 고르게 눌림. 기록이 없으면(예전 저장 · 자동 조립) 고르게 본다
+func cooler_even() -> bool:
+	return cooler_order.size() < 2 or cooler_order[1] == 3 - cooler_order[0]
+
+
+func mount_heat() -> int:   # 한쪽부터 조이면 쿨러가 기울어 CPU에 덜 닿음
+	return 0 if cooler_even() or not has("COOLER") else 6
+
+
 func paste_check() -> String:
 	if not has("CPU"):
 		return "CPU 위에 발라야 해요"
@@ -388,7 +400,7 @@ static func level_of(fs: Array) -> int:
 
 
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "cooler_order": cooler_order, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -400,6 +412,7 @@ static func from_dict(d: Dictionary) -> PCBuild:
 	b.lever_open = d["lever_open"]
 	b.paste = d["paste"]
 	b.paste_amt = d.get("paste_amt", 0.5)
+	b.cooler_order = d.get("cooler_order", [])
 	for f in d.get("faults", []):
 		b.faults[f] = true
 	for t in b.parts:   # 예전 저장: 다 조인 것으로

@@ -1140,6 +1140,75 @@ class Paste extends Mode:
 		text_c([360, 90, 920, 130], "%s  ·  CPU %+d°C" % [g[1], g[0]], 33, GREEN if g[0] < 0 else GOLD if g[0] < 10 else PINK)
 
 
+class Mount extends Mode:
+	## 쿨러 나사 (조립 화면 위 확대 팝업): 모서리 나사 4개를 탭해서 조임. 대각선(X자) 순서면 고르게, 한쪽부터면 기울어 +6°C.
+	## 번호는 조립 화면 screw_points와 같음: 0 왼쪽 위 · 1 오른쪽 위 · 2 왼쪽 아래 · 3 오른쪽 아래
+	const PLATE := [470, 170, 810, 510]
+	var done_t := 0
+
+	func _init() -> void:
+		overlay = true
+
+	func enter() -> void:   # 처음부터 다시 조임
+		var pc := Game.pc
+		pc.screws["COOLER"].fill(false)
+		pc.cooler_order = []
+		done_t = 0
+
+	func pts() -> Array:
+		var k := 34.0
+		var r := PLATE
+		return [Vector2(r[0] + k, r[3] - k), Vector2(r[2] - k, r[3] - k), Vector2(r[0] + k, r[1] + k), Vector2(r[2] - k, r[1] + k)]
+
+	func down(x: float, y: float, _right: bool) -> void:
+		var pc := Game.pc
+		if done_t > 0:
+			if Time.get_ticks_msec() - done_t > 400:
+				m.pop()
+			return
+		var p := pts()
+		for i in 4:
+			if Vector2(x, y).distance_to(p[i]) < 44 and not pc.screws["COOLER"][i]:
+				pc.screws["COOLER"][i] = true
+				pc.cooler_order.append(i)
+				sfx("screw" if ResourceLoader.exists("res://resource/sfx/screw.wav") else "place")
+				if pc.cooler_order.size() == 4:
+					done_t = Time.get_ticks_msec()
+					m.modes["build"].toast = "쿨러 나사: " + ("대각선으로 고르게 조였어요" if pc.cooler_even() else "한쪽부터 조여서 기울었어요 (CPU +%d°C)" % pc.mount_heat())
+				return
+
+	func draw() -> void:
+		var pc := Game.pc
+		dim()
+		panel([360, 60, 920, 680], true)
+		text(390, 640, "쿨러 나사", 33, PINK)
+		text(390, 600, "대각선(X자) 순서로 조이면 고르게 눌려요", 22, INK)
+		var o: Array = pc.cooler_order
+		var tilt := 0.0   # 첫 나사 쪽이 내려가고 맞은편이 들림 (기울기 연출)
+		if o.size() == 2 and not pc.cooler_even() or o.size() >= 3 and not pc.cooler_even():
+			tilt = 1.0
+		var p := pts()
+		var plate := [PLATE[0], PLATE[1], PLATE[2], PLATE[3]]
+		box(plate, Color8(90, 96, 110))   # 쿨러 바닥판 (임시 그림: 나중에 이미지로)
+		outline(plate, Color8(40, 44, 54), 4)
+		circle(center(plate).x, center(plate).y, 120, Color8(60, 64, 78))   # 팬 자리
+		for j in range(1, o.size()):   # 조인 순서 선: 맞으면 X자가 그려짐
+			line(p[o[j - 1]], p[o[j]], GREEN if pc.cooler_even() else PINK, 4)
+		for i in 4:
+			var on: bool = pc.screws["COOLER"][i]
+			circle(p[i].x, p[i].y, 26, Color8(200, 200, 210) if on else Color8(40, 40, 50))
+			outline([p[i].x - 26, p[i].y - 26, p[i].x + 26, p[i].y + 26], GOLD if not on else Color(0, 0, 0, 0), 2)
+			if on:
+				text_c([p[i].x - 26, p[i].y - 26, p[i].x + 26, p[i].y + 26], str(o.find(i) + 1), 22, Color8(20, 20, 30))
+		if tilt > 0:
+			text_c([360, 120, 920, 160], "한쪽이 들떴어요!", 22, PINK)
+		if done_t == 0:
+			text_c([360, 80, 920, 120], "나사를 하나씩 눌러 조이기 (%d/4)" % o.size(), 22, QUIET)
+			return
+		var even := pc.cooler_even()
+		text_c([360, 80, 920, 120], "고르게 조임 · CPU +0°C" if even else "기울어짐 · CPU +%d°C" % pc.mount_heat(), 33, GREEN if even else PINK)
+
+
 class Call extends Mode:
 	## 돌발: 주문 중에 손님이 전화 (예산 깎기 · 추가 요청). 누르면 닫힘
 	var said := ""
