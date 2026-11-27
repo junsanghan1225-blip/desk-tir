@@ -154,13 +154,31 @@ func run() -> void:
 	for k in b.seat.keys():   # 손맛: 들뜬 부품 · 선을 눌러 딸깍
 		tap(b.seat_rect(k))
 	check(b.seat.is_empty())
+	PCBuild.WOBBLE = 1.0   # 첫 전원: 일부러 어딘가 헐겁게
 	tap(b.BTN_POST)
+	PCBuild.WOBBLE = 0.0
+	on("power")
+	await shot("8g_power_spin")
+	tap([0, 0, 1, 1])   # 연출 건너뛰기
+	tap([0, 0, 1, 1])   # 닫기
+	on("build")
 	check(b.post[0] == 3 and "SSD" in b.post[1], "나사 안 조이면 SSD 들뜸: %s" % [b.post])
 	await screw_all(b)
 	check(Game.pc.loose().is_empty(), "나사 다 조임 %s %s" % [Game.pc.screws, b.screw_points()])
 	check("전원" in b.next_step()[0], "다 조립하면 안내는 전원: " + b.next_step()[0])
 	tap(b.BTN_POST)
+	var wob: String = Game.pc.wobbly
+	check(wob != "" and b.post[0] < 4, "첫 전원에 헐거움: %s %s" % [wob, b.post])
+	tap([0, 0, 1, 1])
+	await shot("8h_power_fail")
+	tap([0, 0, 1, 1])
+	tap(b.seat_rect(wob))   # 헐거운 곳 꾹 → 딸깍
+	check(Game.pc.wobbly == "", "헐거운 곳 눌러 고침")
+	tap(b.BTN_POST)
 	check(b.post[0] == 4, "부팅 실패: %s / %s" % [b.post, b.toast])
+	tap([0, 0, 1, 1])
+	await shot("8i_power_ok")
+	tap([0, 0, 1, 1])
 	on("bios")                                 # 새 CPU 첫 부팅: BIOS에서 XMP 켜고 클럭 +1칸
 	var bi = main.modes["bios"]
 	tap(bi.BTN_XMP)
@@ -345,5 +363,24 @@ func run() -> void:
 		tap(dg.view_rect(i))
 	check(Game.look_cost() == Game.LOOK_FEE, "점검비 %d" % Game.look_cost())
 	await shot("8d_diag_fee")
+	Game.pc.faults["dust"] = true             # 먼지 청소 팝업: 꾹 누른 채 문지르기
+	tap(dg.view_rect(2))
+	tap(dg.TILES[3])
+	on("dust")
+	var du = main.modes["dust"]
+	main.held_down = true
+	for i in 18:
+		main.mouse = du.cell(i)
+		await process_frame
+	await shot("8j_dust")
+	for i in du.left.size():
+		main.mouse = du.cell(i)
+		await process_frame
+	main.held_down = false
+	check(not Game.pc.faults.has("dust"), "먼지 다 털면 고쳐짐")
+	await shot("8k_dust_clean")
+	du.done_t -= 1000
+	tap([0, 0, 1, 1])
+	on("diag")
 	print("godot smoke ok  (가게 돈 %d만)" % money)
 	quit()

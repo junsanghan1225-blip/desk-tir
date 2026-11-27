@@ -193,21 +193,6 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	return r
 
 
-## 테스트 중 FPS(또는 속도) 변화 n개: 출렁임 + 과열이면 처음엔 높다가 떨어짐 + RAM 부족이면 주기적으로 뚝 끊김
-static func series(r: Dictionary, n: int) -> Array:
-	var out := []
-	for k in n:
-		var v: float = r["value"] * (1.0 + 0.05 * sin(k * 1.3) + 0.03 * sin(k * 3.7 + 1.0))
-		if r.get("throttle", false):
-			v *= lerpf(1.0 / 0.75, 1.0, minf(1.0, k / (n * 0.3)))
-		if r.get("ram_low", false) and r["kind"] == "game" and k % 9 == 4:
-			v *= 0.35
-		elif r.get("low1", 0) > 0 and k % 11 == 7:   # 1% 최저: 가끔 이만큼 떨어짐
-			v = r["low1"]
-		out.append(v)
-	return out
-
-
 ## 결과 숫자를 쉬운 말로: "132fps / 목표 144"
 static func value_text(r: Dictionary) -> String:
 	match r["kind"]:

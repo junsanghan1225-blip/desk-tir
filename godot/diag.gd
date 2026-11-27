@@ -151,6 +151,9 @@ func down(x: float, y: float, _right: bool) -> void:
 				else:
 					toast = "콘덴서는 멀쩡해요"
 				return
+			if inside(x, y, TILES[3]) and faults().has("dust"):   # 먼지 → 확대 팝업에서 직접 문질러 털기
+				m.push("dust")
+				return
 			for i in 4:
 				if inside(x, y, TILES[i]):
 					if faults().has(acts[i][0]):

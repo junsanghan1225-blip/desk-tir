@@ -235,11 +235,14 @@ func down(x: float, y: float, right: bool) -> void:
 		toast = "덜 꽂힌 곳을 눌러 끝까지 (딸깍)"
 		sfx("error")
 		return
-	for k in seat.keys():   # 손맛: 들뜬 부품 · 선을 눌러 끝까지 밀어 넣기
+	for k in seat.keys() + ([pc.wobbly] if pc.wobbly != "" else []):   # 손맛: 들뜬 부품 · 선 · 첫 전원에 헐거워진 곳을 눌러 끝까지 밀어 넣기
 		if tool == "" and not right and inside(x, y, grow(seat_rect(k), 6)):
 			seat.erase(k)
+			if k == pc.wobbly:
+				pc.wobbly = ""
 			press[k] = Time.get_ticks_msec()
 			sfx(SEAT_SFX.get(k, "latch" if k.begins_with("RAM") else "snap"))
+			m.shake(6.0 if k == "GPU" else 4.0)
 			toast = "딸깍! 끝까지 들어갔어요"
 			post = []
 			return
@@ -263,16 +266,14 @@ func down(x: float, y: float, right: bool) -> void:
 		m.push("diag")
 		return
 	if inside(x, y, BTN_POST):
+		if not pc.bios_done:   # 새 PC 첫 전원: 가끔 어딘가 헐거움
+			pc.shake()
 		post = pc.post()
 		if post[0] < 4:   # 안 켜지면 고장 난 중고가 들통남
 			for e in pc.used.values():
 				if e.get("dead", false) and e["paid"] > 0:
 					e["known"] = true
-		sfx("boot_ok" if post[0] == 4 else "boot_fail")
-		if post[0] == 4 and not pc.bios_done:   # 새 CPU 첫 부팅: BIOS 설정부터
-			m.push("bios")
-		elif post[0] == 4:
-			m.modes["boot"].open()
+		m.push("power")   # 팬 · LED 연출 → 성공이면 BIOS 또는 부팅
 		return
 	if inside(x, y, BTN_PREV) or inside(x, y, BTN_NEXT):
 		var last: int = max(0, (inv_all().size() - 1) / PER)
@@ -297,6 +298,8 @@ func down(x: float, y: float, right: bool) -> void:
 			if right:
 				pc.cables.erase(c)
 				seat.erase(c)
+				if c == pc.wobbly:   # 뽑았다 다시 꽂아도 고쳐짐
+					pc.wobbly = ""
 			elif c in pc.cable_targets():
 				held = ["cable", c]
 				toast = ""
@@ -408,6 +411,7 @@ func up(x: float, y: float) -> void:
 		Game.used.remove_at(int(key.substr(1)))
 		pc.place_used(e, slot)
 		sfx("place")
+		m.shake(2.0, 90)
 		mark_seat(pid, slot)
 		toast = Game.OVER if over_u else "중고 %s (%s) 장착" % [DB.PARTS[pid]["name"], used_label(e)]
 	elif not Game.take(pid):
@@ -416,6 +420,7 @@ func up(x: float, y: float) -> void:
 		var over: bool = DB.PARTS[pid]["price"] > Game.money_left()
 		pc.place(pid, slot)
 		sfx("place")
+		m.shake(2.0, 90)
 		mark_seat(pid, slot)
 		if over:
 			toast = Game.OVER
@@ -428,6 +433,8 @@ func mark_seat(pid: String, slot: int) -> void:
 		Game.pc.roll_chip()
 	if t == "RAM":
 		seat["RAM%d" % slot] = true
+		if Game.pc.wobbly == "RAM%d" % slot:   # 다시 꽂으면 헐거움도 풀림
+			Game.pc.wobbly = ""
 	elif t in ["GPU", "SSD"]:
 		seat[t] = true
 	if seat.size() > 0 and toast == "":

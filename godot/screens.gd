@@ -717,7 +717,6 @@ class BenchView extends Mode:
 	var t0 := 0
 	var r := {}
 	var fixit := {}
-	var pts := []
 
 	func _init() -> void:
 		overlay = true
@@ -726,7 +725,6 @@ class BenchView extends Mode:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
 		r = Bench.run(Bench.parts_of(Game.pc), use)
 		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not Game.request().has("repair") and not Game.request().has("upgrade") else {}   # 수리 · 업그레이드는 정답을 안 알려 줌
-		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
 		Game.pc.chip_known = Game.pc.has("CPU")   # 테스트하면 칩 등급도 드러남
 		for e in Game.pc.used.values():   # 테스트하면 꽂힌 중고 부품의 진짜 상태가 보임
 			e["known"] = true
@@ -775,24 +773,15 @@ class BenchView extends Mode:
 		circle(line_pts[-1].x, line_pts[-1].y, 7, Color.WHITE)
 
 
+	## 게임: 손님 게임 화면이 실제로 돌아가는 모습 (오른쪽 위 FPS, 끊기면 화면이 찢어짐)
 	func draw_graph() -> void:
 		var g := GRAPH
-		box(g, Color8(14, 10, 32))
-		outline(g, DIM)
-		var top: float = maxf(r["target"] * 1.3, pts.max() * 1.1)
-		var yy := func(v: float) -> float: return g[1] + (g[3] - g[1]) * v / top
-		var ty: float = yy.call(r["target"])
-		for x in range(int(g[0]), int(g[2]), 24):   # 점선 목표선
-			box([x, ty - 1.5, x + 12, ty + 1.5], GOLD)
-		text(g[2] - text_w("목표 %d" % r["target"], 22) - 6, ty + 18, "목표 %d" % r["target"], 22, GOLD)
-		var n: int = maxi(2, int(N * k()))
-		var line_pts := []
-		for i in n:
-			line_pts.append(Vector2(g[0] + (g[2] - g[0]) * i / float(N - 1), yy.call(pts[i])))
-		polyline(line_pts, GREEN if r["ok"] else PINK, 4)
-		circle(line_pts[-1].x, line_pts[-1].y, 7, Color.WHITE)
+		draw_app(g, r, (Time.get_ticks_msec() - t0) / 1000.0)
+		outline(g, GREEN if r["ok"] else PINK, 3)
 		var why := "↓ 뚝 끊김 = RAM 부족" if r.get("ram_low", false) else "↘ 점점 느려짐 = 과열" if r.get("throttle", false) else ""
-		text(g[0] + 12, g[1] + 22, why, 22, PINK)
+		if why != "":
+			box([g[0] + 4, g[1] + 4, g[0] + 20 + text_w(why, 22), g[1] + 40], Color(0.05, 0.04, 0.12, 0.9))
+			text(g[0] + 12, g[1] + 22, why, 22, PINK)
 		if r.has("low1"):   # 평균만 보면 모르는 '가끔 끊김'
 			var bad: bool = r["low1"] < r["target"] * 0.5
 			var lbl := "평균 %d · 1%% 최저 %dfps" % [roundi(r["value"]), r["low1"]]
@@ -1198,6 +1187,147 @@ class Paste extends Mode:
 			return
 		var g := PCBuild.paste_grade(amt)
 		text_c([360, 90, 920, 130], "%s  ·  CPU %+d°C" % [g[1], g[0]], 33, GREEN if g[0] < 0 else GOLD if g[0] < 10 else PINK)
+
+
+class Dust extends Mode:
+	## 먼지 청소 (수리 진단 위 확대 팝업): 쿨러 위를 꾹 누른 채 문지르면 에어 스프레이로 먼지가 날아감. 거의 다 털면 끝
+	const FAN := [440, 140, 840, 540]
+	const N := 8   # 먼지 칸 N×N
+	var left := []
+	var done_t := 0
+
+	func _init() -> void:
+		overlay = true
+
+	func enter() -> void:
+		left = []
+		for i in N * N:
+			left.append(true)
+		done_t = 0
+
+	func cell(i: int) -> Vector2:
+		var w: float = (FAN[2] - FAN[0]) / float(N)
+		return Vector2(FAN[0] + w * (i % N + 0.5), FAN[1] + w * (i / N + 0.5))
+
+	func dirty() -> float:
+		return left.count(true) / float(N * N)
+
+	func down(_x: float, _y: float, _right: bool) -> void:
+		if done_t > 0 and Time.get_ticks_msec() - done_t > 400:
+			m.pop()
+
+	func draw() -> void:
+		if done_t == 0 and m.held_down:   # 누른 채 문지르기: 손가락 둘레 먼지가 날아감
+			var hit := false
+			for i in left.size():
+				if left[i] and cell(i).distance_to(m.mouse) < 46:
+					left[i] = false
+					hit = true
+			if hit and randf() < 0.3:
+				sfx("push")
+			if dirty() <= 0.05:
+				done_t = Time.get_ticks_msec()
+				m.modes["diag"].fixed("dust", "에어 스프레이로 먼지를 싹 날렸어요")
+				m.shake(3.0, 120)
+		dim()
+		panel([360, 60, 920, 680], true)
+		text(390, 640, "먼지 청소", 33, PINK)
+		text(390, 600, "쿨러 위를 꾹 누른 채 문지르세요", 22, INK)
+		var c := center(FAN)   # 쿨러 팬 (임시 그림)
+		circle(c.x, c.y, 190, Color8(40, 40, 52))
+		for k in 7:
+			var a := k * TAU / 7.0
+			line(c, c + Vector2(cos(a), sin(a)) * 170, Color8(90, 90, 110), 26)
+		circle(c.x, c.y, 40, Color8(70, 70, 90))
+		var w: float = (FAN[2] - FAN[0]) / float(N)
+		for i in left.size():
+			if left[i]:
+				var p := cell(i)
+				circle(p.x, p.y, w * 0.62, Color8(150, 140, 120, 230))
+		if done_t > 0:
+			text_c([360, 80, 920, 130], "깨끗! CPU 온도가 내려가요", 33, GREEN)
+		else:
+			text_c([360, 80, 920, 130], "먼지 %d%%" % roundi(dirty() * 100), 22, QUIET)
+
+
+class Power extends Mode:
+	## 전원 연출 (조립 화면 위 팝업): 팬이 돌고 디버그 LED가 하나씩 → 멈춘 곳이 빨갛게 깜빡 + 증상, 다 지나가면 "켜졌다!"
+	const STEP := 450   # LED 한 칸 (ms)
+	var t0 := 0
+	var post: Array = []
+	var told := false
+
+	func _init() -> void:
+		overlay = true
+
+	func enter() -> void:
+		post = m.modes["build"].post
+		t0 = Time.get_ticks_msec()
+		told = false
+		sfx("click")
+
+	func lit() -> int:   # 지금까지 켜진 LED 수
+		return int((Time.get_ticks_msec() - t0) / STEP)
+
+	func stop_at() -> int:   # LED가 멈추는 칸 (-1 = 아예 반응 없음)
+		return post[0]
+
+	func done() -> bool:
+		return lit() > max(stop_at(), 0) + (1 if stop_at() == 4 else 0)
+
+	func down(_x: float, _y: float, _right: bool) -> void:
+		if not done():   # 탭하면 연출 건너뛰기
+			t0 -= 100000
+			return
+		m.pop()
+		if post[0] == 4:
+			if Game.pc.bios_done:
+				m.modes["boot"].open()
+			else:
+				m.push("bios")   # 새 CPU 첫 부팅: BIOS 설정부터
+
+	func draw() -> void:
+		var ok: bool = post[0] == 4
+		var end := done()
+		if end and not told:
+			told = true
+			sfx("boot_ok" if ok else "boot_fail")
+			m.shake(8.0 if ok else 3.0, 260 if ok else 120)
+		var dead: bool = post[0] < 0   # 반응 없음: 팬도 거의 안 돎
+		var ms := Time.get_ticks_msec() - t0
+		dim()
+		box([300, 120, 980, 640], Color8(12, 10, 26))   # 케이스 속 (임시 그림)
+		outline([300, 120, 980, 640], VIOLET, 3)
+		# 팬: 돌아가는 날개 4개. 반응 없으면 살짝 꿈틀만
+		var spin: float = (min(ms, 300) / 300.0 * 0.6) if dead else ms / 1000.0 * (8.0 if not end or ok else 2.0)
+		circle(470, 430, 110, Color8(30, 26, 60))
+		for i in 4:
+			var a: float = spin + i * PI / 2
+			line(Vector2(470, 430), Vector2(470, 430) + Vector2(cos(a), sin(a)) * 100, CYAN if not dead else DIM, 18)
+		circle(470, 430, 22, Color8(60, 50, 110))
+		# 디버그 LED
+		text(640, 540, "디버그 LED", 22, QUIET)
+		for i in 4:
+			var r := [640, 470 - i * 70, 920, 520 - i * 70]
+			var c := Color8(40, 32, 70)
+			if ok and end:
+				c = GREEN
+			elif not dead and i < min(lit(), post[0]):
+				c = Color8(60, 120, 90)
+			elif not dead and i == post[0] and lit() >= i:
+				c = PINK if int(ms / 250) % 2 == 0 else Color8(90, 30, 60)   # 멈춘 곳 깜빡
+			box(r, c)
+			text_c(r, PCBuild.POST_STAGES[i], 22, BG if ok and end else Color.WHITE)
+		if not end:
+			text_c([300, 140, 980, 210], "위이잉…", 30, INK)
+		elif ok:
+			text_c([300, 140, 980, 230], "켜졌다!", 54, GREEN)
+		else:
+			var y := 200.0
+			for ln in wrap_text(post[1], 640):
+				text(330, y, ln, 22, PINK)
+				y -= 30
+			text(330, 150, "어딘가 헐거운지 꾹 눌러 보세요" if Game.pc.wobbly != "" else "눌러서 닫기", 22, GOLD)
 
 
 class Bios extends Mode:

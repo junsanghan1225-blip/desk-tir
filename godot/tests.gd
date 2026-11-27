@@ -45,6 +45,19 @@ func _initialize() -> void:
 	oc_pc.xmp = false
 	oc_pc.oc = 0
 	ok(Bench.run(Bench.parts_of(oc_pc), {"kind": "code", "sec": 60})["value"] > b_mid["value"], "XMP 끄면 느림")
+	var wob_pc := PCBuild.full()   # 첫 전원 헐거움: 원인마다 LED 단계가 다름, 이미 뽑았으면 다시 안 뽑음
+	wob_pc.shaken = false
+	PCBuild.WOBBLE = 1.0
+	wob_pc.shake()
+	PCBuild.WOBBLE = 0.3
+	ok(wob_pc.wobbly != "" and wob_pc.post()[0] < 4, "첫 전원에 어딘가 헐거우면 안 켜짐")
+	wob_pc.wobbly = "RAM0"
+	ok(wob_pc.post()[0] == 1, "RAM 헐거움은 DRAM 불")
+	wob_pc.wobbly = "cpu8"
+	ok(wob_pc.post()[0] == 0, "CPU 8핀 헐거움은 CPU 불")
+	wob_pc.wobbly = ""
+	wob_pc.shake()
+	ok(wob_pc.post()[0] == 4, "고친 뒤엔 다시 안 흔들림")
 	ok(b.post()[0] == 1, "RAM 없음")
 	b.place("ram1", 0); b.place("gpu1")
 	ok(b.post()[0] == 3 and "SSD" in b.post()[1], "SSD 없음")

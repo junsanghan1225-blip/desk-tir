@@ -4,7 +4,7 @@ extends Control
 ## 터치는 마우스로 들어온다 (Godot 기본: 터치 → 마우스 에뮬레이션). 더블탭 = 우클릭(빼기).
 
 const H := 720
-const SCREENS := {"title": "Title", "news": "News", "request": "Request", "result": "Result", "day_end": "DayEnd", "product": "Product", "receipt": "Receipt", "boot": "Boot", "pause": "Pause", "album": "Album", "bench": "BenchView", "trial": "Trial", "dex": "Dex", "ending": "Ending", "call": "Call", "burn": "Burn", "paste": "Paste", "bios": "Bios"}
+const SCREENS := {"title": "Title", "news": "News", "request": "Request", "result": "Result", "day_end": "DayEnd", "product": "Product", "receipt": "Receipt", "boot": "Boot", "pause": "Pause", "album": "Album", "bench": "BenchView", "trial": "Trial", "dex": "Dex", "ending": "Ending", "call": "Call", "burn": "Burn", "paste": "Paste", "bios": "Bios", "power": "Power", "dust": "Dust"}
 const SAVED := ["news", "request", "shop", "desk", "build", "wire", "result", "day_end"]
 
 var font: Font = load("res://resource/font.ttf")
@@ -151,7 +151,18 @@ func pop() -> void:
 	stack.pop_back()
 
 
+## 화면 흔들림 (딸깍 · 켜졌다 같은 손맛 순간)
+var shake_end := 0
+var shake_px := 0.0
+
+
+func shake(px := 4.0, ms := 150) -> void:
+	shake_px = px
+	shake_end = Time.get_ticks_msec() + ms
+
+
 func _process(_delta: float) -> void:
+	position = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake_px if Time.get_ticks_msec() < shake_end else Vector2.ZERO
 	queue_redraw()
 
 

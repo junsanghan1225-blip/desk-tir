@@ -16,6 +16,9 @@ var paste := false
 var chip := 0                 # CPU 뽑기(실리콘 로또): -1 하급 · 0 보통 · 1 상급. 손님 PC · 자동 조립은 보통
 var chip_known := false       # 성능 테스트 · 번인을 돌려 봐야 드러남
 const CHIP_NAMES := {-1: "하급 칩", 0: "보통 칩", 1: "상급 칩!"}
+var wobbly := ""          # 첫 전원 때 헐거워진 곳 (선 이름 · "RAMn"). 눌러서 딸깍 · 다시 꽂으면 풀림
+var shaken := true        # 첫 전원 흔들림을 이미 뽑았는지
+static var WOBBLE := 0.3  # 첫 전원 때 어딘가 헐거울 확률 (테스트에서 0 · 1)
 var bios_done := true         # 첫 부팅 BIOS 설정을 마쳤는지 (직접 CPU를 꽂으면 다시 해야 함)
 var xmp := true               # RAM 제 속도(XMP). 끄면 기본 속도라 조금 느림
 var oc := 0                   # CPU 클럭 다이얼 0~3칸: 칸마다 +4% · +5°C. 칩 한계(하급 1 · 보통 2 · 상급 3)를 넘으면 불안정
@@ -269,13 +272,14 @@ func paste_heat() -> int:
 	return paste_grade(paste_amt)[0] if paste else 0
 
 
-## 쿨러를 대각선(X자)으로 조였는지: 두 번째 나사가 첫 나사의 맞은편이면 고르게 눌림. 기록이 없으면(예전 저장 · 자동 조립) 고르게 본다
 ## 직접 CPU를 꽂을 때 등급을 뽑음: 하급 20% · 보통 60% · 상급 20%
 func roll_chip() -> void:
 	var r := randi() % 100
 	chip = -1 if r < 20 else 1 if r >= 80 else 0
 	chip_known = false
 	bios_done = false   # 새 CPU → 첫 부팅 때 BIOS부터
+	shaken = false
+	wobbly = ""
 	xmp = false
 	oc = 0
 
@@ -343,6 +347,31 @@ func capacity() -> int:
 	return spec("PSU")["capacity"] if has("PSU") else 0
 
 
+const WOBBLE_SAYS := {
+	"24pi": [-1, "팬이 한 번 꿈틀하고 멈췄어요"],
+	"fron": [-1, "전원 버튼을 눌러도 조용해요"],
+	"cpu8": [0, "CPU 불이 깜빡이다 멈춰요"],
+	"RAM0": [1, "삐— 삐 삐 소리가 나요"], "RAM1": [1, "삐— 삐 삐 소리가 나요"], "RAM2": [1, "삐— 삐 삐 소리가 나요"], "RAM3": [1, "삐— 삐 삐 소리가 나요"],
+	"pcie": [2, "팬은 도는데 화면이 안 나와요"],
+}
+
+
+## 새 PC 첫 전원: 가끔 어딘가 헐거움 (원인 여러 가지 · LED 단계와 증상으로 찾기)
+func shake() -> void:
+	if shaken:
+		return
+	shaken = true
+	if randf() >= WOBBLE:
+		return
+	var c: Array = ["24pin", "front", "cpu8"]
+	for i in 4:
+		if ram[i] != "":
+			c.append("RAM%d" % i)
+	if cables.has("pcie0"):
+		c.append("pcie0")
+	wobbly = c.pick_random()
+
+
 ## [통과한 단계 수(-1~4), 메시지]. 4면 부팅 성공.
 func post() -> Array:
 	if not has("CASE") or not has("MB"):
@@ -390,6 +419,8 @@ func post() -> Array:
 		return [3, "부팅이 한참 걸리다가 멈춰요"]
 	if "SSD" in loose():
 		return [3, "BOOT 불이 켜졌어요 (SSD가 들떠 있어요 · 나사)"]
+	if WOBBLE_SAYS.has(wobbly.left(4)) and (ram[int(wobbly.right(1))] != "" if wobbly.begins_with("RAM") else cables.has(wobbly)):   # 다 맞게 조립했는데 첫 전원에 어딘가 헐거움 (증상만, 자리는 직접 찾기)
+		return WOBBLE_SAYS[wobbly.left(4)]
 	return [4, "부팅 성공!" + (" 단, 쿨러가 약해서 성능이 떨어져요" if throttled() else "")]
 
 
@@ -411,7 +442,7 @@ static func level_of(fs: Array) -> int:
 
 
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "chip": chip, "chip_known": chip_known, "bios_done": bios_done, "xmp": xmp, "oc": oc, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "chip": chip, "chip_known": chip_known, "bios_done": bios_done, "wobbly": wobbly, "shaken": shaken, "xmp": xmp, "oc": oc, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -426,6 +457,8 @@ static func from_dict(d: Dictionary) -> PCBuild:
 	b.chip = d.get("chip", 0)
 	b.chip_known = d.get("chip_known", false)
 	b.bios_done = d.get("bios_done", true)
+	b.wobbly = d.get("wobbly", "")
+	b.shaken = d.get("shaken", true)
 	b.xmp = d.get("xmp", true)
 	b.oc = d.get("oc", 0)
 	for f in d.get("faults", []):
