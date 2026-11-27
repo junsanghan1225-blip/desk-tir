@@ -1070,6 +1070,70 @@ class Burn extends Mode:
 		text_c([0, 60, 1280, 100], "화면을 눌러 손님에게 보여 주기", 22, QUIET)
 
 
+class Paste extends Mode:
+	## 서멀 구리스 (조립 화면 위 확대 팝업): CPU를 꾹 누르고 있으면 구리스가 짜지고, 손을 떼면 멈춤. 콩알만큼(가운데 링)이 가장 시원함.
+	const FILL := 2.2          # 끝(1.0)까지 짜지는 시간(초). 넘치면 자동으로 멈춤
+	const CPU := [440, 140, 840, 540]
+	var t0 := 0                 # 누르기 시작한 시각
+	var pressing := false
+	var amt := -1.0             # 다 짠 양 (-1 = 아직)
+	var done_t := 0
+
+	func _init() -> void:
+		overlay = true
+
+	func enter() -> void:
+		pressing = false
+		amt = -1.0
+
+	func now() -> float:
+		if amt >= 0:
+			return amt
+		return clampf((Time.get_ticks_msec() - t0) / 1000.0 / FILL, 0.0, 1.0) if pressing else 0.0
+
+	func finish() -> void:
+		amt = now()
+		done_t = Time.get_ticks_msec()
+		Game.pc.apply_paste(amt)
+		var g := PCBuild.paste_grade(amt)
+		m.modes["build"].toast = "서멀 구리스: %s (CPU %+d°C)" % [g[1], g[0]]
+		sfx("paste" if g[0] < 0 else "click")
+
+	func down(x: float, y: float, _right: bool) -> void:
+		if amt >= 0:
+			if Time.get_ticks_msec() - done_t > 400:
+				m.pop()
+		elif inside(x, y, grow(CPU, 40)):
+			t0 = Time.get_ticks_msec()
+			pressing = true
+
+	func up(_x: float, _y: float) -> void:
+		if pressing and amt < 0:
+			finish()
+
+	func draw() -> void:
+		if pressing and amt < 0 and now() >= 1.0:   # 너무 오래 누름 → 넘침
+			finish()
+		dim()
+		panel([360, 60, 920, 680], true)
+		text(390, 640, "서멀 구리스", 33, PINK)
+		text(390, 600, "CPU를 꾹 누르고, 콩알만큼에서 떼세요", 22, INK)
+		box(CPU, Color8(150, 150, 160))   # CPU 뚜껑 (임시 그림: 나중에 이미지로)
+		outline(CPU, Color8(60, 60, 70), 4)
+		var c := center(CPU)
+		var big := 180.0
+		var a := now()
+		if a > 0:
+			circle(c.x, c.y, big * a, Color8(225, 225, 232))
+		for g in [0.4, 0.65]:   # 콩알 범위: 두 링 사이에서 떼기
+			m.draw_arc(Vector2(c.x, H - c.y), big * g, 0, TAU, 64, GREEN, 3)
+		if amt < 0:
+			text_c([360, 70, 920, 120], "누르고 있는 중…" if pressing else "CPU를 꾹 누르기", 22, QUIET)
+			return
+		var g := PCBuild.paste_grade(amt)
+		text_c([360, 90, 920, 130], "%s  ·  CPU %+d°C" % [g[1], g[0]], 33, GREEN if g[0] < 0 else GOLD if g[0] < 10 else PINK)
+
+
 class Call extends Mode:
 	## 돌발: 주문 중에 손님이 전화 (예산 깎기 · 추가 요청). 누르면 닫힘
 	var said := ""

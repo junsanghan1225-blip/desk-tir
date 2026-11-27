@@ -128,7 +128,19 @@ func run() -> void:
 	tap(b.lever_rect())
 	part.call("cpu1", b.cpu_rect())
 	tap(b.lever_rect())
-	drag(b.PASTE_ROW, b.cpu_rect())
+	tap(b.PASTE_ROW)                           # 서멀 구리스 확대 팝업: 꾹 누르다 콩알만큼에서 떼기
+	on("paste")
+	var pa = main.modes["paste"]
+	main.mouse = pa.center(pa.CPU)
+	pa.down(main.mouse.x, main.mouse.y, false)
+	pa.t0 -= int(0.5 * pa.FILL * 1000)
+	await shot("6p_paste_hold")
+	pa.up(main.mouse.x, main.mouse.y)
+	check(Game.pc.paste and Game.pc.paste_heat() < 0, "구리스 콩알만큼: %d" % Game.pc.paste_heat())
+	pa.done_t -= 1000
+	await shot("6q_paste_done")
+	tap([0, 0, 100, 100])
+	on("build")
 	part.call("cool1", b.cooler_rect())
 	part.call("ram1", b.ram_rect(0))
 	part.call("ssd1", b.ssd_rect())

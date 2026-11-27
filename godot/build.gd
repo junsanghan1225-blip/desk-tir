@@ -23,7 +23,7 @@ const PASTE_ROW := [10, 570, 260, 600]   # 서멀 구리스: 항상 있는 도�
 const BTN_DRIVER := [10, 6, 260, 62]    # 도구: 드라이버(나사 조이기 · 풀기)
 const MARGIN := {"CASE": 0, "MB": 0, "CPU": 20, "COOLER": 10, "SSD": 16, "GPU": 16, "PSU": 16}
 
-var held: Array = []   # ["part", id] | ["cable", 이름] | ["paste"]
+var held: Array = []   # ["part", id] | ["cable", 이름] | ["out", …]
 var toast := ""
 var post: Array = []   # 마지막 전원 테스트 [단계, 메시지]
 var page := 0
@@ -275,9 +275,12 @@ func down(x: float, y: float, right: bool) -> void:
 			toast = "레버를 열었어요" if pc.lever_open else "레버를 닫았어요"
 		post = []
 		return
-	if inside(x, y, PASTE_ROW):
-		held = ["paste"]
-		toast = ""
+	if inside(x, y, PASTE_ROW):   # 확대 팝업에서 직접 짜기
+		toast = pc.paste_check()
+		if toast == "":
+			m.push("paste")
+		else:
+			sfx("error")
 		return
 	for c in CABLE_NAMES:   # 파워 전원선 + 케이스 전원 버튼선
 		if pc.has("CASE" if c == "front" else "PSU") and inside(x, y, psu_port(c)):
@@ -366,13 +369,6 @@ func up(x: float, y: float) -> void:
 	var h := held
 	held = []
 	post = []
-	if h[0] == "paste":
-		if inside(x, y, grow(cpu_rect(), 16)):
-			toast = pc.apply_paste()
-			sfx("paste" if toast == "" else "error")
-			if toast == "":
-				toast = "서멀 구리스를 발랐어요"
-		return
 	if h[0] == "out":
 		if x < INV_W:
 			take_out([h[1], h[2]])
@@ -510,7 +506,7 @@ func next_step() -> Array:
 	elif pc.lever_open:
 		n = ["소켓 레버를 눌러 닫기", lever_rect(), ""]
 	elif not pc.paste and not pc.has("COOLER"):
-		n = ["서멀 구리스를 CPU 위에", cpu_rect(), "paste"]
+		n = ["서멀 구리스를 눌러 CPU에 짜기", cpu_rect(), "paste"]
 	elif not pc.has("COOLER"):
 		n = ["쿨러를 CPU 위에", cooler_rect(), "COOLER"]
 	elif pc.ram.all(func(r): return r == ""):
@@ -781,11 +777,6 @@ func draw_drag() -> void:
 	var pc := Game.pc
 	var x := m.mouse.x
 	var y := m.mouse.y
-	if held[0] == "paste":
-		outline(grow(cpu_rect(), 6), CYAN if pc.has("CPU") and not pc.has("COOLER") else PINK, 2)
-		circle(x, y, 14, Color8(200, 200, 210))
-		text(x + 18, y, "서멀 구리스", 13)
-		return
 	if held[0] == "cable":
 		outline(grow(socket_rect(held[1]), 6), CYAN, 2)
 		line(cable_start(held[1]), m.mouse, GOLD, 4)
@@ -877,7 +868,7 @@ func draw_inventory() -> void:
 	button(BTN_DRIVER, "드라이버", GOLD if tool == "driver" else VIOLET)
 	frame("ui_slot", PASTE_ROW)
 	circle(26, 585, 9, Color8(200, 200, 210))
-	text(46, 585, clip("서멀 구리스 → CPU", PASTE_ROW[2] - 52), 16)
+	text(46, 585, clip("서멀 구리스 (눌러서)", PASTE_ROW[2] - 52), 16)
 	var ids := inv_ids()
 	if ids.is_empty():
 		text(14, ROW_TOP - 56, "부품 재고가 없어요", 15, QUIET)

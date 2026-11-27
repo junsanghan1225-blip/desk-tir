@@ -13,6 +13,7 @@ var ram := ["", "", "", ""]    # 슬롯 0~3, 빈 칸은 ""
 var cables := {}               # 꽂힌 선: 이름 -> true ('24pin', 'cpu8', 'pcie0', 'pcie1', 'front')
 var lever_open := false
 var paste := false
+var paste_amt := 0.5           # 짠 서멀 구리스 양 0~1 (0.4~0.65 = 콩알만큼이 가장 시원함)
 var screws := {}               # 자리 -> [조였나, …] (끼우면 헐거운 상태로 시작, 드라이버로 하나씩 조임)
 var ties := {}                 # 케이블 타이로 묶은 전원선: 이름 -> true
 const SCREWS := {"MB": 4, "COOLER": 4, "GPU": 1, "SSD": 1, "PSU": 2}
@@ -245,15 +246,37 @@ func toggle_lever() -> String:
 	return ""
 
 
-func apply_paste() -> String:
+## 구리스 양 → CPU 온도 보정(°C)과 한 줄 평. 실제: 적으면 틈이 생겨 뜨겁고, 많으면 넘치고 두꺼워져 조금 뜨거움
+const PASTE_GRADES := [[0.25, 12, "너무 적음"], [0.4, 5, "조금 적음"], [0.65, -2, "딱 콩알만큼"], [0.85, 3, "조금 많음"], [9.0, 5, "넘침"]]
+
+
+static func paste_grade(amt: float) -> Array:   # [°C, 평]
+	for g in PASTE_GRADES:
+		if amt < g[0]:
+			return [g[1], g[2]]
+	return [5, "넘침"]
+
+
+func paste_heat() -> int:
+	return paste_grade(paste_amt)[0] if paste else 0
+
+
+func paste_check() -> String:
 	if not has("CPU"):
 		return "CPU 위에 발라야 해요"
 	if has("COOLER"):
 		return "쿨러를 올리기 전에 발라야 해요"
 	if lever_open:
 		return "레버를 닫고 발라 주세요"
-	paste = true
 	return ""
+
+
+func apply_paste(amt := 0.5) -> String:
+	var reason := paste_check()
+	if reason == "":
+		paste = true
+		paste_amt = amt
+	return reason
 
 
 func plug(cable: String) -> String:
@@ -365,7 +388,7 @@ static func level_of(fs: Array) -> int:
 
 
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -376,6 +399,7 @@ static func from_dict(d: Dictionary) -> PCBuild:
 		b.cables[c] = true
 	b.lever_open = d["lever_open"]
 	b.paste = d["paste"]
+	b.paste_amt = d.get("paste_amt", 0.5)
 	for f in d.get("faults", []):
 		b.faults[f] = true
 	for t in b.parts:   # 예전 저장: 다 조인 것으로

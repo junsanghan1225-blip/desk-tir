@@ -28,7 +28,9 @@ func _initialize() -> void:
 	ok(b.post()[0] == -1 and "전원 버튼" in b.post()[1], "전원 버튼선")
 	b.plug("front"); b.plug("cpu8")
 	ok("서멀" in b.post()[1], "구리스 없이 쿨러")
-	b.remove("COOLER"); b.apply_paste(); b.place("cool1")
+	b.remove("COOLER"); b.apply_paste(0.1); b.place("cool1")
+	ok(b.paste_heat() == 12 and PCBuild.paste_grade(0.5)[0] < 0 and PCBuild.paste_grade(1.0)[1] == "넘침", "구리스 양: 적으면 뜨겁고 콩알이 가장 시원")
+	b.paste_amt = 0.5
 	ok(b.post()[0] == 1, "RAM 없음")
 	b.place("ram1", 0); b.place("gpu1")
 	ok(b.post()[0] == 3 and "SSD" in b.post()[1], "SSD 없음")

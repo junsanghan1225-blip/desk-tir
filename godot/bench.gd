@@ -11,7 +11,7 @@ const KIND_NAMES := {"office": "문서 · 화상회의", "code": "코딩(빌드)
 
 ## 조립 상태 → 계산에 쓰는 부품 묶음 {CPU, GPU, COOLER, CASE: id, RAM: [id...]}
 static func parts_of(pc: PCBuild) -> Dictionary:
-	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy(), "laptop": pc.has_meta("laptop")}
+	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy(), "paste_heat": pc.paste_heat(), "laptop": pc.has_meta("laptop")}
 	for t in ["CPU", "GPU", "COOLER", "CASE", "MB", "PSU", "SSD"]:
 		d[t] = pc.parts.get(t, "")
 	d["dead_cooler"] = pc.dead("COOLER")   # 고장 난 중고 쿨러: 팬이 안 돎
@@ -75,6 +75,9 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	var f: Dictionary = d.get("faults", {})
 	r["cpu_temp"] += (25 if f.has("paste_dry") else 0) + (10 if f.has("dust") else 0) + (70 if f.has("cpu_fan") or d.get("dead_cooler", false) else 0)
 	r["gpu_temp"] += 10 if f.has("dust") else 0
+	r["cpu_temp"] += d.get("paste_heat", 0)   # 서멀 구리스 솜씨
+	if d.get("paste_heat", 0) >= 10:
+		r["notes"].append("서멀 구리스가 모자라서 CPU 열이 잘 안 빠져요 → 쿨러를 떼고 다시 바르기")
 	var lz: Array = d.get("loose", [])
 	if "COOLER" in lz:   # 쿨러가 CPU에 꽉 안 붙음
 		r["cpu_temp"] += 30
