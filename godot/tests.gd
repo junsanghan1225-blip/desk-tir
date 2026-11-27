@@ -33,6 +33,11 @@ func _initialize() -> void:
 	b.paste_amt = 0.5
 	b.cooler_order = [0, 1, 3, 2]
 	ok(not b.cooler_even() and b.mount_heat() == 6, "쿨러 한쪽부터 조이면 +6°C")
+	var b_mid := Bench.run(Bench.parts_of(PCBuild.full()), {"kind": "code", "sec": 60})
+	var good_chip := PCBuild.full()
+	good_chip.chip = 1
+	var b_top := Bench.run(Bench.parts_of(good_chip), {"kind": "code", "sec": 60})
+	ok(b_top["value"] < b_mid["value"] and b_top["cpu_temp"] == b_mid["cpu_temp"] - 4, "상급 칩: 빌드가 빠르고 4°C 시원함")
 	b.cooler_order = [2, 1, 0, 3]
 	ok(b.cooler_even() and b.mount_heat() == 0, "쿨러 X자")
 	ok(b.post()[0] == 1, "RAM 없음")

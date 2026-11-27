@@ -679,6 +679,7 @@ class BenchView extends Mode:
 		r = Bench.run(Bench.parts_of(Game.pc), use)
 		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not Game.request().has("repair") and not Game.request().has("upgrade") else {}   # 수리 · 업그레이드는 정답을 안 알려 줌
 		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
+		Game.pc.chip_known = Game.pc.has("CPU")   # 테스트하면 칩 등급도 드러남
 		for e in Game.pc.used.values():   # 테스트하면 꽂힌 중고 부품의 진짜 상태가 보임
 			e["known"] = true
 			if e["paid"] > 0 and e["cond"] < 40:
@@ -757,6 +758,8 @@ class BenchView extends Mode:
 		text(70, 646, "성능 테스트", 33, PINK)
 		text(70, 606, "손님 요구: " + Bench.describe(use), 22, CYAN)
 		button(BTN_CLOSE, "닫기", VIOLET)
+		if Game.pc.chip_known and Game.pc.chip != 0:
+			chip(520, 646, "CPU " + PCBuild.CHIP_NAMES[Game.pc.chip] + (" 성능 +5% · −4°C" if Game.pc.chip > 0 else " 성능 −5% · +4°C"), GOLD if Game.pc.chip > 0 else PINK)
 		if not r.has("noise"):   # 부품이 모자라 테스트를 못 함
 			for i in r["notes"].size():
 				for ln in wrap_text(r["notes"][i], 1100):
@@ -1021,6 +1024,7 @@ class Burn extends Mode:
 	func enter() -> void:
 		var r := Bench.run(Bench.parts_of(Game.computer()), Game.request().get("use", {"kind": "office"}))
 		temp = r.get("cpu_temp", 60)
+		Game.computer().chip_known = true
 		zone = Game.burn_zone(temp, randf_range(-0.06, 0.06))
 		Game.burn = ""
 		stop_k = -1.0
@@ -1050,6 +1054,9 @@ class Burn extends Mode:
 		text(40, 670, "출고 전 번인 테스트", 33, PINK)
 		text(40, 626, "오래 돌릴수록 숨은 불량이 잡혀요. 대신 열이 쌓여요.", 22, INK)
 		text(40, 590, "초록 구간에서 멈추세요. 쿨러가 약하면 초록이 짧아요.", 22, QUIET)
+		var cp := Game.computer()
+		if cp.chip != 0:
+			chip(40, 540, "CPU " + PCBuild.CHIP_NAMES[cp.chip], GOLD if cp.chip > 0 else PINK)
 		var w: float = GAUGE[2] - GAUGE[0]
 		var zx := [GAUGE[0] + w * zone[0], GAUGE[0] + w * zone[1]]
 		box([GAUGE[0], GAUGE[1], zx[0], GAUGE[3]], Color8(60, 52, 96))

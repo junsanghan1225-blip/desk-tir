@@ -179,6 +179,12 @@ func run() -> void:
 	tap([0, 0, 100, 100])
 	on("build")
 	await shot("8_build")
+	Game.pc.chip = 1                           # CPU 뽑기: 성능 테스트를 돌리면 칩 등급이 드러남
+	main.modes["bench"].open()
+	check(Game.pc.chip_known, "테스트하면 칩 등급 공개")
+	main.modes["bench"].t0 -= 3000
+	await shot("8e_chip_bench")
+	main.pop()
 	tap(b.zone("GPU"), true)                   # 나사가 조여져 있으면 안 빠짐
 	check(Game.pc.has("GPU") and "나사" in b.toast)
 	await screw_all(b, "GPU")

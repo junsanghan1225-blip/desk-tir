@@ -13,6 +13,9 @@ var ram := ["", "", "", ""]    # 슬롯 0~3, 빈 칸은 ""
 var cables := {}               # 꽂힌 선: 이름 -> true ('24pin', 'cpu8', 'pcie0', 'pcie1', 'front')
 var lever_open := false
 var paste := false
+var chip := 0                 # CPU 뽑기(실리콘 로또): -1 하급 · 0 보통 · 1 상급. 손님 PC · 자동 조립은 보통
+var chip_known := false       # 성능 테스트 · 번인을 돌려 봐야 드러남
+const CHIP_NAMES := {-1: "하급 칩", 0: "보통 칩", 1: "상급 칩!"}
 var cooler_order := []        # 쿨러 나사를 조인 순서 (번호 0~3: 0↔3 · 1↔2가 대각선)
 var paste_amt := 0.5           # 짠 서멀 구리스 양 0~1 (0.4~0.65 = 콩알만큼이 가장 시원함)
 var screws := {}               # 자리 -> [조였나, …] (끼우면 헐거운 상태로 시작, 드라이버로 하나씩 조임)
@@ -223,6 +226,8 @@ func remove(slot: String, ram_slot := -1) -> Array:
 		paste = false
 	if slot == "CPU":
 		paste = false
+		chip = 0
+		chip_known = false
 	if slot == "MB":
 		lever_open = false
 	for child in NEEDS:
@@ -265,6 +270,13 @@ func paste_heat() -> int:
 
 
 ## 쿨러를 대각선(X자)으로 조였는지: 두 번째 나사가 첫 나사의 맞은편이면 고르게 눌림. 기록이 없으면(예전 저장 · 자동 조립) 고르게 본다
+## 직접 CPU를 꽂을 때 등급을 뽑음: 하급 20% · 보통 60% · 상급 20%
+func roll_chip() -> void:
+	var r := randi() % 100
+	chip = -1 if r < 20 else 1 if r >= 80 else 0
+	chip_known = false
+
+
 func cooler_even() -> bool:
 	return cooler_order.size() < 2 or cooler_order[1] == 3 - cooler_order[0]
 
@@ -400,7 +412,7 @@ static func level_of(fs: Array) -> int:
 
 
 func to_dict() -> Dictionary:
-	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "cooler_order": cooler_order, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
+	return {"parts": parts, "ram": ram, "cables": cables.keys(), "lever_open": lever_open, "paste": paste, "paste_amt": paste_amt, "cooler_order": cooler_order, "chip": chip, "chip_known": chip_known, "faults": faults.keys(), "screws": screws, "ties": ties.keys(), "used": used}
 
 
 static func from_dict(d: Dictionary) -> PCBuild:
@@ -413,6 +425,8 @@ static func from_dict(d: Dictionary) -> PCBuild:
 	b.paste = d["paste"]
 	b.paste_amt = d.get("paste_amt", 0.5)
 	b.cooler_order = d.get("cooler_order", [])
+	b.chip = d.get("chip", 0)
+	b.chip_known = d.get("chip_known", false)
 	for f in d.get("faults", []):
 		b.faults[f] = true
 	for t in b.parts:   # 예전 저장: 다 조인 것으로

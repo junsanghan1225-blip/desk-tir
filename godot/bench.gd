@@ -11,7 +11,7 @@ const KIND_NAMES := {"office": "문서 · 화상회의", "code": "코딩(빌드)
 
 ## 조립 상태 → 계산에 쓰는 부품 묶음 {CPU, GPU, COOLER, CASE: id, RAM: [id...]}
 static func parts_of(pc: PCBuild) -> Dictionary:
-	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy(), "paste_heat": pc.paste_heat(), "mount_heat": pc.mount_heat(), "laptop": pc.has_meta("laptop")}
+	var d := {"RAM": pc.ram.filter(func(r): return r != ""), "faults": pc.faults, "loose": pc.loose(), "tidy": pc.tidy(), "paste_heat": pc.paste_heat(), "mount_heat": pc.mount_heat(), "chip": pc.chip, "laptop": pc.has_meta("laptop")}
 	for t in ["CPU", "GPU", "COOLER", "CASE", "MB", "PSU", "SSD"]:
 		d[t] = pc.parts.get(t, "")
 	d["dead_cooler"] = pc.dead("COOLER")   # 고장 난 중고 쿨러: 팬이 안 돎
@@ -75,7 +75,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	var f: Dictionary = d.get("faults", {})
 	r["cpu_temp"] += (25 if f.has("paste_dry") else 0) + (10 if f.has("dust") else 0) + (70 if f.has("cpu_fan") or d.get("dead_cooler", false) else 0)
 	r["gpu_temp"] += 10 if f.has("dust") else 0
-	r["cpu_temp"] += d.get("paste_heat", 0) + d.get("mount_heat", 0)   # 서멀 구리스 · 쿨러 나사 솜씨
+	r["cpu_temp"] += d.get("paste_heat", 0) + d.get("mount_heat", 0) - d.get("chip", 0) * 4   # 서멀 구리스 · 쿨러 나사 솜씨 · 칩 등급
 	if d.get("mount_heat", 0) > 0:
 		r["notes"].append("쿨러가 한쪽으로 기울어 조여졌어요 → 풀고 대각선(X자) 순서로 다시")
 	if d.get("paste_heat", 0) >= 10:
@@ -110,7 +110,7 @@ static func run(d: Dictionary, use: Dictionary) -> Dictionary:
 	if "MB" in lz or "PSU" in lz:
 		r["noise"] += 4
 		r["notes"].append("본체에서 달그락 소리가 나요 → 나사 조이기")
-	var soft: float = (0.9 if f.has("xmp_off") or f.has("cmos_battery") else 1.0) * (0.92 if f.has("ram_channel") else 1.0) * (0.35 if f.has("bloat") else 1.0)   # 숨은 고장: 숫자만 조금 모자람
+	var soft: float = (0.9 if f.has("xmp_off") or f.has("cmos_battery") else 1.0) * (0.92 if f.has("ram_channel") else 1.0) * (0.35 if f.has("bloat") else 1.0) * (1.0 + d.get("chip", 0) * 0.05)   # 숨은 고장 · 칩 등급(±5%): 숫자만 조금 모자람
 	if cpu_w > _s(d.get("MB", ""), "vrm", 999):   # 보드 전원부가 CPU 전력을 못 대 줌
 		cpu_thr *= 0.8
 		r["notes"].append("보드 전원부(VRM)가 약해서 CPU가 제 힘을 못 내요 → 더 좋은 보드")

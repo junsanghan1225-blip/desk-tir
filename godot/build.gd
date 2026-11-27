@@ -418,6 +418,8 @@ func up(x: float, y: float) -> void:
 ## 끼운 직후엔 반쯤 걸쳐 있음 → 눌러야 딸깍 (RAM · 그래픽카드 · M.2)
 func mark_seat(pid: String, slot: int) -> void:
 	var t: String = DB.PARTS[pid]["type"]
+	if t == "CPU":   # 직접 꽂은 CPU는 칩 등급을 뽑음 (테스트해야 보임)
+		Game.pc.roll_chip()
 	if t == "RAM":
 		seat["RAM%d" % slot] = true
 	elif t in ["GPU", "SSD"]:
