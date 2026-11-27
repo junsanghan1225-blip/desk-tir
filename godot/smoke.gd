@@ -242,6 +242,7 @@ func run() -> void:
 	tap([0, 0, 100, 100])
 	on("result")
 	check(main.modes["result"].result["boot"] == "" or true)
+	check(main.modes["result"].craft().size() == 4, "솜씨표 %s" % [main.modes["result"].craft()])
 	await shot("10_result")
 	var money := Game.money
 	tap([0, 0, 100, 100])

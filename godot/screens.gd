@@ -182,6 +182,21 @@ class Result extends Mode:
 		else:
 			wanted.append("PC 성능: " + "★".repeat(req["perf"]) + " 이상")
 
+	## 솜씨표 [글자, 색]: 구리스 · 쿨러 나사 · CPU 칩 · 번인
+	func craft() -> Array:
+		var pc := Game.computer()
+		var out := []
+		if pc.paste and pc.has("CPU"):
+			var ph := pc.paste_heat()
+			out.append(["구리스 %+d°C" % ph, GREEN if ph < 0 else PINK if ph >= 10 else GOLD])
+		if pc.has("COOLER"):
+			out.append(["나사 X자" if pc.cooler_even() else "나사 기울어짐 +%d°C" % pc.mount_heat(), GREEN if pc.cooler_even() else PINK])
+		if pc.has("CPU") and pc.chip != 0:
+			out.append([PCBuild.CHIP_NAMES[pc.chip].replace("!", ""), GREEN if pc.chip > 0 else PINK])
+		if Game.burn != "":
+			out.append([{"good": "번인 적정", "early": "번인 부족", "hot": "번인 과열"}[Game.burn], GREEN if Game.burn == "good" else PINK])
+		return out
+
 	func down(_x: float, _y: float, _right: bool) -> void:
 		m.go("request" if Game.next_customer() else "day_end")
 
@@ -227,6 +242,15 @@ class Result extends Mode:
 		text(640, 430, "손님이 사실 원했던 것", 18, PINK)
 		for j in wanted.size():
 			text(640, 395 - j * 34, wanted[j], 17)
+		var cx := 640.0   # 이번 PC 솜씨표: 초록 = 잘함 · 분홍 = 다음엔 여기만 (점수는 그대로, 보여 주기만)
+		var cy := 395.0 - wanted.size() * 34 - 12
+		for c in craft():
+			var w := text_w(c[0], 22) + 32
+			if cx + w > 1260:
+				cx = 640.0
+				cy -= 42
+			chip(cx, cy, c[0], c[1])
+			cx += w
 		if not Game.new_achv.is_empty():
 			text(640, 100, "업적 달성! " + ", ".join(Game.new_achv.map(func(k): return "%s +%d만" % [Game.ACHV[k][0], Game.ACHV[k][2]])), 22, GOLD)
 		if Game.last_gift != "":   # 만족한 손님의 선물 → 다음 손님 책상에 써 볼 수 있음
