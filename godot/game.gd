@@ -3,6 +3,7 @@ class_name Game
 ## 가게(여러 날 유지): 돈 · 날짜 · 창고 · 업그레이드 · 별 · 단골 기록 · 오늘 장부. 주문(손님 한 명 동안): 장바구니 · 배치 · PC · 케이블.
 
 const START_MONEY := 300
+const OVER := "주어진 예산을 넘었습니다 (넘은 만큼 가게 돈에서 나가요)"   # 막지 않음: 넘은 만큼 정산 때 가게 마진에서 빠짐
 const LEVELS := [0, 3, 9, 17, 27]     # 가게 레벨 n이 되려면 필요한 누적 별
 const TIP_RATE := [3, 4, 5, 6, 7]   # 레벨별 별 1개당 팁 (예산의 %). 예산이 빠듯해서 팁 · 알뜰 구매가 마진
 static var SAVE_PATH := "user://save.json"   # 테스트는 test_save.json을 써서 실제 저장을 안 건드림
@@ -338,7 +339,7 @@ static func give_back(id: String) -> void:
 	stock[id] = stock.get(id, 0) + 1
 
 
-## 이번 주문에 들어간 물건 값 합 (손님 예산을 넘으면 안 된다).
+## 이번 주문에 들어간 물건 값 합 (예산을 넘어도 되지만 넘은 만큼 가게 마진에서 빠진다).
 static func spent() -> int:
 	var total := 0
 	for p in placed:
@@ -548,9 +549,6 @@ static func unshelve(i: int) -> String:
 	if not shelf_fits(i):
 		return "이 손님 조건엔 안 맞아요"
 	pc = PCBuild.from_dict(shelf[i])
-	if money_left() < 0:
-		pc = PCBuild.new()
-		return "손님 예산을 넘어요"
 	shelf.remove_at(i)
 	power = false
 	return ""

@@ -405,7 +405,8 @@ func _initialize() -> void:
 	ok(Game.shelf_fits(0) and Game.unshelve(0) == "" and Game.pc.boots() and Game.shelf.is_empty(), "맞는 손님에게 꺼내기")
 	ok(Game.shelve() == "", "다시 보관")
 	Game.order_mod = {}
-	ok(Game.unshelve(0) == "손님 예산을 넘어요" and Game.shelf.size() == 1 and not Game.pc.has("CASE"), "예산 넘으면 못 꺼냄")
+	ok(Game.unshelve(0) == "" and Game.money_left() < 0 and Game.pc.has("CASE"), "예산 넘어도 꺼냄 (넘은 만큼 가게 돈)")
+	Game.shelve()
 	Game.order_mod = {"use": {"kind": "game", "genre": "open", "res": "4K", "fps": 240}}
 	ok(not Game.shelf_fits(0) and Game.unshelve(0) != "" and Game.shelf.size() == 1, "안 맞는 손님엔 못 꺼냄")
 	Game.order_mod = {"used": "new"}

@@ -405,22 +405,21 @@ func up(x: float, y: float) -> void:
 		return
 	if key.begins_with("u"):
 		var e: Dictionary = Game.used[int(key.substr(1))]
-		if e["paid"] > Game.money_left():
-			toast = "손님 예산을 넘어요!"
-			return
+		var over_u: bool = e["paid"] > Game.money_left()
 		Game.used.remove_at(int(key.substr(1)))
 		pc.place_used(e, slot)
 		sfx("place")
 		mark_seat(pid, slot)
-		toast = "중고 %s (%s) 장착" % [DB.PARTS[pid]["name"], used_label(e)]
-	elif DB.PARTS[pid]["price"] > Game.money_left():
-		toast = "손님 예산을 넘어요!"
+		toast = Game.OVER if over_u else "중고 %s (%s) 장착" % [DB.PARTS[pid]["name"], used_label(e)]
 	elif not Game.take(pid):
 		toast = "재고가 없어요"
 	else:
+		var over: bool = DB.PARTS[pid]["price"] > Game.money_left()
 		pc.place(pid, slot)
 		sfx("place")
 		mark_seat(pid, slot)
+		if over:
+			toast = Game.OVER
 
 
 ## 끼운 직후엔 반쯤 걸쳐 있음 → 눌러야 딸깍 (RAM · 그래픽카드 · M.2)

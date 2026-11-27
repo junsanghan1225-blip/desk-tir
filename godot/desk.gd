@@ -262,15 +262,11 @@ func down(x: float, y: float, right: bool) -> void:
 	var ids := rows()
 	for i in ids.size():
 		if inside(x, y, row_rect(i)):
-			if DB.ITEMS[ids[i]]["price"] > Game.money_left():
-				toast = "손님 예산을 넘어요!"
-				sfx("error")
-			else:
-				sfx("pick")
-				held = ids[i]
-				moving = null
-				selected = null
-				toast = ""
+			sfx("pick")
+			held = ids[i]
+			moving = null
+			selected = null
+			toast = Game.OVER if DB.ITEMS[ids[i]]["price"] > Game.money_left() else ""
 			return
 	if p != null:
 		held = p["id"]
