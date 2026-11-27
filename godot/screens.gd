@@ -191,10 +191,14 @@ class Result extends Mode:
 			out.append(["구리스 %+d°C" % ph, GREEN if ph < 0 else PINK if ph >= 10 else GOLD])
 		if pc.has("COOLER"):
 			out.append(["나사 X자" if pc.cooler_even() else "나사 기울어짐 +%d°C" % pc.mount_heat(), GREEN if pc.cooler_even() else PINK])
+		if pc.has("CPU") and not pc.xmp:
+			out.append(["XMP 꺼짐", PINK])
+		if pc.has("CPU") and pc.oc > 0:
+			out.append(["클럭 +%d칸%s" % [pc.oc, " 불안정" if pc.unstable() else ""], PINK if pc.unstable() else GREEN])
 		if pc.has("CPU") and pc.chip != 0:
 			out.append([PCBuild.CHIP_NAMES[pc.chip].replace("!", ""), GREEN if pc.chip > 0 else PINK])
 		if Game.burn != "":
-			out.append([{"good": "번인 적정", "early": "번인 부족", "hot": "번인 과열"}[Game.burn], GREEN if Game.burn == "good" else PINK])
+			out.append([{"good": "번인 적정", "early": "번인 부족", "hot": "번인 과열", "crash": "번인 멈춤"}[Game.burn], GREEN if Game.burn == "good" else PINK])
 		return out
 
 	func down(_x: float, _y: float, _right: bool) -> void:
@@ -1095,6 +1099,11 @@ class Burn extends Mode:
 	func draw() -> void:
 		if stop_k < 0 and k() >= 1.0:   # 끝까지 두면 과열로 꺼짐
 			stop()
+		if stop_k < 0 and Game.computer().unstable() and k() >= zone[0] * 0.8:   # 칩이 못 버티는 클럭: 초록 직전에 멈춤
+			stop_k = k()
+			stop_t = Time.get_ticks_msec()
+			Game.burn = "crash"
+			sfx("boot_fail")
 		box([0, 0, 1280, H], BG)
 		var kk := k()
 		text(40, 670, "출고 전 번인 테스트", 33, PINK)
@@ -1122,7 +1131,7 @@ class Burn extends Mode:
 		if stop_k < 0:
 			button(BTN_STOP, "멈추기", VIOLET, 33)
 			return
-		var msg: String = {"good": "✓ 딱 좋아요! 안정성 확인", "early": "✗ 너무 일찍 멈췄어요", "hot": "✗ 너무 오래 돌려서 과열"}[Game.burn]
+		var msg: String = {"good": "✓ 딱 좋아요! 안정성 확인", "early": "✗ 너무 일찍 멈췄어요", "hot": "✗ 너무 오래 돌려서 과열", "crash": "✗ 화면이 멈췄어요! 클럭이 칩 한계를 넘었어요"}[Game.burn]
 		var v := Game.burn_money(Game.request()["budget"])
 		text_c([0, 220, 1280, 260], msg, 33, GREEN if Game.burn == "good" else PINK)
 		text_c([0, 160, 1280, 200], "%s  %+d만" % [Game.BURN[Game.burn], v], 22, GREEN if v > 0 else PINK)
@@ -1260,6 +1269,51 @@ class Mount extends Mode:
 			return
 		var even := pc.cooler_even()
 		text_c([360, 80, 920, 120], "고르게 조임 · CPU +0°C" if even else "기울어짐 · CPU +%d°C" % pc.mount_heat(), 33, GREEN if even else PINK)
+
+
+class Bios extends Mode:
+	## 첫 부팅 BIOS (조립 화면 위 팝업): XMP 켜기 + CPU 클럭 다이얼 0~3칸. 칩 등급은 아직 모름 → '한 칸 더?' 욕심과 위험
+	const BTN_XMP := [420, 430, 860, 490]
+	const BTN_SAVE := [500, 110, 780, 180]
+
+	func _init() -> void:
+		overlay = true
+
+	func dial(i: int) -> Array:
+		var x := 420 + i * 112
+		return [x, 290, x + 100, 350]
+
+	func down(x: float, y: float, _right: bool) -> void:
+		var pc := Game.pc
+		if inside(x, y, BTN_XMP):
+			pc.xmp = not pc.xmp
+			sfx("click")
+		for i in 4:
+			if inside(x, y, dial(i)):
+				pc.oc = i
+				sfx("click")
+		if inside(x, y, BTN_SAVE):
+			pc.bios_done = true
+			m.pop()
+			m.modes["boot"].open()
+
+	func draw() -> void:
+		var pc := Game.pc
+		dim()
+		box([360, 60, 920, 680], Color8(8, 20, 60))   # BIOS 파란 화면 (임시 그림)
+		outline([360, 60, 920, 680], CYAN, 3)
+		text(390, 640, "BIOS 설정 (첫 부팅)", 33, CYAN)
+		text(390, 596, "RAM 속도와 CPU 클럭을 정해요", 22, INK)
+		text(420, 520, "RAM XMP (제 속도)", 22, INK)
+		button(BTN_XMP, "켜짐 ✓" if pc.xmp else "꺼짐 (기본 속도, 조금 느림)", GREEN.darkened(0.5) if pc.xmp else VIOLET)
+		text(420, 390, "CPU 클럭 (칸마다 성능 +4% · +5°C)", 22, INK)
+		for i in 4:
+			button(dial(i), "기본" if i == 0 else "+%d" % i, PINK if i == pc.oc else Color8(60, 48, 110))
+		var wy := 250.0
+		for ln in wrap_text("칩이 못 버티는 칸이면 번인 중에 멈춰요. 칩 등급은 아직 몰라요.", 480):
+			text(420, wy, ln, 22, GOLD)
+			wy -= 30
+		button(BTN_SAVE, "저장하고 부팅", CYAN)
 
 
 class Call extends Mode:

@@ -272,7 +272,9 @@ func down(x: float, y: float, right: bool) -> void:
 				if e.get("dead", false) and e["paid"] > 0:
 					e["known"] = true
 		sfx("boot_ok" if post[0] == 4 else "boot_fail")
-		if post[0] == 4:
+		if post[0] == 4 and not pc.bios_done:   # 새 CPU 첫 부팅: BIOS 설정부터
+			m.push("bios")
+		elif post[0] == 4:
 			m.modes["boot"].open()
 		return
 	if inside(x, y, BTN_PREV) or inside(x, y, BTN_NEXT):

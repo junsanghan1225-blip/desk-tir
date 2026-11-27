@@ -361,7 +361,7 @@ static func look_cost() -> int:
 
 
 ## 번인 테스트: 바늘이 0 → 1로 가는 동안 [lo, hi] 안에서 멈추면 적정. hi는 CPU가 뜨거울수록 빨리 옴 (쿨러 · 케이스)
-const BURN := {"good": "번인 테스트 통과 (불량 미리 잡음)", "early": "번인 부족 → 숨은 불량 A/S", "hot": "번인 과열 → 부품 열화 보상"}
+const BURN := {"good": "번인 테스트 통과 (불량 미리 잡음)", "early": "번인 부족 → 숨은 불량 A/S", "hot": "번인 과열 → 부품 열화 보상", "crash": "오버클럭 불안정 → 번인 중 멈춤"}
 
 
 static func burn_zone(cpu_temp: int, jitter: float) -> Array:
@@ -375,7 +375,7 @@ static func burn_grade(k: float, zone: Array) -> String:
 
 static func burn_money(budget: int) -> int:   # 좋으면 +, 나쁘면 − (예산의 4%, 최소 2만)
 	var v := maxi(2, budget * 4 / 100)
-	return {"good": v, "early": -v, "hot": -v}.get(burn, 0)
+	return {"good": v, "early": -v, "hot": -v, "crash": -v}.get(burn, 0)
 
 
 ## 납품 정산: 손님은 예산만큼 내고 별 1개당 팁. 별 0개면 0원. [대금, 팁]

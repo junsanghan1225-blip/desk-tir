@@ -38,6 +38,15 @@ func _initialize() -> void:
 	good_chip.chip = 1
 	var b_top := Bench.run(Bench.parts_of(good_chip), {"kind": "code", "sec": 60})
 	ok(b_top["value"] < b_mid["value"] and b_top["cpu_temp"] == b_mid["cpu_temp"] - 4, "상급 칩: 빌드가 빠르고 4°C 시원함")
+	var oc_pc := PCBuild.full()
+	oc_pc.oc = 2
+	var b_oc := Bench.run(Bench.parts_of(oc_pc), {"kind": "code", "sec": 60})
+	ok(b_oc["value"] < b_mid["value"] and b_oc["cpu_temp"] == b_mid["cpu_temp"] + 10 and not oc_pc.unstable(), "클럭 +2칸: 빠르고 10°C 뜨거움, 보통 칩은 버팀")
+	oc_pc.oc = 3
+	ok(oc_pc.unstable(), "보통 칩에 +3칸은 불안정")
+	oc_pc.xmp = false
+	oc_pc.oc = 0
+	ok(Bench.run(Bench.parts_of(oc_pc), {"kind": "code", "sec": 60})["value"] > b_mid["value"], "XMP 끄면 느림")
 	b.cooler_order = [2, 1, 0, 3]
 	ok(b.cooler_even() and b.mount_heat() == 0, "쿨러 X자")
 	ok(b.post()[0] == 1, "RAM 없음")

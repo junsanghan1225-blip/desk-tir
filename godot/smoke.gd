@@ -172,6 +172,14 @@ func run() -> void:
 	check("전원" in b.next_step()[0], "다 조립하면 안내는 전원: " + b.next_step()[0])
 	tap(b.BTN_POST)
 	check(b.post[0] == 4, "부팅 실패: %s / %s" % [b.post, b.toast])
+	on("bios")                                 # 새 CPU 첫 부팅: BIOS에서 XMP 켜고 클럭 +1칸
+	var bi = main.modes["bios"]
+	tap(bi.BTN_XMP)
+	tap(bi.dial(1))
+	check(Game.pc.xmp and Game.pc.oc == 1, "BIOS 설정")
+	await shot("8f_bios")
+	tap(bi.BTN_SAVE)
+	check(Game.pc.bios_done)
 	on("boot")
 	await shot("8b_boot")
 	main.modes["boot"].t0 -= 10000                 # 바이오스 글자 다 지나간 뒤 = 바탕화면
@@ -242,7 +250,7 @@ func run() -> void:
 	tap([0, 0, 100, 100])
 	on("result")
 	check(main.modes["result"].result["boot"] == "" or true)
-	check(main.modes["result"].craft().size() == 4, "솜씨표 %s" % [main.modes["result"].craft()])
+	check(main.modes["result"].craft().size() == 5, "솜씨표 %s" % [main.modes["result"].craft()])
 	await shot("10_result")
 	var money := Game.money
 	tap([0, 0, 100, 100])
