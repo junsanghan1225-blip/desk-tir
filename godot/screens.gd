@@ -553,7 +553,8 @@ class Boot extends Mode:
 class Pause extends Mode:
 	## 일시정지 (ll 버튼 · 왼쪽 위 손님 이름 · ESC · 안드로이드 뒤로). 주문 중이면 왼쪽에 '의뢰 메모'(핵심만 크게).
 	const BOX := [340, 140, 940, 600]
-	const MEMO := [30, 40, 780, 620]
+	const MEMO := [20, 20, 810, 700]
+	const MENU := [826, 90, 1254, 450]
 	const BUTTONS := [["resume", "계속하기"], ["storage", "창고"], ["dex", "도감 · 업적"], ["title", "타이틀로"], ["quit", "게임 종료"]]
 
 	func _init() -> void:
@@ -577,13 +578,46 @@ class Pause extends Mode:
 					"title": m.go("title")
 					_: m.get_tree().quit()
 
+	var big := 33     # 의뢰 메모 글자 크기: 메모에 다 들어가는 가장 큰 크기로 맞춤
+	var small := 28
+	var dry := false  # true면 그리지 않고 높이만 잼
+
+	func say(x: float, y: float, s: String, size: int, c: Color) -> void:
+		if not dry:
+			text(x, y, s, size, c)
+
 	func row(y: float, label: String, value: String, c: Color) -> float:   # 이름표 + 값 (길면 줄바꿈). 다음 줄 y를 돌려줌
-		text(MEMO[0] + 30, y, label, 22, QUIET)
-		var lines: Array = wrap_text(value, MEMO[2] - MEMO[0] - 200, 33)
-		for ln in lines:
-			text(MEMO[0] + 170, y, ln, 33, c)
-			y -= 44
+		say(MEMO[0] + 30, y, label, 24, QUIET)
+		for ln in wrap_text(value, MEMO[2] - MEMO[0] - 200, big):
+			say(MEMO[0] + 170, y, ln, big, c)
+			y -= big + 11
 		return y - 10
+
+	func memo(req: Dictionary) -> float:   # 의뢰 메모 내용. 마지막 줄 아래 y를 돌려줌
+		var kind := Rules.kind_of(req)
+		var y: float = MEMO[3] - 84
+		var kinds := {"repair": "고장 수리", "pc": "PC 조립 (본체만)", "upgrade": "업그레이드", "full": "PC 조립 + 데스크테리어"}
+		var sub: String = kinds[kind] + ("  ·  " + Bench.describe(req["use"]) if req.has("use") else "")   # 종류 · 용도는 제목 아래 한 줄로 작게
+		for ln in wrap_text(sub, MEMO[2] - MEMO[0] - 60, maxi(22, small - 4)):
+			say(MEMO[0] + 30, y, ln, maxi(22, small - 4), CYAN)
+			y -= small + 6
+		y -= 22   # 아래부터 지켜야 할 조건 (크게)
+		if Game.need_text(req) != "":
+			y = row(y, "꼭 필요", Game.need_text(req), GOLD)
+		if Game.twist_text(req) != "":
+			y = row(y, "특이 조건", Game.twist_text(req), Color8(190, 150, 255))
+		if Game.dislike_text(req) != "":
+			y = row(y, "싫어함", Game.dislike_text(req), PINK)
+		if req.has("used"):
+			y = row(y, "부품", "중고도 괜찮아요" if req["used"] == "ok" else "새 제품만!", GREEN if req["used"] == "ok" else PINK)
+		y = row(y, "예산", "%d만 원  (남은 %d만)" % [req["budget"], Game.money_left()], INK if Game.money_left() >= 0 else PINK)
+		say(MEMO[0] + 30, y - 6, "손님이 한 말", 24, QUIET)
+		y -= 8
+		for line in Game.lines():
+			for ln in wrap_text("\"%s\"" % line, MEMO[2] - MEMO[0] - 60, small):
+				y -= small + 12
+				say(MEMO[0] + 30, y - 6, ln, small, INK)
+		return y - 6
 
 	func draw() -> void:
 		dim()
@@ -592,30 +626,18 @@ class Pause extends Mode:
 			text(BOX[0] + 30, BOX[3] - 40, "일시정지", 28, PINK)
 		else:
 			var req := Game.request()
-			var kind := Rules.kind_of(req)
 			panel(MEMO, true)
 			text(MEMO[0] + 30, MEMO[3] - 38, "의뢰 메모  ·  " + req["customer"], 33, PINK)
-			var y: float = MEMO[3] - 100
-			var kinds := {"repair": "고장 수리", "pc": "PC 조립 (본체만)", "upgrade": "업그레이드", "full": "PC 조립 + 데스크테리어"}
-			y = row(y, "종류", kinds[kind], CYAN)
-			if req.has("use"):
-				y = row(y, "용도", Bench.describe(req["use"]), GOLD)
-			if Game.need_text(req) != "":
-				y = row(y, "꼭 필요", Game.need_text(req), GOLD)
-			if Game.twist_text(req) != "":
-				y = row(y, "특이 조건", Game.twist_text(req), Color8(190, 150, 255))
-			if Game.dislike_text(req) != "":
-				y = row(y, "싫어함", Game.dislike_text(req), PINK)
-			if req.has("used"):
-				y = row(y, "부품", "중고도 괜찮아요" if req["used"] == "ok" else "새 제품만!", GREEN if req["used"] == "ok" else PINK)
-			y = row(y, "예산", "%d만 원  (남은 %d만)" % [req["budget"], Game.money_left()], INK if Game.money_left() >= 0 else PINK)
-			text(MEMO[0] + 30, y - 6, "손님이 한 말", 22, QUIET)
-			var lines := Game.lines()
-			for i in lines.size():
-				for ln in wrap_text("\"%s\"" % lines[i], MEMO[2] - MEMO[0] - 60):
-					y -= 32
-					text(MEMO[0] + 30, y - 6, ln, 22, INK)
-			text(850, 410, "일시정지", 28, PINK)
+			dry = true
+			for sz in [[33, 28], [30, 26], [28, 24], [26, 22], [22, 22]]:   # 넘치면 한 단계씩 작게 (최소 22)
+				big = sz[0]
+				small = sz[1]
+				if memo(req) >= MEMO[1] + 10:
+					break
+			dry = false
+			memo(req)
+			panel(MENU)   # 메뉴도 판 위에 (뒤 화면 글씨와 안 겹치게)
+			text(MENU[0] + 24, MENU[3] - 40, "일시정지", 28, PINK)
 		for i in BUTTONS.size():
 			button(btn_rect(i), BUTTONS[i][1], PINK if i == 0 else VIOLET)
 
