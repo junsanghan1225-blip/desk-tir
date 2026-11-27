@@ -302,7 +302,7 @@ func tab_rect(i: int) -> Array:
 
 ## 지금 의뢰에서 보이는 탭 (PC 조립만 하는 의뢰엔 책상 · 배선이 없음)
 func tabs_now() -> Array:
-	if Game.mine or Game.order_index >= Game.todays_requests().size() or Rules.kind_of(Game.request()) != "pc":
+	if Game.mine or Game.order_index >= Game.todays_requests().size() or Rules.kind_of(Game.request()) not in ["pc", "upgrade"]:
 		return TABS
 	return TABS.filter(func(t): return t[0] not in ["desk", "wire"])
 

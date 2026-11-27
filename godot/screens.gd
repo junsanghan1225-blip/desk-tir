@@ -84,6 +84,8 @@ class Request extends Mode:
 		if Game.request().has("repair"):   # 수리 의뢰: 맡긴 PC를 수리 화면에서 바로 살펴봄
 			m.go("build")
 			m.push("diag")
+		elif Game.request().has("upgrade"):   # 업그레이드: 쓰던 PC를 조립대에 올려 두고 시작 (성능 테스트로 발목 찾기)
+			m.go("build")
 		else:
 			m.go("shop")
 
@@ -110,7 +112,7 @@ class Request extends Mode:
 				text(460, ly, ln, 24)
 				ly -= 34
 			ly -= 14
-		text(460, 380, ("수리비는 %d만 원 드릴게요." if req.has("repair") else "예산은 %d만 원 정도 생각하고 있어요.") % req["budget"], 20, GOLD)
+		text(460, 380, ("수리비는 %d만 원 드릴게요." if req.has("repair") else "부품값은 %d만 원 안에서요." if req.has("upgrade") else "예산은 %d만 원 정도 생각하고 있어요.") % req["budget"], 20, GOLD)
 		var kind := Rules.kind_of(req)
 		var y := 290.0   # 아래로 차례차례: 줄이 길면 폭(800) 안에서 줄바꿈하고 다음 줄은 그만큼 밀림 → 겹치거나 튀어나가지 않음
 		var rows := []
@@ -133,10 +135,12 @@ class Request extends Mode:
 			y -= 46
 		var lv := Game.difficulty(req)
 		text(80, 170, "난이도 " + "★".repeat(lv) + "☆".repeat(3 - lv), 22, [GREEN, GOLD, PINK][lv - 1])
-		var badge: Array = {"repair": ["고장 수리 의뢰", PINK], "pc": ["PC 조립 의뢰 (본체만)", CYAN], "full": ["PC 조립 + 데스크테리어 의뢰", GREEN]}[kind]
+		var badge: Array = {"repair": ["고장 수리 의뢰", PINK], "pc": ["PC 조립 의뢰 (본체만)", CYAN], "upgrade": ["업그레이드 의뢰", GOLD], "full": ["PC 조립 + 데스크테리어 의뢰", GREEN]}[kind]
 		chip(76, 131, badge[0], badge[1])
 		var info := []
-		if kind == "pc":
+		if kind == "upgrade":
+			info = ["쓰던 PC를 가져왔어요. 성능 테스트로 발목 잡는 부품을 찾아 그것만 바꾸세요. 아낄수록 점수예요."]
+		elif kind == "pc":
 			info = ["본체만 맡기는 손님이에요. 성능과 조립 솜씨(구리스 · 나사 · 번인)만 봐요."]
 		elif req.has("repair"):
 			info = ["맡긴 PC를 수리 화면에서 살펴보고 원인을 찾아요.", "손님 부품은 공짜, 새로 산 부품만 비용이에요."]
@@ -147,7 +151,7 @@ class Request extends Mode:
 			for w in wrap_text(ln, 820, 22):
 				text(420, y, w, 22, QUIET)
 				y -= 30
-		text(420, y - 10, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") else "쇼핑으로"), 22, DIM)
+		text(420, y - 10, "화면을 눌러 주문 받기 → " + ("조립으로" if req.has("repair") or req.has("upgrade") else "쇼핑으로"), 22, DIM)
 
 
 class Result extends Mode:
@@ -568,7 +572,7 @@ class Pause extends Mode:
 			panel(MEMO, true)
 			text(MEMO[0] + 30, MEMO[3] - 38, "의뢰 메모  ·  " + req["customer"], 33, PINK)
 			var y: float = MEMO[3] - 100
-			var kinds := {"repair": "고장 수리", "pc": "PC 조립 (본체만)", "full": "PC 조립 + 데스크테리어"}
+			var kinds := {"repair": "고장 수리", "pc": "PC 조립 (본체만)", "upgrade": "업그레이드", "full": "PC 조립 + 데스크테리어"}
 			y = row(y, "종류", kinds[kind], CYAN)
 			if req.has("use"):
 				y = row(y, "용도", Bench.describe(req["use"]), GOLD)
@@ -673,7 +677,7 @@ class BenchView extends Mode:
 	func open() -> void:
 		var use: Dictionary = Game.request().get("use", {"kind": "office"})
 		r = Bench.run(Bench.parts_of(Game.pc), use)
-		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not Game.request().has("repair") else {}   # 수리는 정답을 안 알려 줌
+		fixit = Bench.fix(Bench.parts_of(Game.pc), use, Game.unlocked) if not r["ok"] and not Game.request().has("repair") and not Game.request().has("upgrade") else {}   # 수리 · 업그레이드는 정답을 안 알려 줌
 		pts = Bench.series(r, N) if r["kind"] == "game" and r["value"] > 0 else []
 		for e in Game.pc.used.values():   # 테스트하면 꽂힌 중고 부품의 진짜 상태가 보임
 			e["known"] = true
@@ -848,7 +852,7 @@ class Trial extends Mode:
 	var sc := {}   # 점수 (정면 · 탑뷰 반응용)
 
 	func enter() -> void:
-		stage = 2 if Game.request().has("repair") or Game.request().get("type") == "pc" else 0   # 본체만 · 수리는 책상 구경 없이 바로 전원
+		stage = 2 if Game.request().has("repair") or Game.request().get("type") in ["pc", "upgrade"] else 0   # 본체만 · 수리는 책상 구경 없이 바로 전원
 		var names := ["%s/day%d_%d.png" % [Main.PHOTOS, Game.day, Game.order_index + 1], Main.PHOTOS + "/_top.png"]
 		for i in 2:
 			views[i] = ImageTexture.create_from_image(Image.load_from_file(names[i])) if stage == 0 and FileAccess.file_exists(names[i]) else null

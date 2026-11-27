@@ -110,7 +110,7 @@ static func request() -> Dictionary:
 ## 둘째 날부터, 한 번이라도 결제한 뒤 책상 · 조립 · 배선으로 가면 가끔 손님이 전화한다. 날이 갈수록 자주. 특이 조건이 있는 의뢰엔 안 옴.
 const CALL_CHANCE := [0, 0, 25, 35, 45, 55]   # 날짜별 %. 매번 오면 놀랍지 않으니 절반쯤만
 static func call_due() -> bool:
-	if order_mod.has("call") or checkouts < 1 or order_index >= todays_requests().size() or request().has("repair") or request().has("twist") or request().get("type") == "pc":   # 한 주문엔 신경 쓸 거리 하나만
+	if order_mod.has("call") or checkouts < 1 or order_index >= todays_requests().size() or request().has("repair") or request().has("twist") or request().get("type") in ["pc", "upgrade"]:   # 한 주문엔 신경 쓸 거리 하나만
 		return false
 	var rng := RandomNumberGenerator.new()
 	rng.seed = day * 1009 + order_index * 31 + 7   # 같은 날 같은 손님이면 늘 같음 (다시 해도 공평)
@@ -181,7 +181,7 @@ static func reset_order() -> void:
 static func repair_pc() -> PCBuild:
 	if order_index >= todays_requests().size():   # 영업 마감 뒤 등 손님이 없을 때
 		return PCBuild.new()
-	var rep: Dictionary = request().get("repair", {})
+	var rep: Dictionary = request().get("repair", request().get("upgrade", {}))   # 업그레이드: 고장 없이 쓰던 PC
 	if rep.is_empty():
 		return PCBuild.new()
 	var b := PCBuild.full(rep["pc"])
@@ -191,7 +191,7 @@ static func repair_pc() -> PCBuild:
 	for i in 4:
 		if b.ram[i] != "":
 			b.used["RAM%d" % i] = {"id": b.ram[i], "cond": 100 - age * 8, "paid": 0, "known": false, "note": "손님 PC에서 뺀 부품"}
-	for f in rep["break"]:
+	for f in rep.get("break", []):
 		b.faults[f] = true
 	return b
 

@@ -338,6 +338,8 @@ const LINES := {
 	"조립 마감": "나사가 덜 조여졌는지 덜컹거려요…",
 	"모니터": "모니터가 PC 성능을 못 따라가요. 화면이 아쉬워요.",
 	"배치": "물건은 좋은데… 쓰기 불편하게 놓였어요.",
+	"목표 달성": "바꿨는데도 아직 버벅여요…",
+	"아낀 돈": "좋아지긴 했는데… 생각보다 돈이 많이 들었네요.",
 }
 
 
@@ -462,6 +464,10 @@ static func score(req: Dictionary, placed: Array, pc: PCBuild, cables: Array) ->
 		var b := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
 		var rp := {"증상 해결": 50.0 if b["ok"] and pc.faults.is_empty() and pc.picture() else 0.0, "성능": pc_s * 2.5}
 		return _total(rp, {"증상 해결": 50, "성능": 50}, [], boot, 0)
+	if req.has("upgrade"):   # 업그레이드: 목표 달성 60 + 아낀 돈 40 (목표를 넘겨야 아낀 돈도 인정) → 다 갈아엎기보다 딱 필요한 것만
+		var ub := Bench.run(Bench.parts_of(pc), req["use"]) if boot == "ok" else {"ok": false}
+		var save: float = clampf(1.0 - float(Game.spent()) / req["budget"], 0.0, 1.0) if ub["ok"] else 0.0
+		return _total({"목표 달성": 60.0 if ub["ok"] else pc_s * 2.0, "아낀 돈": 40.0 * save}, {"목표 달성": 60, "아낀 돈": 40}, [], boot, 0)
 	if req.get("type") == "pc":   # PC 조립만 (본체만): 성능 + 조립 마감(나사)만 본다
 		var fin1 := 1.0 if pc.loose().is_empty() and pc.has("CASE") else 0.0
 		var pr := _total({"PC 성능": pc_s / 20.0 * 70.0, "조립 마감": fin1 * 30.0}, {"PC 성능": 70, "조립 마감": 30}, [], boot, 0)
@@ -491,9 +497,9 @@ static func _total(parts: Dictionary, mx: Dictionary, syn: Array, boot: String, 
 		"synergies": syn, "boot": boot, "line": _reaction(parts, mx, boot, unplugged)}
 
 
-## 의뢰 종류는 둘: repair(고장 수리) · full(PC 조립 + 데스크테리어)
+## 의뢰 종류: repair(고장 수리) · pc(PC 조립만) · upgrade(업그레이드) · full(PC 조립 + 데스크테리어)
 static func kind_of(req: Dictionary) -> String:
-	return "repair" if req.has("repair") else "pc" if req.get("type") == "pc" else "full"
+	return "repair" if req.has("repair") else req["type"] if req.get("type") in ["pc", "upgrade"] else "full"
 
 
 const RES_RANK := {"1080p": 0, "1440p": 1, "UW1440": 1, "4K": 2}

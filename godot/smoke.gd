@@ -319,6 +319,17 @@ func run() -> void:
 	Game.pc = PCBuild.full({"case": "case1", "mb": "mb1", "cpu": "cpu1", "gpu": "", "ram": ["ram1"]})
 	main.go("build")
 	await shot("3d_build_pc")
+	Game.day = 3                               # 업그레이드: 쓰던 PC가 조립대에 올라온 채로 시작 → 성능 테스트로 발목 찾기
+	Game.order_index = Game.todays_requests().find(Game.todays_requests().filter(func(q): return q.has("upgrade"))[0])
+	main.go("request")
+	await shot("3e_request_upgrade")
+	tap([0, 0, 100, 100])
+	on("build")
+	check(Game.pc.boots() and Game.pc.parts["GPU"] == "gpu7" and Game.spent() == 0, "업그레이드: 손님 PC (부품값 0)")
+	main.modes["bench"].open()
+	main.modes["bench"].t0 -= 3000
+	await shot("3f_upgrade_bench")
+	main.pop()
 	Game.day = 4                               # 수리: 진단 화면을 3곳 열면 무료 2곳을 넘어 점검비
 	Game.order_index = Game.todays_requests().find(Game.todays_requests().filter(func(q): return q.has("repair"))[0])
 	main.go("request")
