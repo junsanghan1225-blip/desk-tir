@@ -4,7 +4,7 @@ extends Control
 ## 터치는 마우스로 들어온다 (Godot 기본: 터치 → 마우스 에뮬레이션). 더블탭 = 우클릭(빼기).
 
 const H := 720
-const SCREENS := {"title": "Title", "news": "News", "request": "Request", "result": "Result", "day_end": "DayEnd", "product": "Product", "receipt": "Receipt", "boot": "Boot", "pause": "Pause", "album": "Album", "bench": "BenchView", "trial": "Trial", "dex": "Dex", "ending": "Ending", "call": "Call"}
+const SCREENS := {"title": "Title", "news": "News", "request": "Request", "result": "Result", "day_end": "DayEnd", "product": "Product", "receipt": "Receipt", "boot": "Boot", "pause": "Pause", "album": "Album", "bench": "BenchView", "trial": "Trial", "dex": "Dex", "ending": "Ending", "call": "Call", "burn": "Burn"}
 const SAVED := ["news", "request", "shop", "desk", "build", "wire", "result", "day_end"]
 
 var font: Font = load("res://resource/font.ttf")
@@ -118,7 +118,7 @@ func deliver() -> void:
 	if not Game.request().has("repair"):   # 손님에게 보여 줄 탑뷰도 (앨범엔 정면만)
 		await photo("_top", true)
 	sfx("photo")
-	go("trial")
+	go("burn" if modes["burn"].can_run() else "trial")   # 켜지지도 않는 PC는 번인 없이 바로 손님 앞으로
 
 
 func toggle_mute() -> void:

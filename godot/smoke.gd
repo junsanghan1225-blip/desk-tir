@@ -203,6 +203,15 @@ func run() -> void:
 	tap(w.BTN_DONE)
 	for i in 10:                               # 납품 사진 찍고 넘어갈 때까지
 		await process_frame
+	if main.top() == main.modes["burn"]:       # 번인 테스트: 초록 구간 가운데서 멈추기
+		var bn = main.modes["burn"]
+		bn.t0 -= int((bn.zone[0] + bn.zone[1]) / 2.0 * bn.DUR * 1000)
+		await shot("10z_burn_run")
+		tap(bn.BTN_STOP)
+		check(Game.burn == "good", "번인 적정: " + Game.burn)
+		bn.stop_t -= 1000
+		await shot("10z_burn_done")
+		tap([0, 0, 100, 100])
 	on("trial")
 	check(main.modes["trial"].stage == 0, "납품: 책상 정면부터")
 	main.modes["trial"].t0 -= 2000

@@ -995,6 +995,81 @@ class Trial extends Mode:
 			text_c([380, 50, 1240, 100], "누르면 결과 보기", 22, QUIET)
 
 
+class Burn extends Mode:
+	## 납품 전 번인(스트레스) 테스트: 오래 돌릴수록 숨은 불량은 잡히지만 열이 쌓인다. 초록 구간에서 멈추기.
+	## 초록 끝(과열)은 CPU 온도로 정해져서 쿨러 · 케이스가 약하면 구간이 좁아짐. 끝까지 두면 과열로 자동 정지.
+	const DUR := 9.0   # 바늘이 끝까지 가는 시간(초)
+	const GAUGE := [120, 330, 1160, 390]
+	const BTN_STOP := [500, 150, 780, 240]
+	var t0 := 0
+	var zone := [0.45, 0.85]
+	var temp := 60
+	var stop_k := -1.0   # 멈춘 자리 (-1 = 돌아가는 중)
+	var stop_t := 0
+
+	func can_run() -> bool:
+		var cp := Game.computer()
+		var r := Bench.run(Bench.parts_of(cp), Game.request().get("use", {"kind": "office"}))
+		return cp.picture() and "GPU" not in cp.loose() and r.has("noise") and not r.get("shutdown", false)
+
+	func enter() -> void:
+		var r := Bench.run(Bench.parts_of(Game.computer()), Game.request().get("use", {"kind": "office"}))
+		temp = r.get("cpu_temp", 60)
+		zone = Game.burn_zone(temp, randf_range(-0.06, 0.06))
+		Game.burn = ""
+		stop_k = -1.0
+		t0 = Time.get_ticks_msec()
+
+	func k() -> float:
+		return clampf((Time.get_ticks_msec() - t0) / 1000.0 / DUR, 0.0, 1.0) if stop_k < 0 else stop_k
+
+	func stop() -> void:
+		stop_k = k()
+		stop_t = Time.get_ticks_msec()
+		Game.burn = Game.burn_grade(stop_k, zone)
+		sfx("star" if Game.burn == "good" else "sad")
+
+	func down(_x: float, _y: float, _right: bool) -> void:
+		if stop_k < 0:
+			if Time.get_ticks_msec() - t0 > 300:
+				stop()
+		elif Time.get_ticks_msec() - stop_t > 600:
+			m.go("trial")
+
+	func draw() -> void:
+		if stop_k < 0 and k() >= 1.0:   # 끝까지 두면 과열로 꺼짐
+			stop()
+		box([0, 0, 1280, H], BG)
+		var kk := k()
+		text(40, 670, "출고 전 번인 테스트", 33, PINK)
+		text(40, 626, "오래 돌릴수록 숨은 불량이 잡혀요. 대신 열이 쌓여요.", 22, INK)
+		text(40, 590, "초록 구간에서 멈추세요. 쿨러가 약하면 초록이 짧아요.", 22, QUIET)
+		var w: float = GAUGE[2] - GAUGE[0]
+		var zx := [GAUGE[0] + w * zone[0], GAUGE[0] + w * zone[1]]
+		box([GAUGE[0], GAUGE[1], zx[0], GAUGE[3]], Color8(60, 52, 96))
+		box([zx[0], GAUGE[1], zx[1], GAUGE[3]], Color(GREEN, 0.75))
+		box([zx[1], GAUGE[1], GAUGE[2], GAUGE[3]], Color(PINK, 0.75))
+		outline(GAUGE, INK)
+		text(GAUGE[0], GAUGE[3] + 30, "덜 됨", 22, QUIET)
+		text((zx[0] + zx[1]) / 2.0 - text_w("적정", 22) / 2.0, GAUGE[3] + 30, "적정", 22, GREEN)
+		text(GAUGE[2] - text_w("과열", 22), GAUGE[3] + 30, "과열", 22, PINK)
+		var nx: float = GAUGE[0] + w * kk
+		box([nx - 4, GAUGE[1] - 22, nx + 4, GAUGE[3] + 8], Color.WHITE)
+		# 온도: 초록 끝에서 95°C에 닿게 (뜨거운 PC일수록 빨리 오름)
+		var now: float = 35.0 + 60.0 * kk / zone[1]
+		var tc: Color = PINK if now >= 90 else GOLD if now >= 75 else CYAN
+		var ts := "CPU %d°C" % roundi(now)
+		text(640 - text_w(ts, 33) / 2.0, 460, ts, 33, tc)
+		if stop_k < 0:
+			button(BTN_STOP, "멈추기", VIOLET, 33)
+			return
+		var msg: String = {"good": "✓ 딱 좋아요! 안정성 확인", "early": "✗ 너무 일찍 멈췄어요", "hot": "✗ 너무 오래 돌려서 과열"}[Game.burn]
+		var v := Game.burn_money(Game.request()["budget"])
+		text_c([0, 220, 1280, 260], msg, 33, GREEN if Game.burn == "good" else PINK)
+		text_c([0, 160, 1280, 200], "%s  %+d만" % [Game.BURN[Game.burn], v], 22, GREEN if v > 0 else PINK)
+		text_c([0, 60, 1280, 100], "화면을 눌러 손님에게 보여 주기", 22, QUIET)
+
+
 class Call extends Mode:
 	## 돌발: 주문 중에 손님이 전화 (예산 깎기 · 추가 요청). 누르면 닫힘
 	var said := ""

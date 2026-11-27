@@ -59,6 +59,7 @@ const FREE_LOOKS := 2
 const LOOK_FEE := 1          # 만 원. 수리비가 3~12만이라 아무 데나 다 열어 보면 남는 게 없음 → 증상으로 짐작하고 열기
 static var hints_used := 0  # 이번 수리에서 본 힌트 수 (0이면 명탐정 보너스)
 static var streak := 0      # 연속 별 3개 (팁이 점점 커짐)
+static var burn := ""  # 납품 전 번인 테스트 결과: "" 안 함 · good 적정 · early 너무 일찍 · hot 과열
 static var last_gift := ""  # 만족한 손님이 두고 간 선물 (창고로)
 const SHIP_FEE := 2         # 한 주문에서 두 번째 결제부터 붙는 배송비 (만)
 
@@ -165,6 +166,7 @@ static func reset_order() -> void:
 	order_mod = {}
 	looks = {}
 	hints_used = 0
+	burn = ""
 	last_gift = ""
 	checkouts = 0
 	ship_paid = 0
@@ -357,6 +359,24 @@ static func look_cost() -> int:
 	return maxi(0, looks.size() - FREE_LOOKS) * LOOK_FEE
 
 
+## 번인 테스트: 바늘이 0 → 1로 가는 동안 [lo, hi] 안에서 멈추면 적정. hi는 CPU가 뜨거울수록 빨리 옴 (쿨러 · 케이스)
+const BURN := {"good": "번인 테스트 통과 (불량 미리 잡음)", "early": "번인 부족 → 숨은 불량 A/S", "hot": "번인 과열 → 부품 열화 보상"}
+
+
+static func burn_zone(cpu_temp: int, jitter: float) -> Array:
+	var lo := 0.45 + jitter   # jitter: -0.06 ~ 0.06 (매번 조금씩 다르게)
+	return [lo, minf(0.97, lo + clampf((95 - cpu_temp) / 100.0, 0.08, 0.40))]
+
+
+static func burn_grade(k: float, zone: Array) -> String:
+	return "early" if k < zone[0] else "hot" if k > zone[1] else "good"
+
+
+static func burn_money(budget: int) -> int:   # 좋으면 +, 나쁘면 − (예산의 4%, 최소 2만)
+	var v := maxi(2, budget * 4 / 100)
+	return {"good": v, "early": -v, "hot": -v}.get(burn, 0)
+
+
 ## 납품 정산: 손님은 예산만큼 내고 별 1개당 팁. 별 0개면 0원. [대금, 팁]
 const PAY_RATE := [40, 80, 100, 100]   # 별 0~3개일 때 받는 비율(%). 별 0개 = 실망: 그래도 일부는 냄
 
@@ -370,13 +390,14 @@ static func settle(result: Dictionary) -> Array:
 	var combo: int = tip * mini(streak - 1, 3) / 2 if streak >= 2 else 0
 	var sleuth: int = 2 if request().has("repair") and result["stars"] > 0 and hints_used == 0 else 0
 	var look_fee := look_cost()
-	money += pay + tip + combo + sleuth - look_fee
+	var burn_v := burn_money(budget)
+	money += pay + tip + combo + sleuth - look_fee + burn_v
 	last_gift = gift() if result["stars"] == 3 else ""
 	if last_gift != "":
 		stock[last_gift] = stock.get(last_gift, 0) + 1
 	bill = [["손님 예산", budget], ["만족도 별 %d개 (%d%%)" % [result["stars"], PAY_RATE[result["stars"]]], sat],
 		["팁", tip], ["연속 만점 %d번째 (팁 보너스)" % streak, combo], ["명탐정 보너스 (힌트 없이 수리)", sleuth], ["점검 시간 (무료 %d곳 넘게 열어 봄)" % FREE_LOOKS, -look_fee],
-		["물건 값", -spent()]]
+		[BURN.get(burn, "번인 테스트"), burn_v], ["물건 값", -spent()]]
 	if ship_paid > 0:
 		bill.append(["나눠 산 배송비 (%d번)" % (checkouts - 1), -ship_paid])
 	stars_total += result["stars"]

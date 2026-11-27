@@ -160,6 +160,16 @@ func _initialize() -> void:
 	ok(paid_now[0] == 100 and Game.money == before + paid_now[0] + paid_now[1] + Game.ACHV["first"][2] and Game.ledger[-1]["cost"] == 4, "정산")
 	ok(Game.settle({"stars": 0}) == [40, 0] and Game.settle({"stars": 1})[0] == 80, "실망하면 깎아서 냄 (별0 = 40%, 별1 = 80%)")
 	ok(Game.bill.any(func(b): return b[0] == "물건 값"), "정산 내역")
+	var burn_cool := Game.burn_zone(50, 0.0)
+	var burn_hot := Game.burn_zone(88, 0.0)
+	ok(burn_cool[1] - burn_cool[0] > burn_hot[1] - burn_hot[0] and Game.burn_grade(0.3, burn_cool) == "early" and Game.burn_grade(0.6, burn_cool) == "good" and Game.burn_grade(0.6, burn_hot) == "hot", "번인: 뜨거우면 적정 구간이 좁음")
+	Game.burn = "good"
+	var burn_m0 := Game.money
+	var burn_p := Game.settle({"stars": 2})
+	ok(Game.money - burn_m0 - burn_p[0] - burn_p[1] == Game.burn_money(Game.request()["budget"]) and Game.burn_money(100) == 4 and Game.bill.any(func(b): return b[0] == Game.BURN["good"]), "번인 보너스 정산")
+	Game.burn = "hot"
+	ok(Game.burn_money(100) == -4, "번인 과열 감점")
+	Game.burn = ""
 	Game.history["자취 1년차 대학생"] = 3
 	var regular: Dictionary = DB.REQUESTS.filter(func(q): return q.get("returns", false) and q["customer"] == "자취 1년차 대학생")[0]
 	ok("학점" in Game.lines(regular)[0], "단골 대사")
